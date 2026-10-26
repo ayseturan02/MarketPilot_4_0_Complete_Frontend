@@ -1,0 +1,148 @@
+using System.Collections.Concurrent;
+using System.Net;
+
+namespace MarketPilot.Web.Integrations;
+
+public sealed class IntegrationRegistry
+{
+    public ConcurrentDictionary<string, ConnectionState> Connections { get; } = new();
+    public ConcurrentDictionary<string, SemaphoreSlim> Gates { get; } = new();
+    public ConcurrentDictionary<string, CachedAccount> Accounts { get; } = new();
+    public IntegrationRegistry()
+    {
+        foreach (var marketplace in new[] { "trendyol", "hepsiburada", "n11", "amazon" })
+            Connections[marketplace] = new(marketplace, new(marketplace == "trendyol" ? "Trendyol API Sözleşme Demosu" : marketplace, marketplace, "demo", "stage"), "demo", null, null, null,
+                marketplace == "trendyol" ? "Resmî Product V2 ve Order V2 cevap yapılarıyla yerel demo; dış API çağrısı yapılmadı." : "Demo · Dış API çağrısı yapılmadı.", null);
+    }
+}
+public record CachedAccount(MarketplaceAccount Account, DateTimeOffset ExpiresAt);
+
+public static class IntegrationEndpoints
+{
+    public static void AddMarketplaceIntegrations(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddSingleton<IntegrationRegistry>();
+        services.AddSingleton<DemoMarketplaceAdapter>();
+        services.AddHttpClient<TrendyolAdapter>(client => client.Timeout = TimeSpan.FromSeconds(20))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+        services.AddTransient<IMarketplaceAdapter>(sp => sp.GetRequiredService<TrendyolAdapter>());
+        services.AddTransient<IMarketplaceAdapter, HepsiburadaAdapter>();
+        services.AddTransient<IMarketplaceAdapter, N11Adapter>();
+        services.AddTransient<IMarketplaceAdapter, AmazonSpApiAdapter>();
+    }
+
+    public static void MapMarketplaceIntegrations(this WebApplication app)
+    {
+        static bool IsTrendyolConfigured(IConfiguration configuration, string environment)
+        {
+            var section = configuration.GetSection($"Marketplaces:Trendyol:{environment}");
+            return long.TryParse(section["SellerId"], out var seller) && seller > 0 &&
+                !string.IsNullOrWhiteSpace(section["ApiKey"]) && !string.IsNullOrWhiteSpace(section["ApiSecret"]);
+        }
+        var group = app.MapGroup("/api/integrations");
+        // This development app has no account authentication. Keep real API reads local.
+        group.AddEndpointFilter(async (context, next) =>
+        {
+            var http = context.HttpContext;
+            http.Response.Headers.CacheControl = "no-store";
+            if (http.Connection.RemoteIpAddress is not { } ip || !IPAddress.IsLoopback(ip))
+                return Results.Json(new { error = "Entegrasyon paneli yalnızca yerel erişime açıktır." }, statusCode: 403);
+            if (http.Request.Headers.TryGetValue("Origin", out var origin) &&
+                origin.ToString() != $"{http.Request.Scheme}://{http.Request.Host}")
+                return Results.Json(new { error = "Farklı kaynaktan entegrasyon isteği reddedildi." }, statusCode: 403);
+            return await next(context);
+        });
+        group.MapGet("/readiness", (IConfiguration configuration) => Results.Ok(new
+        {
+            trendyol = new { stage = IsTrendyolConfigured(configuration, "stage"), production = IsTrendyolConfigured(configuration, "production") }
+        }));
+        group.MapGet("/connections", (IntegrationRegistry registry) => Results.Ok(registry.Connections.Values.OrderBy(x => x.Settings.Marketplace).ThenBy(x => x.Settings.Name)));
+        group.MapPost("/connections", (ConnectionSettings settings, IntegrationRegistry registry) =>
+        {
+            if (string.IsNullOrWhiteSpace(settings.Name) || settings.Name.Length > 80 ||
+                !new[] { "trendyol", "hepsiburada", "n11", "amazon" }.Contains(settings.Marketplace) ||
+                !new[] { "demo", "real" }.Contains(settings.Mode) || !new[] { "stage", "production" }.Contains(settings.Environment))
+                return Results.BadRequest(new { error = "Mağaza adı, pazaryeri, mod ve ortam değerlerini kontrol edin." });
+            if (registry.Connections.Count >= 50) return Results.BadRequest(new { error = "Bu geçici çalışma alanında en fazla 50 mağaza eklenebilir." });
+            var id = Guid.NewGuid().ToString("N");
+            var state = new ConnectionState(id, settings with { Name = settings.Name.Trim() }, settings.Mode == "demo" ? "demo" : "untested", null, null, null, "Henüz bağlantı testi yapılmadı.", null);
+            registry.Connections[id] = state;
+            return Results.Ok(state);
+        });
+        group.MapPost("/connections/{id}/{operation}", async (
+            string id, string operation, int? page, int? size, string? barcode, string? stockCode, string? status, string? approval,
+            string? nextPageToken, string? orderNumber, long? startDate, long? endDate, string? orderByDirection, bool? stream, string? nextCursor,
+            IntegrationRegistry registry, DemoMarketplaceAdapter demo, IEnumerable<IMarketplaceAdapter> adapters, CancellationToken ct) =>
+        {
+            if (!registry.Connections.TryGetValue(id, out var state)) return Results.NotFound(new { error = "Mağaza bulunamadı." });
+            if (!new[] { "test", "account", "products", "orders" }.Contains(operation)) return Results.NotFound();
+            var p = page ?? 0; var n = size ?? 50;
+            var maxSize = operation == "orders" ? 200 : 100;
+            var cursorRequest = operation == "products" && !string.IsNullOrWhiteSpace(nextPageToken) || operation == "orders" && stream == true;
+            if (p < 0 || n < 1 || n > maxSize || (!cursorRequest && ((long)p + 1) * n > 10000))
+                return Results.BadRequest(new { error = $"Sayfa sıfırdan başlar; boyut 1–{maxSize} ve sorgu penceresi en fazla 10.000 olmalıdır." });
+            if (new[] { barcode, stockCode, orderNumber }.Any(x => x?.Length > 100) || nextPageToken?.Length > 2048 || nextCursor?.Length > 2048)
+                return Results.BadRequest(new { error = "Filtre değeri izin verilen uzunluğu aşıyor." });
+            var productApproval = approval == "unapproved" ? "unapproved" : "approved";
+            if (operation == "products" && !string.IsNullOrWhiteSpace(status) && !(productApproval == "approved" ? new[] { "archived", "blacklisted", "locked", "onSale", "notOnSale" } : new[] { "rejected", "pendingApproval" }).Contains(status))
+                return Results.BadRequest(new { error = "Geçersiz ürün durumu filtresi." });
+            if (operation == "orders" && !string.IsNullOrWhiteSpace(status) && !new[] { "Created", "Picking", "Invoiced", "Shipped", "Cancelled", "Delivered", "UnDelivered", "Returned", "AtCollectionPoint", "UnPacked", "UnSupplied", "Awaiting", "Verified" }.Contains(status))
+                return Results.BadRequest(new { error = "Geçersiz sipariş durumu filtresi." });
+            if (operation == "orders" && stream == true && (!string.IsNullOrWhiteSpace(orderNumber) || !string.IsNullOrWhiteSpace(barcode) || status == "Verified"))
+                return Results.BadRequest(new { error = "Büyük veri akışında sipariş no, barkod ve Verified filtresi desteklenmez." });
+            if ((startDate.HasValue != endDate.HasValue) || (startDate.HasValue && (startDate.Value > endDate!.Value || endDate.Value - startDate.Value > TimeSpan.FromDays(14).TotalMilliseconds)))
+                return Results.BadRequest(new { error = "Başlangıç ve bitiş birlikte verilmeli; tarih aralığı en fazla 14 gün olmalıdır." });
+            var gate = registry.Gates.GetOrAdd(id, _ => new(1, 1));
+            if (!await gate.WaitAsync(0, ct)) return Results.Json(new { error = "Bu mağazada bir işlem zaten sürüyor." }, statusCode: 409);
+            try
+            {
+                var adapter = state.Settings.Mode == "demo" ? demo : adapters.First(a => a.Marketplace == state.Settings.Marketplace);
+                object? result = null; int? count = null; MarketplaceAccount? account = null;
+                if (operation == "test") { account = await adapter.TestAsync(state.Settings, ct); result = account; }
+                else if (operation == "account")
+                {
+                    var accountCacheKey = $"{state.Settings.Mode}:{state.Settings.Marketplace}:{state.Settings.Environment}";
+                    if (registry.Accounts.TryGetValue(accountCacheKey, out var cached) && cached.ExpiresAt > DateTimeOffset.UtcNow) account = cached.Account;
+                    else
+                    {
+                        account = await adapter.AccountAsync(state.Settings, ct);
+                        registry.Accounts[accountCacheKey] = new(account, DateTimeOffset.UtcNow.AddHours(1));
+                    }
+                    result = account; count = account.Addresses.Count;
+                }
+                else if (operation == "products")
+                {
+                    var r = await adapter.ProductsAsync(state.Settings, new(p, n, barcode, stockCode, status, nextPageToken, productApproval), ct);
+                    result = r; count = r.Items.Count;
+                }
+                else
+                {
+                    var r = await adapter.OrdersAsync(state.Settings, new(p, n, status, orderNumber, barcode, startDate, endDate, orderByDirection == "ASC" ? "ASC" : "DESC", stream == true, nextCursor), ct);
+                    result = r; count = r.Items.Count;
+                }
+                var updated = state with {
+                    Status = state.Settings.Mode == "demo" ? "demo" : "connected", LastOperation = DateTimeOffset.UtcNow,
+                    LastAction = operation, ErrorCode = null,
+                    Message = operation == "test" ? "Trendyol kimlik bilgileri doğrulandı." : operation == "account" ? "Satıcı hesabı okundu; sonuç bir saat önbelleğe alındı." : "Sayfa okundu; yerel kayıtlara aktarılmadı.",
+                    LastCount = count, SellerId = account?.SellerId ?? state.SellerId
+                };
+                registry.Connections[id] = updated;
+                return Results.Ok(new { connection = updated, result });
+            }
+            catch (Exception ex) when (ex is IntegrationException or HttpRequestException or OperationCanceledException or System.Text.Json.JsonException or InvalidOperationException or OverflowException)
+            {
+                var error = ex as IntegrationException ?? new IntegrationException(ex is OperationCanceledException ? "timeout" : "read_failed", ex is OperationCanceledException ? "API isteği zaman aşımına uğradı veya iptal edildi." : "API yanıtı okunamadı; bağlantıyı ve yanıt sözleşmesini kontrol edin.");
+                var updated = state with { Status = "error", LastOperation = DateTimeOffset.UtcNow, LastAction = operation, ErrorCode = error.Code, Message = error.Message, LastCount = null };
+                registry.Connections[id] = updated;
+                return Results.Json(new { error = error.Message, code = error.Code, connection = updated }, statusCode: error.Status);
+            }
+            finally { gate.Release(); }
+        });
+        group.MapPost("/preview/{marketplace}/stock-price", (string marketplace, StockPriceDraft[] items) =>
+        {
+            if (!new[] { "trendyol", "hepsiburada", "n11", "amazon" }.Contains(marketplace) || items.Length is 0 or > 1000 || items.Any(i => string.IsNullOrWhiteSpace(i.Barcode) || i.Stock < 0 || i.Price < 0))
+                return Results.BadRequest(new { error = "Geçerli pazaryeri, barkod ve negatif olmayan stok/fiyat gerekli (1–1000 kalem)." });
+            return Results.Ok(new UpdatePreview(marketplace, false, items));
+        });
+    }
+}
