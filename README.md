@@ -84,6 +84,36 @@ dotnet user-secrets set "Marketplaces:Trendyol:stage:AllowWrites" "true" --proje
 - Yalnızca stage servisleri (test siparişi, test statüsü, test sorusu) production mağazasında reddedilir.
 - Yol parametreleri doğrulanır ve kodlanır; Trendyol 4xx hatalarında yalnızca `message` alanları gösterilir, ham yanıt gövdesi istemciye taşınmaz.
 
+## Merkezi stok
+
+Satış Kanalları ekranındaki **Merkezi Stok** paneli fazla satışı (overselling) önler. Stok bilgisinin sahibi harici stok uygulamanızdır (ERP, depo programı vb.). Her çalıştırmada:
+
+1. Stok uygulamasından güncel stok okunur.
+2. Bağlı tüm mağazalardaki yeni satışlar bulunur ve merkezi stoktan düşülür. Bir mağaza ilk kez izlendiğinde mevcut siparişleri geçmiş kabul edilir ve düşülmez.
+3. Satış stok uygulamasına bildirilir. Aynı satış tekrar gönderilirse aynı `Idempotency-Key` ile gider.
+4. Kalan miktar, eksi **güvenlik stoğu**, diğer tüm kanallara gönderilir.
+
+Stok uygulaması tanımlı değilse yerleşik **demo stok uygulaması** kullanılır ve dış çağrı yapılmaz. Panelden demo mağazada satış oluşturup diğer kanallarda stoğun düştüğünü izleyebilirsiniz. Otomatik senkronizasyon ve aralık (30–3600 sn) panelden açılır.
+
+Gerçek stok uygulamasını bağlamak için:
+
+```powershell
+dotnet user-secrets set "Marketplaces:StockSource:BaseUrl" "https://erp.ornek.com/api" --project src/MarketPilot.Web
+dotnet user-secrets set "Marketplaces:StockSource:ApiKey" "API_KEY" --project src/MarketPilot.Web
+# İsteğe bağlı: StockPath (varsayılan /stock), SalesPath (/stock/sales), ApiKeyHeader (X-Api-Key; "Authorization" verilirse Bearer gönderilir)
+# Satışları stok uygulamasına bildirmek için:
+dotnet user-secrets set "Marketplaces:StockSource:AllowWrites" "true" --project src/MarketPilot.Web
+```
+
+Yerel ağdaki bir uygulama HTTPS desteklemiyorsa `AllowHttp=true` verilebilir. Bu durumda API anahtarı şifresiz gider. Beklenen sözleşme:
+
+- `GET {BaseUrl}{StockPath}[?cursor=…]`: `[...]` ya da `{ "items": [{ "sku", "barcode", "name", "quantity" }], "nextCursor": "…" }`. `stockCode`, `title`, `stock` ve `available` alan adları da kabul edilir.
+- `POST {BaseUrl}{SalesPath}`: `{ requestId, channel, store, orderNumber, sku, barcode, quantity }`. Bu çağrı yalnızca `AllowWrites=true` iken yapılır. Kapalıyken satışlar kaynak güncellenene kadar yerelde düşülmeye devam eder.
+
+Ürünler önce SKU'ya, SKU yoksa barkoda göre eşleşir. Stok gönderimi demo mağazalarda ve `AllowWrites` açık gerçek Trendyol mağazasında yapılır. Diğer gerçek pazaryerleri henüz salt okunurdur. Panelde "stok elle eşitlenmeli" olarak görünürler. Amazon FBA ve n11depom stoğunu pazaryeri yönettiği için bu ürünler atlanır. Durum `Data/central-stock.json` dosyasında tutulur ve şifreli yedeğe dahildir.
+
+Kontrol: `node tests/central-stock-http-checks.cjs`.
+
 ## Doğrulama
 
 ```powershell
