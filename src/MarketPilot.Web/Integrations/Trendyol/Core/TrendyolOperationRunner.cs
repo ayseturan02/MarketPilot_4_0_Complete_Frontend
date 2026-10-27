@@ -63,7 +63,8 @@ public sealed partial class TrendyolOperationRunner(TrendyolApiClient client, IC
         foreach (var name in op.PathParameters)
         {
             var value = values?.GetValueOrDefault(name)?.Trim() ?? "";
-            if (!PathValue().IsMatch(value)) throw Invalid($"'{name}' alanı zorunludur ve yalnızca harf, rakam, nokta, iki nokta, alt çizgi veya tire içerebilir (en fazla 120 karakter).");
+            // "." and ".." survive EscapeDataString and would be normalised into a different Trendyol endpoint.
+            if (!PathValue().IsMatch(value) || value.All(c => c == '.')) throw Invalid($"'{name}' alanı zorunludur ve yalnızca harf, rakam, nokta, iki nokta, alt çizgi veya tire içerebilir (en fazla 120 karakter).");
             path = path.Replace("{" + name + "}", Uri.EscapeDataString(value));
         }
         return path;

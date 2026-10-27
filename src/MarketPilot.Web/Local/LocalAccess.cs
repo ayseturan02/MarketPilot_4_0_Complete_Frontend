@@ -132,7 +132,8 @@ public static class LocalAccess
             if (!context.Request.Path.StartsWithSegments("/api")) { await next(); return; }
             var store = context.RequestServices.GetRequiredService<LocalAccountStore>();
             var path = context.Request.Path;
-            if (path.StartsWithSegments("/api/access") || path.StartsWithSegments("/api/system"))
+            // Before the first admin exists the API has no login, so it must never be reachable from another machine.
+            if (!store.Configured || path.StartsWithSegments("/api/access") || path.StartsWithSegments("/api/system"))
             {
                 if (context.Connection.RemoteIpAddress is not { } ip || !System.Net.IPAddress.IsLoopback(ip)) { context.Response.StatusCode = 403; return; }
             }

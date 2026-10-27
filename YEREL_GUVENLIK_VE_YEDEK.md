@@ -17,6 +17,10 @@
 - Demo dosyasını kaydetmek başarısız olursa bellek son kaydedilen duruma döner; başarılıymış gibi ilerlenmez.
 - Sunucu açıkken 24 saatte bir AES-256-GCM ile şifreli yedek oluşturulur; son 14 yedek saklanır. Her oluşturma sonrasında şifre çözme, dosya özetleri ve JSON/XML okunabilirliği kontrol edilir.
 - Yönetim ekranındaki **Doğrula** mevcut dosyaları değiştirmez. Bu, canlı uygulamaya tam geri yükleme provası değildir.
+- Yalnızca `localhost`, `127.0.0.1` ve `[::1]` Host başlıkları kabul edilir (DNS rebinding koruması). Başka bir adla yayınlanacaksa `AllowedHosts` ayarına o ad eklenmelidir.
+- İlk yönetici oluşturulana kadar tüm `/api` uçları yalnızca bu bilgisayardan erişilebilir.
+- Her yanıtta CSP, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` ve `Referrer-Policy: no-referrer` gönderilir. CSV dışa aktarımında `= + - @` ile başlayan hücreler formül olarak çalışmaz.
+- Satır içi düğme işleyicilerine giden değerler `jsArg()` ile JSON dizesi olarak kodlanır; pazaryerinden gelen kimlikler JavaScript'e dönüşemez. Trendyol yol parametrelerinde `.`/`..` ve Hepsiburada sipariş numarasında yol karakterleri reddedilir.
 - Son 200 sistem olayı dosyada tutulur. Parolalar, API anahtarları, istek gövdeleri ve hata ayrıntıları olay kaydına yazılmaz. E-posta/SMS gönderimi kurulmadı.
 
 ## Saklama ve sınırlar

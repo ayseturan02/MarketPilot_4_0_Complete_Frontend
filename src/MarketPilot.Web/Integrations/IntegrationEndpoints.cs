@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using MarketPilot.Web.Integrations.Amazon;
 using MarketPilot.Web.Integrations.Boyner;
+using MarketPilot.Web.Integrations.CentralStock;
 using MarketPilot.Web.Integrations.Ticimax;
 using MarketPilot.Web.Integrations.Demo;
 using MarketPilot.Web.Integrations.Hepsiburada;
@@ -44,6 +45,7 @@ public static class IntegrationEndpoints
         services.AddAmazonIntegration();
         services.AddBoynerIntegration();
         services.AddTicimaxIntegration();
+        services.AddCentralStock();
     }
 
     public static void MapMarketplaceIntegrations(this WebApplication app)
@@ -66,6 +68,7 @@ public static class IntegrationEndpoints
         group.MapN11();
         group.MapBoyner();
         group.MapTicimax();
+        group.MapCentralStock();
         group.MapGet("/readiness", (IConfiguration configuration) => Results.Ok(new
         {
             ticimax = new { stage = false, production = TicimaxSoap.IsConfigured(configuration,"production"), writes = new { stage = false, production = false } },
