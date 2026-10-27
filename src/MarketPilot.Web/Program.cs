@@ -5,12 +5,21 @@ using MarketPilot.Web.Integrations;
 using MarketPilot.Web.Local;
 
 var builder = WebApplication.CreateBuilder(args);
+// DNS rebinding: a foreign site resolving to 127.0.0.1 sends its own Host header, so only local host names are accepted unless AllowedHosts is configured.
+if (string.IsNullOrWhiteSpace(builder.Configuration["AllowedHosts"]) || builder.Configuration["AllowedHosts"] == "*") builder.Configuration["AllowedHosts"] = "localhost;127.0.0.1;[::1]";
 builder.Services.ConfigureHttpJsonOptions(o => { o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase; o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()); });
 builder.Services.AddSingleton<DemoStore>();
 builder.Services.AddMarketplaceIntegrations(builder.Configuration);
 builder.AddLocalAccess();
 builder.Services.AddLocalReliability();
 var app = builder.Build();
+app.Use(async(context,next)=>
+{
+    var h=context.Response.Headers;
+    h.XContentTypeOptions="nosniff";h.XFrameOptions="DENY";h["Referrer-Policy"]="no-referrer";h["Cross-Origin-Opener-Policy"]="same-origin";
+    h.ContentSecurityPolicy="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+    await next();
+});
 app.Use(async(context,next)=>
 {
     try{await next();}
@@ -53,7 +62,7 @@ app.MapPost("/api/sync/demo",(DemoStore db)=>{db.Modify(s=>{s.LastSync=DateTimeO
 app.MapGet("/api/activity",(DemoStore db)=>Results.Ok(db.Read().Activity));
 app.MapGet("/api/settings",(DemoStore db)=>Results.Ok(db.Read().Settings));
 app.MapPut("/api/settings",(DemoStore db,Settings settings)=>{db.Modify(s=>{s.Settings=settings;db.Event(s,"Ayarlar güncellendi","Tercihler kaydedildi");return true;});return Results.Ok(settings);});
-app.MapGet("/api/export/products.csv",(DemoStore db)=>{var products=db.Read().Products;static string Esc(string s)=>"\""+s.Replace("\"","\"\"")+"\"";var lines=new List<string>{"Id,Ürün,SKU,Kategori,Fiyat,Stok,Durum"}; lines.AddRange(products.Select(p=>string.Join(",",Esc(p.Id),Esc(p.Name),Esc(p.Sku),Esc(p.Category),p.Price.ToString(CultureInfo.InvariantCulture),p.Stock,Esc(p.Status))));return Results.File(System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(string.Join("\r\n",lines))).ToArray(),"text/csv","urunler.csv");});
+app.MapGet("/api/export/products.csv",(DemoStore db)=>{var products=db.Read().Products;static string Esc(string s)=>"\""+(s.Length>0&&"=+-@\t\r".Contains(s[0])?"'"+s:s).Replace("\"","\"\"")+"\"";var lines=new List<string>{"Id,Ürün,SKU,Kategori,Fiyat,Stok,Durum"}; lines.AddRange(products.Select(p=>string.Join(",",Esc(p.Id),Esc(p.Name),Esc(p.Sku),Esc(p.Category),p.Price.ToString(CultureInfo.InvariantCulture),p.Stock,Esc(p.Status))));return Results.File(System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(string.Join("\r\n",lines))).ToArray(),"text/csv","urunler.csv");});
 
 // MarketPilot 2.0: internal stock ledger, barcodes and demo shipping records.
 app.MapGet("/api/stock/movements", (DemoStore db) => Results.Ok(db.Read().StockMovements));

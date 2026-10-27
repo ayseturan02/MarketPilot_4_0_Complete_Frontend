@@ -110,6 +110,8 @@ public sealed class HepsiburadaAdapter(HttpClient http, IConfiguration configura
         if (q.Size > 50) throw new IntegrationException("invalid_page", "Hepsiburada sipariş sayfası en fazla 50 kayıt olabilir.", 400);
         var merchant = Merchant(s.Environment); var query = Paging(q.Page, q.Size);
         string path;
+        if (!string.IsNullOrWhiteSpace(q.OrderNumber) && !System.Text.RegularExpressions.Regex.IsMatch(q.OrderNumber, @"^[A-Za-z0-9_-]{1,100}$"))
+            throw new IntegrationException("invalid_order_number", "Sipariş numarası yalnızca harf, rakam, alt çizgi veya tire içerebilir.", 400);
         if (!string.IsNullOrWhiteSpace(q.OrderNumber)) { path = $"orders/merchantid/{merchant}/ordernumber/{Uri.EscapeDataString(q.OrderNumber)}"; query.Clear(); }
         else path = q.Status switch
         {
