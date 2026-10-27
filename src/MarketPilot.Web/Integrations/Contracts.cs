@@ -64,10 +64,10 @@ public sealed class DemoMarketplaceAdapter : IMarketplaceAdapter
     {
         var all = new[]
         {
-            new MarketplaceProduct("701", "501", "DEMO-MAIN-1", "DEMO-001", "8690000000001", "Kablosuz Demo Kulaklık", "1001", "Elektronik", "MarketPilot", 2299m, 1999m, 1899m, 12, "TRY", true, "https://www.trendyol.com/", ["https://cdn.dsmcdn.com/web/logo/ty-web.svg"], "approved", []),
-            new MarketplaceProduct("702", "502", "DEMO-MAIN-2", "DEMO-002", "8690000000002", "Demo Seramik Vazo", "1002", "Ev ve Yaşam", "MarketPilot", 849m, 749m, 749m, 4, "TRY", true, "https://www.trendyol.com/", [], "approved", [])
+            new MarketplaceProduct("701", "501", "DEMO-MAIN-1", "DEMO-001", "8690000000001", "Kablosuz Demo Kulaklık", "1001", "Elektronik", "İnternet Tekstil", 2299m, 1999m, 1899m, 12, "TRY", true, "https://www.trendyol.com/", ["https://cdn.dsmcdn.com/web/logo/ty-web.svg"], "approved", []),
+            new MarketplaceProduct("702", "502", "DEMO-MAIN-2", "DEMO-002", "8690000000002", "Demo Seramik Vazo", "1002", "Ev ve Yaşam", "İnternet Tekstil", 849m, 749m, 749m, 4, "TRY", true, "https://www.trendyol.com/", [], "approved", [])
         };
-        var source = q.Approval == "unapproved" ? [new MarketplaceProduct("703", "", "DEMO-DRAFT", "DEMO-DRAFT-1", "8690000000003", "Onay bekleyen demo ürün", "1001", "Elektronik", "MarketPilot", 500m, 450m, null, 2, "TRY", false, "", [], "pendingApproval", [])] : all;
+        var source = q.Approval == "unapproved" ? [new MarketplaceProduct("703", "", "DEMO-DRAFT", "DEMO-DRAFT-1", "8690000000003", "Onay bekleyen demo ürün", "1001", "Elektronik", "İnternet Tekstil", 500m, 450m, null, 2, "TRY", false, "", [], "pendingApproval", [])] : all;
         var filtered = source.Where(x => string.IsNullOrWhiteSpace(q.Barcode) || x.Barcode.Contains(q.Barcode, StringComparison.OrdinalIgnoreCase))
             .Where(x => string.IsNullOrWhiteSpace(q.StockCode) || x.Sku.Contains(q.StockCode, StringComparison.OrdinalIgnoreCase))
             .Where(x => string.IsNullOrWhiteSpace(q.Status) || x.ApprovalStatus == q.Status || q.Status == "onSale" && x.OnSale == true || q.Status == "notOnSale" && x.OnSale == false).ToArray();

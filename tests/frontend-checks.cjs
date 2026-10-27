@@ -25,7 +25,7 @@ vm.runInContext(`
 `, context);
 assert(app.innerHTML.includes('GERÇEK API') && app.innerHTML.includes('DEMO'));
 app.scrollTop=321;vm.runInContext(`render()`,context);assert.equal(app.scrollTop,321);
-assert(app.innerHTML.includes('MarketPilot 5.1') && app.innerHTML.includes('Mağaza bilgileri'));
+assert(app.innerHTML.includes('İnternet Tekstil 5.1') && app.innerHTML.includes('Mağaza bilgileri'));
 assert(app.innerHTML.includes('Seller ID / anahtarlar eksik') && app.innerHTML.includes('Kurulum adımları'));
 assert(app.innerHTML.includes('&lt;script&gt;unsafe&lt;/script&gt;'));
 assert(!app.innerHTML.includes('<script>unsafe</script>'));
@@ -47,7 +47,7 @@ assert(vm.runInContext(`integrationHasNext({page:99,size:100,totalPages:120,next
 assert(vm.runInContext(`integrationHasNext({page:0,size:200,totalPages:null,hasMore:true,nextCursor:'cursor'})`,context)===true);
 for(const marketplace of ['trendyol','hepsiburada','n11','amazon']) {
   vm.runInContext(`view='${marketplace}';render();`,context);
-  assert(app.innerHTML.includes('MarketPilot 5.1'));
+  assert(app.innerHTML.includes('İnternet Tekstil 5.1'));
   assert(app.innerHTML.includes('Yeni taslak'));
 }
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
