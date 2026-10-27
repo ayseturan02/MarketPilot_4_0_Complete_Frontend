@@ -64,7 +64,7 @@ public sealed class DemoWorkspaceState
 public sealed record DemoAction(string Type, string RequestId, string? Barcode = null, int? Quantity = null, decimal? Price = null, string? Reference = null, string? Text = null);
 
 // Persistent, isolated sample workspace. No HTTP client or live marketplace credentials.
-public sealed class DemoWorkspace
+public sealed partial class DemoWorkspace
 {
     private readonly object gate = new();
     private readonly string file;
@@ -224,6 +224,13 @@ public static class DemoWorkspaceEndpoints
 {
     public static void MapDemoWorkspace(this RouteGroupBuilder group)
     {
+        group.MapGet("/demo/connections/{id}/search/{kind}", (string id, string kind, [AsParameters] ListingQuery query, IntegrationRegistry registry, DemoWorkspace demo) =>
+        {
+            if (!registry.Connections.TryGetValue(id, out var store)) return Results.NotFound();
+            if (store.Settings.Mode != "demo") return Results.Json(new { error = "Demo mağaza gerekli." }, statusCode: 403);
+            if(query.Error() is { } error) return Results.BadRequest(new { error });
+            try { return Results.Ok(demo.Search(store.Settings, kind, query)); } catch(ArgumentException) { return Results.NotFound(); }
+        });
         group.MapGet("/demo/connections/{id}/workspace", (string id, IntegrationRegistry registry, DemoWorkspace demo) =>
         {
             if (!registry.Connections.TryGetValue(id, out var store)) return Results.NotFound();

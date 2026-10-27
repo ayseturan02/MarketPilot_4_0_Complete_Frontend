@@ -10,10 +10,11 @@ builder.Services.AddMarketplaceIntegrations(builder.Configuration);
 var app = builder.Build();
 app.UseDefaultFiles(); app.UseStaticFiles();
 app.MapMarketplaceIntegrations();
+app.MapListingSearch();
 
 app.MapGet("/api/health", () => Results.Ok(new { status="ok", mode="demo", apiConnected=false, timestamp=DateTimeOffset.UtcNow }));
 app.MapGet("/api/overview", (DemoStore db) => Results.Ok(db.Overview()));
-app.MapGet("/api/products", (DemoStore db) => Results.Ok(db.Read().Products));
+app.MapGet("/api/products", (DemoStore db) => Results.Ok(db.SearchProducts(new ListingQuery(Size:50)).Items));
 app.MapPost("/api/products", (DemoStore db, ProductDraft draft) => {
     if(string.IsNullOrWhiteSpace(draft.Name) || string.IsNullOrWhiteSpace(draft.Sku) || draft.Price < 0 || draft.Stock < 0) return Results.BadRequest(new {error="Ürün adı, SKU, pozitif fiyat ve stok gerekli."});
     var p = db.Modify(s => { if(s.Products.Any(x=>x.Sku.Equals(draft.Sku,StringComparison.OrdinalIgnoreCase))) return null;
@@ -24,7 +25,7 @@ app.MapPut("/api/products/{id}", (DemoStore db,string id, ProductPatch patch) =>
     var p=db.Modify(s=>{var v=s.Products.FirstOrDefault(x=>x.Id==id);if(v==null)return null; if(patch.Stock.HasValue){if(patch.Stock<0)return null;v.Stock=patch.Stock.Value;}if(patch.Price.HasValue){if(patch.Price<0)return null;v.Price=patch.Price.Value;}if(patch.Status is not null)v.Status=patch.Status; db.Event(s,"Ürün güncellendi",v.Name);return v;});
     return p is null?Results.NotFound(new{error="Ürün bulunamadı veya değer geçersiz."}):Results.Ok(p);
 });
-app.MapGet("/api/orders", (DemoStore db)=>Results.Ok(db.Read().Orders));
+app.MapGet("/api/orders", (DemoStore db)=>Results.Ok(db.SearchOrders(new ListingQuery(Size:50)).Items));
 app.MapPut("/api/orders/{id}/status", (DemoStore db,string id,OrderPatch patch)=>{
     var allowed=new[]{"Yeni","Hazırlanıyor","Kargolandı","Tamamlandı","İptal"};if(!allowed.Contains(patch.Status))return Results.BadRequest(new{error="Geçersiz sipariş durumu."});
     var o=db.Modify(s=>{var v=s.Orders.FirstOrDefault(x=>x.Id==id);if(v==null)return null;v.Status=patch.Status;db.Event(s,"Sipariş durumu",$"{v.Id} → {patch.Status}");return v;});return o is null?Results.NotFound():Results.Ok(o);
@@ -98,7 +99,7 @@ public record ConnectionPatch(bool Enabled);
 public class Activity {public string Title{get;set;}="";public string Detail{get;set;}="";public DateTimeOffset At{get;set;}=DateTimeOffset.Now;}
 public class Settings {public string BusinessName{get;set;}="İnternet Tekstil";public string Currency{get;set;}="TRY";public int LowStockThreshold{get;set;}=10;public bool EmailNotifications{get;set;}=true;public bool SyncNotifications{get;set;}=true;}
 public class Database {public List<StockMovement> StockMovements{get;set;}=new();public List<Shipment> Shipments{get;set;}=new();public List<Product> Products{get;set;}=new();public List<Order> Orders{get;set;}=new();public List<Connection> Connections{get;set;}=new();public List<Activity> Activity{get;set;}=new();public Settings Settings{get;set;}=new();public DateTimeOffset LastSync{get;set;}=DateTimeOffset.Now.AddMinutes(-18);}
-public class DemoStore {
+public partial class DemoStore {
  private readonly object _gate=new();private readonly string _file;private readonly JsonSerializerOptions _json=new(JsonSerializerDefaults.Web){WriteIndented=true}; private Database _data;
  public DemoStore(IWebHostEnvironment env){var folder=Path.Combine(env.ContentRootPath,"Data");Directory.CreateDirectory(folder);_file=Path.Combine(folder,"demo-store.json");try{_data=File.Exists(_file)?JsonSerializer.Deserialize<Database>(File.ReadAllText(_file),_json)??Seed():Seed();}catch{_data=Seed();}Save();}
  public Database Read(){lock(_gate){return JsonSerializer.Deserialize<Database>(JsonSerializer.Serialize(_data,_json),_json)!;}}
