@@ -42,7 +42,7 @@ Bu sürümde her Trendyol ortamı için tek sunucu kimlik profili vardır. Aynı
 
 ## Salt okunur güvenlik sınırı
 
-Trendyol istemcisi yalnızca şu GET uçlarına çağrı yapar:
+Satış Kanalları ekranındaki Trendyol adaptörü yalnızca şu GET uçlarına çağrı yapar (yazma servisleri için aşağıdaki Trendyol API Merkezi bölümüne bakın):
 
 - `/integration/product/sellers/{sellerId}/products/approved`
 - `/integration/product/sellers/{sellerId}/products/unapproved`
@@ -50,9 +50,39 @@ Trendyol istemcisi yalnızca şu GET uçlarına çağrı yapar:
 - `/integration/order/sellers/{sellerId}/orders/stream`
 - `/integration/sellers/{sellerId}/addresses`
 
-Fiyat, stok veya sipariş durumu değiştiren dış API metodu bulunmaz. `POST /api/integrations/preview/{marketplace}/stock-price` yalnızca yerel bir taslağı doğrular ve her zaman `sent:false` döndürür. Sonuçlar kalıcı veritabanına yazılmaz.
+Bu adaptörde fiyat, stok veya sipariş durumu değiştiren dış API metodu bulunmaz; bu tür servisler yalnızca Trendyol API Merkezi’nde, `AllowWrites` açıkken ve kullanıcı onayıyla gönderilir. `POST /api/integrations/preview/{marketplace}/stock-price` yalnızca yerel bir taslağı doğrular ve her zaman `sent:false` döndürür. Sonuçlar kalıcı veritabanına yazılmaz.
 
 Uygulamada kullanıcı hesabı doğrulaması henüz olmadığı için entegrasyon uçları sadece yerel makineden ve aynı web kaynağından erişime açıktır. İnternete açık dağıtımdan önce kullanıcı yetkilendirmesi eklenmelidir.
+
+## Trendyol API Merkezi (5.2)
+
+Trendyol ekranında (`#trendyol`) tüm Trendyol entegrasyon servisleri 13 panelde listelenir. Her panelin kodu kendi klasöründedir; başka bir pazaryeri bağlanırken Trendyol koduna dokunulmaz.
+
+```
+src/MarketPilot.Web/Integrations/
+  Contracts.cs, IntegrationEndpoints.cs   ortak sözleşmeler ve mağaza kayıtları
+  Demo/  Hepsiburada/  N11/  Amazon/       her pazaryeri kendi klasöründe
+  Trendyol/
+    Core/            kimlik, ortam, hata dönüşümü, operasyon çalıştırıcı, katalog
+    TrendyolAdapter.cs, TrendyolEndpoints.cs
+    Products/ Catalog/ Inventory/ Orders/ Claims/ Invoices/ Labels/
+    Questions/ Finance/ Webhooks/ Addresses/ Videos/ TestEnvironment/
+src/MarketPilot.Web/wwwroot/assets/trendyol/   Trendyol API Merkezi arayüzü
+```
+
+Yeni bir Trendyol servisi eklemek için ilgili panel dosyasına (`Trendyol/<Panel>/Trendyol<Panel>Panel.cs`) bir `TrendyolOperation` satırı ekleyin; yeni panel için klasörü açıp `Trendyol/Core/TrendyolCatalog.cs` listesine ekleyin.
+
+- `GET /api/integrations/trendyol/operations` panel ve servis kataloğunu döndürür.
+- `POST /api/integrations/trendyol/connections/{id}/operations/{key}` gövdesi `{ path, query, body, form, files, confirm }` biçimindedir.
+- Demo mağazada hiçbir istek Trendyol’a gitmez; hazırlanan URL ve gövde önizlenir.
+- Okuma servisleri gerçek mağazada doğrudan çalışır. Yazma servisleri (stok/fiyat, paket statüsü, fatura, iade onayı, webhook vb.) varsayılan olarak **kapalıdır** ve yalnızca önizleme döner. Açmak için ilgili ortamda sunucu ayarı tanımlayın; arayüz her yazma isteğinden önce ayrıca onay ister:
+
+```powershell
+dotnet user-secrets set "Marketplaces:Trendyol:stage:AllowWrites" "true" --project src/MarketPilot.Web
+```
+
+- Yalnızca stage servisleri (test siparişi, test statüsü, test sorusu) production mağazasında reddedilir.
+- Yol parametreleri doğrulanır ve kodlanır; Trendyol 4xx hatalarında yalnızca `message` alanları gösterilir, ham yanıt gövdesi istemciye taşınmaz.
 
 ## Doğrulama
 

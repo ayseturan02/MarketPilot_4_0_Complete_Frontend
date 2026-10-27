@@ -1,18 +1,11 @@
-using System.Net.Http.Headers;
-using System.Text;
 using System.Text.Json;
 
-namespace MarketPilot.Web.Integrations;
+namespace MarketPilot.Web.Integrations.Trendyol;
 
-public sealed class TrendyolCredentials
-{
-    public string SellerId { get; set; } = "";
-    public string ApiKey { get; set; } = "";
-    public string ApiSecret { get; set; } = "";
-}
-
+// Salt okunur ürün/sipariş/adres okuması (Satış Kanalları ekranı). Diğer Trendyol servisleri panel klasörlerindeki operasyonlardadır.
 public sealed class TrendyolAdapter(HttpClient http, IConfiguration configuration) : IMarketplaceAdapter
 {
+    private readonly TrendyolApiClient client = new(http, configuration);
     private static readonly HashSet<string> ProductStatuses = new(StringComparer.Ordinal) { "archived", "blacklisted", "locked", "onSale", "notOnSale" };
     private static readonly HashSet<string> OrderStatuses = new(StringComparer.Ordinal) { "Created", "Picking", "Invoiced", "Shipped", "Cancelled", "Delivered", "UnDelivered", "Returned", "AtCollectionPoint", "UnPacked", "UnSupplied", "Awaiting", "Verified" };
     public string Marketplace => "trendyol";
@@ -113,44 +106,10 @@ public sealed class TrendyolAdapter(HttpClient http, IConfiguration configuratio
         return new("trendyol", seller, settings.Environment, "TR", [], DateTimeOffset.UtcNow);
     }
 
-    private (string SellerId, string ApiKey, string ApiSecret) Credentials(ConnectionSettings settings)
-    {
-        var credentials = configuration.GetSection($"Marketplaces:Trendyol:{settings.Environment}").Get<TrendyolCredentials>() ?? new();
-        if (!long.TryParse(credentials.SellerId, out var seller) || seller <= 0 || string.IsNullOrWhiteSpace(credentials.ApiKey) || string.IsNullOrWhiteSpace(credentials.ApiSecret))
-            throw new IntegrationException("configuration_missing", "Bu ortam için Trendyol Seller ID, API Key ve API Secret sunucuda yapılandırılmamış.", 409);
-        return (seller.ToString(), credentials.ApiKey, credentials.ApiSecret);
-    }
+    private (string SellerId, string ApiKey, string ApiSecret) Credentials(ConnectionSettings settings) => client.Credentials(settings.Environment);
 
-    private async Task<JsonDocument> GetAsync(ConnectionSettings settings, string path, IEnumerable<KeyValuePair<string, string>> parameters, bool storeFrontHeader, CancellationToken ct)
-    {
-        var (seller, key, secret) = Credentials(settings);
-        var host = settings.Environment == "stage" ? "stageapigw.trendyol.com" : "apigw.trendyol.com";
-        var query = string.Join("&", parameters.Select(x => $"{Uri.EscapeDataString(x.Key)}={Uri.EscapeDataString(x.Value)}"));
-        using var request = new HttpRequestMessage(HttpMethod.Get, $"https://{host}/integration/{path}{(query.Length > 0 ? "?" + query : "")}");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{key}:{secret}")));
-        request.Headers.TryAddWithoutValidation("User-Agent", $"{seller} - SelfIntegration");
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        if (storeFrontHeader) request.Headers.TryAddWithoutValidation("storeFrontCode", "TR");
-        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
-        if (!response.IsSuccessStatusCode)
-        {
-            var code = (int)response.StatusCode;
-            throw new IntegrationException($"upstream_{code}", code switch
-            {
-                400 => "Trendyol filtreleri veya tarih aralığını geçersiz buldu (400).",
-                401 => "Trendyol kimlik doğrulaması başarısız. Seller ID, API Key ve API Secret değerlerini kontrol edin (401).",
-                403 => "Trendyol erişimi reddetti. API yetkisini, User-Agent bilgisini ve ortam erişimini kontrol edin (403).",
-                404 => "Trendyol istenen satıcı veya kaynağı bulamadı (404).",
-                408 => "Trendyol isteği zaman aşımına uğradı (408).",
-                426 => "Trendyol bu API sürümünü artık kabul etmiyor (426).",
-                429 => "Trendyol hız sınırına ulaşıldı. Belirtilen süre dolduktan sonra tekrar deneyin (429).",
-                >= 500 => $"Trendyol servisinde geçici bir hata oluştu (HTTP {code}).",
-                _ => $"Trendyol isteği başarısız (HTTP {code})."
-            }, code is 400 or 401 or 403 or 404 or 429 ? code : 502);
-        }
-        try { return await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct); }
-        catch (JsonException) { throw new IntegrationException("invalid_response", "Trendyol geçersiz JSON yanıtı döndürdü."); }
-    }
+    private Task<JsonDocument> GetAsync(ConnectionSettings settings, string path, IEnumerable<KeyValuePair<string, string>> parameters, bool storeFrontHeader, CancellationToken ct) =>
+        client.GetJsonAsync(settings.Environment, path, parameters, storeFrontHeader, ct);
 
     private static MarketplaceOrder MapOrder(JsonElement order)
     {
