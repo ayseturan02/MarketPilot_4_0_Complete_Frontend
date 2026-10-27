@@ -11,7 +11,7 @@ public static class HepsiburadaEndpoints
     public static void MapHepsiburada(this RouteGroupBuilder group)
     {
         group.MapGet("/hepsiburada/connections/{id}/search/{kind}", async (string id, string kind, string? orderNumber, [AsParameters] ListingQuery query,
-            IntegrationRegistry registry, HepsiburadaAdapter adapter, CancellationToken ct) =>
+            IntegrationRegistry registry, HepsiburadaAdapter adapter, MarketPilot.Web.Catalog.OperationsHub operations, CancellationToken ct) =>
         {
             if (!registry.Connections.TryGetValue(id, out var store) || store.Settings.Marketplace != "hepsiburada") return Results.NotFound();
             if (store.Settings.Mode != "real") return Results.BadRequest(new { error = "Demo mağazasını demo çalışma alanından açın." });
@@ -42,7 +42,7 @@ public static class HepsiburadaEndpoints
                 }
                 else if (kind == "claims") result = await adapter.ClaimsAsync(store.Settings, query, ct);
                 else return Results.Json(new { error = "Bu bölümdeki gerçek veri bağlantısı henüz tamamlanmadı. Demo mağazada örneklerini inceleyebilirsiniz." }, statusCode: 501);
-                registry.Connections[id] = store with { Status = "connected", LastOperation = DateTimeOffset.UtcNow, LastAction = kind, ErrorCode = null, Message = "Hepsiburada verileri okundu." }; registry.Save();
+                operations.Observe(store,result);registry.Connections[id] = store with { Status = "connected", LastOperation = DateTimeOffset.UtcNow, LastAction = kind, ErrorCode = null, Message = "Hepsiburada verileri okundu." }; registry.Save();
                 return Results.Ok(result);
             }
             catch (Exception e) when (e is IntegrationException or HttpRequestException or OperationCanceledException or System.Text.Json.JsonException or OverflowException)

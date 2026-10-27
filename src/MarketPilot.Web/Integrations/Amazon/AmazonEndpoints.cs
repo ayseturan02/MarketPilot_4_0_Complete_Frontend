@@ -9,7 +9,7 @@ public static class AmazonEndpoints
     }
     public static void MapAmazon(this RouteGroupBuilder group)
     {
-        group.MapGet("/amazon/connections/{id}/search/{kind}",async(string id,string kind,[AsParameters] AmazonQuery query,IntegrationRegistry registry,MarketPilot.Web.Integrations.Demo.DemoWorkspace demo,AmazonSpApiAdapter adapter,CancellationToken ct)=>
+        group.MapGet("/amazon/connections/{id}/search/{kind}",async(string id,string kind,[AsParameters] AmazonQuery query,IntegrationRegistry registry,MarketPilot.Web.Integrations.Demo.DemoWorkspace demo,AmazonSpApiAdapter adapter,MarketPilot.Web.Catalog.OperationsHub operations,CancellationToken ct)=>
         {
             if(!registry.Connections.TryGetValue(id,out var store)||store.Settings.Marketplace!="amazon")return Results.NotFound();
             
@@ -21,7 +21,7 @@ public static class AmazonEndpoints
             try
             {
                 var result=store.Settings.Mode=="demo"?AmazonDemo.Read(demo,store.Settings,kind,query):await adapter.Read(store.Settings,kind,query,ct);
-                registry.Connections[id]=store with{Status=store.Settings.Mode=="demo"?"demo":"connected",LastAction=kind,LastOperation=DateTimeOffset.UtcNow,ErrorCode=null,Message=store.Settings.Mode=="demo"?"Demo kayıtları okundu.":"Amazon verileri okundu."};registry.Save();return Results.Ok(result);
+                if(kind is "orders" or "shipping" or "invoices" or "finance" or "addresses")operations.Observe(store,result);registry.Connections[id]=store with{Status=store.Settings.Mode=="demo"?"demo":"connected",LastAction=kind,LastOperation=DateTimeOffset.UtcNow,ErrorCode=null,Message=store.Settings.Mode=="demo"?"Demo kayıtları okundu.":"Amazon verileri okundu."};registry.Save();return Results.Ok(result);
             }
             catch(Exception ex)when(ex is IntegrationException or HttpRequestException or OperationCanceledException or System.Text.Json.JsonException or OverflowException)
             {

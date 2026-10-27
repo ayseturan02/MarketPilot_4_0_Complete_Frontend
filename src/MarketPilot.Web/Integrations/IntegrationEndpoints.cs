@@ -95,7 +95,7 @@ public static class IntegrationEndpoints
         group.MapPost("/connections/{id}/{operation}", async (
             string id, string operation, int? page, int? size, string? barcode, string? stockCode, string? status, string? approval,
             string? nextPageToken, string? orderNumber, long? startDate, long? endDate, string? orderByDirection, bool? stream, string? nextCursor,
-            IntegrationRegistry registry, DemoMarketplaceAdapter demo, IEnumerable<IMarketplaceAdapter> adapters, CancellationToken ct) =>
+            IntegrationRegistry registry, DemoMarketplaceAdapter demo, IEnumerable<IMarketplaceAdapter> adapters, MarketPilot.Web.Catalog.OperationsHub operations, CancellationToken ct) =>
         {
             if (!registry.Connections.TryGetValue(id, out var state)) return Results.NotFound(new { error = "Mağaza bulunamadı." });
             if (!new[] { "test", "account", "products", "orders" }.Contains(operation)) return Results.NotFound();
@@ -141,7 +141,7 @@ public static class IntegrationEndpoints
                 else
                 {
                     var r = await adapter.OrdersAsync(state.Settings, new(p, n, status, orderNumber, barcode, startDate, endDate, orderByDirection == "ASC" ? "ASC" : "DESC", stream == true, nextCursor), ct);
-                    result = r; count = r.Items.Count;
+                    result = r; count = r.Items.Count; operations.Observe(state,r);
                 }
                 var updated = state with {
                     Status = state.Settings.Mode == "demo" ? "demo" : "connected", LastOperation = DateTimeOffset.UtcNow,

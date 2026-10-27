@@ -115,3 +115,8 @@ Gerçek mağaza bağlantısı, ayrı satıcı kimlik profilleri, kimlik doğrula
 Kontrol: `dotnet run --project tests/MarketPilot.DemoChecks`.
 
 Yerel giriş/roller, arka plan kuyruğu ve şifreli yedek kurulumu: [YEREL_GUVENLIK_VE_YEDEK.md](YEREL_GUVENLIK_VE_YEDEK.md).
+
+
+## Ortak katalog ve mağaza akışı
+
+Ürün & Katalog ekranları ortak backend kayıtlarına bağlandı. Mağaza eşleştirmeleri, stok/fiyat önizleme ve demo iş sırası, genel sipariş/gönderi bağlantıları ve sınırlar için [ortak katalog raporunu](ORTAK_KATALOG_KAPSAM.md) okuyun. Gerçek mağazaya yazma kapalıdır; veritabanı bu aşamada kurulmadı.

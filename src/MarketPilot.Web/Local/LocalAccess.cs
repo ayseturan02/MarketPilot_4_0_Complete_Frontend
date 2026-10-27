@@ -179,6 +179,7 @@ public static class LocalAccess
     private static bool ReadOnlyPost(HttpContext c)
     {
         var path=c.Request.Path.Value??"";
+        if(path=="/api/catalog/preview")return true;
         if(path is "/api/access/logout" or "/api/access/login" or "/api/access/password")return true;
         if(System.Text.RegularExpressions.Regex.IsMatch(path,@"^/api/integrations/connections/[^/]+/(test|account|products|orders)$"))return true;
         var match=System.Text.RegularExpressions.Regex.Match(path,@"^/api/integrations/trendyol/connections/[^/]+/operations/([^/]+)$");

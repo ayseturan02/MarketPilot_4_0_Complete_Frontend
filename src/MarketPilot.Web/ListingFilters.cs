@@ -89,8 +89,8 @@ public static class ListingSearchEndpoints
 {
     public static void MapListingSearch(this WebApplication app)
     {
-        app.MapGet("/api/shipments/search", ([AsParameters] ListingQuery query, DemoStore db) => query.Error() is { } error ? Results.BadRequest(new { error }) : Results.Ok(db.SearchShipments(query)));
+        app.MapGet("/api/shipments/search", ([AsParameters] ListingQuery query, MarketPilot.Web.Catalog.OperationsHub hub) => query.Error() is { } error ? Results.BadRequest(new { error }) : Results.Ok(hub.Shipments(query)));
         app.MapGet("/api/products/search", ([AsParameters] ListingQuery query, DemoStore db) => query.Error() is { } error ? Results.BadRequest(new { error }) : Results.Ok(db.SearchProducts(query)));
-        app.MapGet("/api/orders/search", ([AsParameters] ListingQuery query, DemoStore db) => query.Error() is { } error ? Results.BadRequest(new { error }) : Results.Ok(db.SearchOrders(query)));
+        app.MapGet("/api/orders/search", ([AsParameters] ListingQuery query, MarketPilot.Web.Catalog.OperationsHub hub) => query.Error() is { } error ? Results.BadRequest(new { error }) : Results.Ok(hub.Orders(query)));
     }
 }
