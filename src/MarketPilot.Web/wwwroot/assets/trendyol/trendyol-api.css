@@ -1,0 +1,33 @@
+/* Trendyol API Merkezi — yalnızca .ty-* sınıfları; diğer pazaryerleri kendi klasörlerinde stil tanımlar. */
+.ty-panel .op-tab-scroll{margin:0 -22px;padding:0 4px}
+.ty-panel .op-tab small{color:#9aa7ae;font-weight:600;margin-left:3px}
+.ty-toolbar{display:flex;align-items:end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px}
+.ty-toolbar label{display:grid;gap:6px;font-size:10px;font-weight:750;color:#647983;min-width:min(320px,100%)}
+.ty-toolbar select{border:1px solid #dde6ea;background:#fff;border-radius:8px;padding:9px 10px;color:#314751;font-size:12px}
+.ty-count{font-size:11px;font-weight:700;color:#71858e}
+.ty-panel-desc{margin:14px 0 10px;font-size:12px}
+.ty-ops{display:grid;gap:8px}
+.ty-op{border:1px solid var(--mp-line);border-radius:12px;background:#fff;overflow:hidden}
+.ty-op.open{border-color:#bfe5d8;box-shadow:0 4px 14px #14a37e12}
+.ty-op-head{width:100%;display:flex;align-items:center;gap:10px;border:0;background:transparent;padding:12px 14px;text-align:left;cursor:pointer;flex-wrap:wrap}
+.ty-op-head:hover{background:#f8fafb}
+.ty-op-title{display:grid;gap:3px;flex:1;min-width:200px}
+.ty-op-title strong{font-size:12px;color:var(--mp-ink)}
+.ty-op-title code,.ty-result code{font-size:10.5px;color:#64748b;word-break:break-all}
+.ty-method{font:800 10px/1 ui-monospace,Consolas,monospace;padding:5px 7px;border-radius:6px;min-width:52px;text-align:center;background:#eef2f5;color:#475569}
+.ty-get{background:#e6f6f0;color:#047857}.ty-post{background:#e8f0fe;color:#1d4ed8}.ty-put{background:#fff4e0;color:#b45309}.ty-delete{background:#fdecec;color:#b91c1c}
+.ty-tag{font-size:10px;font-weight:750;padding:4px 8px;border-radius:999px;background:#f1f5f7;color:#64748b}
+.ty-tag.ty-write{background:#fff1e6;color:#c2410c}.ty-tag.ty-stage{background:#eef2ff;color:#4338ca}
+.ty-form{padding:0 14px 14px;display:grid;gap:10px}
+.ty-form .integration-note{margin:4px 0 0}
+.ty-fields{grid-template-columns:repeat(auto-fill,minmax(170px,1fr));margin:4px 0}
+.ty-wide{display:grid;gap:6px;font-size:10px;font-weight:750;color:#647983}
+.ty-wide small{font-weight:600;color:#9aa7ae}
+.ty-wide textarea{width:100%;box-sizing:border-box;border:1px solid #dde6ea;border-radius:8px;padding:9px 10px;font:11px/1.5 ui-monospace,Consolas,monospace;color:#314751;resize:vertical}
+.ty-actions{display:flex;gap:8px;flex-wrap:wrap}
+.ty-actions .btn{margin-top:0}
+.ty-result{margin:0 14px 14px}
+.ty-result .btn{margin-top:10px}
+.ty-result details{margin:8px 0;font-size:11px;color:#64748b}
+.ty-pre{max-height:420px;overflow:auto;background:#0f1d24;color:#d7e3ea;border-radius:10px;padding:12px;font:11px/1.55 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-word;margin:8px 0 0}
+@media (max-width:640px){.ty-op-title{min-width:0;flex-basis:100%}.ty-panel .op-tab-scroll{margin:0 -16px}}

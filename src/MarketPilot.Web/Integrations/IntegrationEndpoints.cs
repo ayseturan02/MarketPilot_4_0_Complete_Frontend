@@ -1,5 +1,10 @@
 using System.Collections.Concurrent;
 using System.Net;
+using MarketPilot.Web.Integrations.Amazon;
+using MarketPilot.Web.Integrations.Demo;
+using MarketPilot.Web.Integrations.Hepsiburada;
+using MarketPilot.Web.Integrations.N11;
+using MarketPilot.Web.Integrations.Trendyol;
 
 namespace MarketPilot.Web.Integrations;
 
@@ -23,9 +28,8 @@ public static class IntegrationEndpoints
     {
         services.AddSingleton<IntegrationRegistry>();
         services.AddSingleton<DemoMarketplaceAdapter>();
-        services.AddHttpClient<TrendyolAdapter>(client => client.Timeout = TimeSpan.FromSeconds(20))
-            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
-        services.AddTransient<IMarketplaceAdapter>(sp => sp.GetRequiredService<TrendyolAdapter>());
+        // Her pazaryeri kendi klasöründen kayıt olur; Trendyol: Integrations/Trendyol/TrendyolEndpoints.cs
+        services.AddTrendyolIntegration();
         services.AddTransient<IMarketplaceAdapter, HepsiburadaAdapter>();
         services.AddTransient<IMarketplaceAdapter, N11Adapter>();
         services.AddTransient<IMarketplaceAdapter, AmazonSpApiAdapter>();
@@ -33,12 +37,6 @@ public static class IntegrationEndpoints
 
     public static void MapMarketplaceIntegrations(this WebApplication app)
     {
-        static bool IsTrendyolConfigured(IConfiguration configuration, string environment)
-        {
-            var section = configuration.GetSection($"Marketplaces:Trendyol:{environment}");
-            return long.TryParse(section["SellerId"], out var seller) && seller > 0 &&
-                !string.IsNullOrWhiteSpace(section["ApiKey"]) && !string.IsNullOrWhiteSpace(section["ApiSecret"]);
-        }
         var group = app.MapGroup("/api/integrations");
         // This development app has no account authentication. Keep real API reads local.
         group.AddEndpointFilter(async (context, next) =>
@@ -54,7 +52,11 @@ public static class IntegrationEndpoints
         });
         group.MapGet("/readiness", (IConfiguration configuration) => Results.Ok(new
         {
-            trendyol = new { stage = IsTrendyolConfigured(configuration, "stage"), production = IsTrendyolConfigured(configuration, "production") }
+            trendyol = new
+            {
+                stage = TrendyolApiClient.IsConfigured(configuration, "stage"), production = TrendyolApiClient.IsConfigured(configuration, "production"),
+                writes = new { stage = TrendyolApiClient.WritesAllowed(configuration, "stage"), production = TrendyolApiClient.WritesAllowed(configuration, "production") }
+            }
         }));
         group.MapGet("/connections", (IntegrationRegistry registry) => Results.Ok(registry.Connections.Values.OrderBy(x => x.Settings.Marketplace).ThenBy(x => x.Settings.Name)));
         group.MapPost("/connections", (ConnectionSettings settings, IntegrationRegistry registry) =>
@@ -138,6 +140,7 @@ public static class IntegrationEndpoints
             }
             finally { gate.Release(); }
         });
+        group.MapTrendyolApi();
         group.MapPost("/preview/{marketplace}/stock-price", (string marketplace, StockPriceDraft[] items) =>
         {
             if (!new[] { "trendyol", "hepsiburada", "n11", "amazon" }.Contains(marketplace) || items.Length is 0 or > 1000 || items.Any(i => string.IsNullOrWhiteSpace(i.Barcode) || i.Stock < 0 || i.Price < 0))
