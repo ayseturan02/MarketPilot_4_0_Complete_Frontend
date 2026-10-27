@@ -79,13 +79,50 @@ function integrationOrderDetail(id,index) {
 }
 function detailItem(label,value) { return `<div><small>${esc(label)}</small><strong>${esc(value===null||value===undefined||value===''?'—':value)}</strong></div>`; }
 function connections() { return head('Pazaryeri Bağlantıları','Trendyol bağlantısını doğrulayın ve gerçek verileri salt okunur inceleyin.')+integrationPanel()+legacyConnections(); }
-function integrationForm() {
-  showModal(`<form onsubmit="integrationCreate(event)"><h2>Mağaza ekle</h2><div class="form-grid"><label>Mağaza adı<input name="name" required maxlength="80" autocomplete="off"></label><label>Pazaryeri<select name="marketplace">${Object.entries(marketplaceLabels).map(([key,label])=>`<option value="${key}">${label}</option>`).join('')}</select></label><label>Çalışma modu<select name="mode"><option value="demo">Resmî API sözleşme demosu · Hesapsız</option><option value="real">Gerçek API · Salt okunur</option></select></label><label>API ortamı<select name="environment"><option value="production">Üretim</option><option value="stage">Test (stage)</option></select></label></div><p>Demo, Trendyol’un resmî cevap alanlarıyla yerel çalışır. Gerçek modda Seller ID, API Key ve API Secret bu forma girilmez; sunucuda User Secrets veya ortam değişkenleriyle tanımlanır.</p><div class="integration-actions"><button class="btn btn-primary" type="submit">Mağaza ekle</button><button class="btn" type="button" onclick="closeModal()">Vazgeç</button></div></form>`);
+function integrationForm(marketplace = view === 'trendyol' ? 'trendyol' : '') {
+  showModal(`<form class="store-form" aria-labelledby="store-form-title" onsubmit="integrationCreate(event)">
+    <div class="store-form-header"><div class="store-form-icon">${ic('plug',24)}</div><button class="store-form-close" type="button" aria-label="Pencereyi kapat" onclick="closeModal()">${ic('close',18)}</button></div>
+    <h2 id="store-form-title">Mağazanı ekle</h2><p class="store-form-subtitle">Satış kanalını seç, mağazana bir ad ver ve bağlantını oluştur.</p>
+    <div class="store-form-grid">
+      <label class="store-field store-field-wide"><span>Mağaza adı</span><input name="name" required maxlength="80" autocomplete="off" placeholder="Örn. İnternet Tekstil · Trendyol"><small>Mağazan panelde bu adla görünecek.</small></label>
+      <label class="store-field"><span>Pazaryeri</span><select name="marketplace" ${marketplace==='trendyol'?'disabled':''}>${Object.entries(marketplaceLabels).map(([key,label])=>`<option value="${key}" ${key===marketplace?'selected':''}>${label}</option>`).join('')}</select></label>
+      <label class="store-field"><span>Ortam</span><select name="environment"><option value="production">Üretim · Canlı mağaza</option><option value="stage">Test · Stage</option></select></label>
+      <label class="store-field store-field-wide"><span>Bağlantı türü</span><select name="mode" onchange="integrationModeHint(this.value)"><option value="demo">Demo · Hesap bağlamadan dene</option><option value="real">Gerçek mağaza bağlantısı</option></select></label>
+    </div>
+    <div class="store-form-note" role="status" aria-live="polite">${ic('shield',18)}<div id="store-mode-hint"><strong>Önce deneyebilirsin</strong><p>Demo mağaza örnek verilerle çalışır. Trendyol hesabında işlem yapmaz.</p></div></div>
+    <div class="store-form-footer"><button class="btn" type="button" onclick="closeModal()">Vazgeç</button><button class="btn btn-primary" type="submit">${ic('plus',16)} Mağaza ekle</button></div>
+  </form>`);
+  document.querySelector('.store-form input[name=name]')?.focus();
+}
+function integrationModeHint(mode) {
+  const hint=document.querySelector('#store-mode-hint');
+  if(!hint)return;
+  hint.innerHTML=mode==='real'
+    ? '<strong>Bağlantın doğrulanacak</strong><p>Mağaza bağlantı bilgilerinin önceden tanımlanmış olması gerekir. Ekledikten sonra bağlantın otomatik kontrol edilir.</p>'
+    : '<strong>Önce deneyebilirsin</strong><p>Demo mağaza örnek verilerle çalışır. Trendyol hesabında işlem yapmaz.</p>';
 }
 function integrationSetupHelp(){showModal(`<div class="integration-detail"><div class="modal-head"><div><small>GERÇEK TRENDYOL BAĞLANTISI</small><h2>Yerel güvenli yapılandırma</h2></div><button class="top-icon" onclick="closeModal()">${ic('close')}</button></div><ol class="setup-steps"><li>Trendyol Satıcı Paneli → Hesap Bilgilerim → Entegrasyon Bilgileri bölümünden Seller ID, API Key ve API Secret bilgilerini alın.</li><li>Bu bilgileri sohbete veya mağaza formuna yazmayın.</li><li>Projede PowerShell açıp aşağıdaki komutları kendi değerlerinizle çalıştırın.</li></ol><pre class="setup-code">dotnet user-secrets set "Marketplaces:Trendyol:production:SellerId" "SELLER_ID" --project src/MarketPilot.Web\ndotnet user-secrets set "Marketplaces:Trendyol:production:ApiKey" "API_KEY" --project src/MarketPilot.Web\ndotnet user-secrets set "Marketplaces:Trendyol:production:ApiSecret" "API_SECRET" --project src/MarketPilot.Web\n$env:ASPNETCORE_ENVIRONMENT="Development"\ndotnet run --project src/MarketPilot.Web --urls "http://localhost:5080"</pre><p>Ardından Gerçek API / Üretim mağazası ekleyip “Bağlantıyı test et” düğmesine basın.</p></div>`)}
 async function integrationCreate(event) {
   event.preventDefault();const form=event.target,button=form.querySelector('[type=submit]');button.disabled=true;
-  try{await api('integrations/connections',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(form)))});data['integrations/connections']=await api('integrations/connections');modal=null;render();notice('Mağaza çalışma alanına eklendi.');}catch(e){button.disabled=false;notice(e.message);}
+  try{
+    const settings=Object.fromEntries(new FormData(form));
+    settings.marketplace=form.elements.marketplace.value;
+    settings.name=settings.name.trim();
+    if(!settings.name)throw new Error('Mağaza adını girin.');
+    if(settings.mode==='real'&&settings.marketplace!=='trendyol')throw new Error('Bu pazaryerinin gerçek bağlantısı henüz hazır değil.');
+    if(settings.mode==='real'){
+      const readiness=await api('integrations/readiness');data['integrations/readiness']=readiness;
+      if(!readiness.trendyol?.[settings.environment])throw new Error('Mağaza bağlantı bilgileri eksik. Bağlantını tamamladıktan sonra tekrar dene.');
+      const existing=(data['integrations/connections']||[]).find(c=>c.settings.marketplace===settings.marketplace&&c.settings.mode==='real'&&c.settings.environment===settings.environment);
+      if(existing)throw new Error('Bu ortam için mağaza zaten var: '+existing.settings.name+'. Mevcut mağazayı seçip bağlantıyı test edin.');
+    }
+    const created=await api('integrations/connections',{method:'POST',body:JSON.stringify(settings)});
+    data['integrations/connections']=await api('integrations/connections');
+    if(settings.marketplace==='trendyol')tyStore=created.id;
+    modal=null;render();
+    if(settings.mode==='real')await integrationRun(created.id,'test',0,{},[]);
+    else notice('Demo mağaza eklendi; gerçek bağlantı kurulmadı.');
+  }catch(e){button.disabled=false;notice(e.message);}
 }
 function integrationOpen(id,operation) { integrationRun(id,operation,0,operation==='products'?{size:'50',approval:'approved'}:operation==='orders'?{size:'50',stream:'false'}:{},[]); }
 function integrationFilter(event,id,operation) {
@@ -104,4 +141,22 @@ function integrationPage(id,page) {
 async function integrationRun(id,operation,page,query={},history=[]) {
   if(integrationBusy)return;integrationBusy=id+operation;integrationResults[id]={operation,query,history,result:integrationResults[id]?.operation===operation?integrationResults[id].result:null};render();
   try{const params=new URLSearchParams({...query,page:String(page)}),response=await fetch(`/api/integrations/connections/${encodeURIComponent(id)}/${encodeURIComponent(operation)}?${params}`,{method:'POST'}),body=await response.json().catch(()=>({}));if(body.connection)data['integrations/connections']=data['integrations/connections'].map(c=>c.id===id?body.connection:c);if(!response.ok)throw new Error(body.error||`İşlem başarısız (${response.status}).`);integrationResults[id]={operation,query,history,result:body.result};notice(body.connection.settings.mode==='demo'?'Demo okuması tamamlandı; dış API çağrısı yapılmadı.':'Trendyol salt okunur API isteği tamamlandı.');}catch(e){delete integrationResults[id];notice(e.message);}finally{integrationBusy=null;render();}
+}
+
+function copyProductIdentifier(value,label='SKU') {
+  if(value===null||value===undefined||String(value)==='')return '<span class="code-copy-empty">—</span>';
+  const text=String(value);
+  return `<span class="code-copy-row"><span>${esc(text)}</span><button type="button" class="code-copy-button" data-copy-value="${esc(text)}" data-copy-label="${esc(label)}" onclick="event.stopPropagation();copyProductCode(this)" title="${esc(label)} kopyala" aria-label="${esc(label)} ${esc(text)} kopyala"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg></button></span>`;
+}
+async function copyProductCode(button) {
+  const value=button.dataset.copyValue;button.disabled=true;
+  try {
+    if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(value);
+    else {
+      const previous=document.activeElement,input=document.createElement('textarea');input.value=value;input.style.cssText='position:fixed;left:-9999px;top:0';document.body.append(input);
+      try{input.select();if(!document.execCommand('copy'))throw new Error('copy failed');}finally{input.remove();previous?.focus();}
+    }
+    notice((button.dataset.copyLabel||'Kod')+' kopyalandı.');
+  }catch{notice('Kopyalanamadı. Numarayı seçip Ctrl+C ile kopyalayabilirsin.');}
+  finally{button.disabled=false;}
 }

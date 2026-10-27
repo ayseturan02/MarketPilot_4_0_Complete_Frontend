@@ -1,6 +1,6 @@
 namespace MarketPilot.Web.Integrations.Demo;
 
-public sealed class DemoMarketplaceAdapter : IMarketplaceAdapter
+public sealed class DemoMarketplaceAdapter(DemoWorkspace? workspace = null) : IMarketplaceAdapter
 {
     public string Marketplace => "demo";
     private static MarketplaceAccount Account(ConnectionSettings s) => new(s.Marketplace, "DEMO-2738", s.Environment, "TR",
@@ -9,6 +9,7 @@ public sealed class DemoMarketplaceAdapter : IMarketplaceAdapter
     public Task<MarketplaceAccount> AccountAsync(ConnectionSettings s, CancellationToken ct) => Task.FromResult(Account(s));
     public Task<MarketplacePage<MarketplaceProduct>> ProductsAsync(ConnectionSettings s, ProductQuery q, CancellationToken ct)
     {
+        if (workspace is not null) return Task.FromResult(workspace.Products(s, q));
         var all = new[]
         {
             new MarketplaceProduct("701", "501", "DEMO-MAIN-1", "DEMO-001", "8690000000001", "Kablosuz Demo Kulaklık", "1001", "Elektronik", "İnternet Tekstil", 2299m, 1999m, 1899m, 12, "TRY", true, "https://www.trendyol.com/", ["https://cdn.dsmcdn.com/web/logo/ty-web.svg"], "approved", []),
@@ -23,6 +24,7 @@ public sealed class DemoMarketplaceAdapter : IMarketplaceAdapter
     }
     public Task<MarketplacePage<MarketplaceOrder>> OrdersAsync(ConnectionSettings s, OrderQuery q, CancellationToken ct)
     {
+        if (workspace is not null) return Task.FromResult(workspace.Orders(s, q));
         var order = new MarketplaceOrder("92087137", "DEMO-1001", "Created", DateTimeOffset.UtcNow.AddHours(-2), "Demo Müşteri", "demo@example.com", 1999m, 2299m, 300m, "TRY", "Kredi Kartı", "Shipment",
             new("shipment", "Shipment", "Türkiye", "İstanbul", "Kadıköy", "34710", "Demo teslimat adresi", false),
             [new("line-1", "DEMO-001", "8690000000001", "Kablosuz Demo Kulaklık", 1, 1999m, 2299m, 20m, "TRY", "Created", "1001")],

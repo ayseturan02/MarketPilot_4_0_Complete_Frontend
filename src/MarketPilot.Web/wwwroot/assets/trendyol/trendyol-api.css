@@ -1,33 +1,37 @@
-/* Trendyol API Merkezi — yalnızca .ty-* sınıfları; diğer pazaryerleri kendi klasörlerinde stil tanımlar. */
-.ty-panel .op-tab-scroll{margin:0 -22px;padding:0 4px}
-.ty-panel .op-tab small{color:#9aa7ae;font-weight:600;margin-left:3px}
-.ty-toolbar{display:flex;align-items:end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px}
-.ty-toolbar label{display:grid;gap:6px;font-size:10px;font-weight:750;color:#647983;min-width:min(320px,100%)}
-.ty-toolbar select{border:1px solid #dde6ea;background:#fff;border-radius:8px;padding:9px 10px;color:#314751;font-size:12px}
-.ty-count{font-size:11px;font-weight:700;color:#71858e}
-.ty-panel-desc{margin:14px 0 10px;font-size:12px}
-.ty-ops{display:grid;gap:8px}
-.ty-op{border:1px solid var(--mp-line);border-radius:12px;background:#fff;overflow:hidden}
-.ty-op.open{border-color:#bfe5d8;box-shadow:0 4px 14px #14a37e12}
-.ty-op-head{width:100%;display:flex;align-items:center;gap:10px;border:0;background:transparent;padding:12px 14px;text-align:left;cursor:pointer;flex-wrap:wrap}
-.ty-op-head:hover{background:#f8fafb}
-.ty-op-title{display:grid;gap:3px;flex:1;min-width:200px}
-.ty-op-title strong{font-size:12px;color:var(--mp-ink)}
-.ty-op-title code,.ty-result code{font-size:10.5px;color:#64748b;word-break:break-all}
-.ty-method{font:800 10px/1 ui-monospace,Consolas,monospace;padding:5px 7px;border-radius:6px;min-width:52px;text-align:center;background:#eef2f5;color:#475569}
-.ty-get{background:#e6f6f0;color:#047857}.ty-post{background:#e8f0fe;color:#1d4ed8}.ty-put{background:#fff4e0;color:#b45309}.ty-delete{background:#fdecec;color:#b91c1c}
-.ty-tag{font-size:10px;font-weight:750;padding:4px 8px;border-radius:999px;background:#f1f5f7;color:#64748b}
-.ty-tag.ty-write{background:#fff1e6;color:#c2410c}.ty-tag.ty-stage{background:#eef2ff;color:#4338ca}
-.ty-form{padding:0 14px 14px;display:grid;gap:10px}
-.ty-form .integration-note{margin:4px 0 0}
-.ty-fields{grid-template-columns:repeat(auto-fill,minmax(170px,1fr));margin:4px 0}
-.ty-wide{display:grid;gap:6px;font-size:10px;font-weight:750;color:#647983}
-.ty-wide small{font-weight:600;color:#9aa7ae}
-.ty-wide textarea{width:100%;box-sizing:border-box;border:1px solid #dde6ea;border-radius:8px;padding:9px 10px;font:11px/1.5 ui-monospace,Consolas,monospace;color:#314751;resize:vertical}
-.ty-actions{display:flex;gap:8px;flex-wrap:wrap}
-.ty-actions .btn{margin-top:0}
-.ty-result{margin:0 14px 14px}
-.ty-result .btn{margin-top:10px}
-.ty-result details{margin:8px 0;font-size:11px;color:#64748b}
-.ty-pre{max-height:420px;overflow:auto;background:#0f1d24;color:#d7e3ea;border-radius:10px;padding:12px;font:11px/1.55 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-word;margin:8px 0 0}
-@media (max-width:640px){.ty-op-title{min-width:0;flex-basis:100%}.ty-panel .op-tab-scroll{margin:0 -16px}}
+.ty-business-store{display:flex;align-items:center;gap:16px;padding:20px 24px;flex-wrap:wrap;margin-bottom:14px}
+.ty-shop-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;background:#fff2e8;color:#ed7b28;flex-shrink:0}
+.ty-shop-picker{display:grid;gap:5px;flex:1;min-width:180px}.ty-shop-picker>small{font-size:10px;color:#96a3aa;font-weight:800;letter-spacing:1px}
+.ty-shop-picker select{font-family:inherit;font-size:15px;font-weight:750;border:0;background:transparent;color:#27434f;max-width:100%;padding:3px 0}
+.ty-shop-status{border-radius:20px;padding:7px 12px;background:#eef7f2;color:#398464;font-size:11px;font-weight:750}
+.ty-connected-count{font-size:12px;color:#83939c}
+.ty-business-tabs{display:flex;gap:4px;overflow:auto;border-bottom:1px solid #e3e9ed;margin:20px 0 24px;padding-bottom:0}
+.ty-business-tabs button{background:transparent;border:0;border-bottom:3px solid transparent;padding:14px 16px;font-size:12px;font-weight:700;white-space:nowrap;color:#7b8f9b}
+.ty-business-tabs button.active{color:#0e9b77;border-bottom-color:#10a37f}.ty-business-tabs button:hover{color:#137c62;background:#f0f8f4}
+.ty-demo-note{font-size:12px;color:#927946;background:#fffaf0;border:1px solid #f2e9d1;border-radius:10px;padding:11px 15px;line-height:1.6}
+.ty-metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:24px}
+.ty-business-metric{padding:22px;display:grid;gap:13px}.ty-business-metric>span{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#7a8f9a}.ty-business-metric .ic{color:#12a17a}
+.ty-business-metric>strong{font-size:27px;color:#294653;letter-spacing:-.8px}.ty-business-metric small{color:#a0adb4;font-size:10px}
+.ty-business-content{overflow:hidden}.ty-business-content>.panel-head{padding:22px;margin:0;align-items:center;gap:16px;flex-wrap:wrap}.ty-business-content>.panel-head p{font-size:12px;color:#96a4ac;margin:6px 0 0}
+.ty-business-table{width:100%}.ty-business-table td small{display:block;margin-top:5px;color:#9aa9b2;font-size:10px}.ty-business-table td{font-size:12px}
+.ty-business-table .product-cell{min-width:180px;max-width:320px}.ty-product-image{width:40px;height:40px;object-fit:contain;border-radius:8px;border:1px solid #edf1f3}
+.ty-stock{font-weight:700;color:#198b68;white-space:nowrap}.ty-stock.empty{color:#d18b3b}
+.ty-search{min-width:0;width:220px;max-width:100%;padding:10px 12px;border:1px solid #e1e9ed;border-radius:9px;font-size:12px;font-family:inherit;color:#385362;background:#fafcfd}
+.ty-empty{min-height:180px;padding:32px;text-align:center;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:#92a4ae}.ty-empty strong{font-size:14px;color:#5a7480}.ty-empty p,.ty-empty span{font-size:12px;line-height:1.6;margin:0}
+.ty-list-footer{display:flex;justify-content:flex-end;align-items:center;gap:14px;padding:16px 22px;border-top:1px solid #edf1f3;font-size:11px;color:#90a1aa}
+.ty-answer{font-family:inherit;line-height:1.7;font-size:13px;padding:12px;border:1px solid #dfe7eb;border-radius:10px;resize:vertical;width:100%;box-sizing:border-box}
+.ty-loading-dot{width:22px;height:22px;border:3px solid #e5f2ec;border-top-color:#10a37f;border-radius:50%;animation:tyspin 1s linear infinite}@keyframes tyspin{to{transform:rotate(360deg)}}
+@media(max-width:1000px){.ty-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:540px){.ty-business-store{padding:16px;gap:10px}.ty-connected-count{display:none}.ty-business-store>.btn{margin-left:auto}.ty-business-metric{padding:16px}.ty-business-metric>strong{font-size:22px}.ty-business-tabs button{padding:13px 12px}.ty-business-content>.panel-head{padding:16px}.ty-search{width:100%}.ty-metric-grid{gap:10px}}
+@media(prefers-reduced-motion:reduce){.ty-loading-dot{animation:none}}
+
+.ty-workflow-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;margin-bottom:18px;border:1px solid #e2ebe7;background:#fff;border-radius:12px;flex-wrap:wrap}
+.ty-workflow-toolbar>label{font-size:12px;font-weight:750;color:#5d7681}.ty-workflow-toolbar>select{min-width:240px;max-width:100%;padding:11px 14px;border:1px solid #dce7e1;border-radius:9px;font:inherit;font-size:12px;background:#f7fbf9;color:#22745b}
+.modal:has(.ty-workflow-form){width:min(760px,100%);max-width:760px}
+.ty-workflow-form .store-form-grid{margin:16px 0}.ty-workflow-form>.store-form-grid:empty{display:none}
+.ty-workflow-group{padding:16px;margin:18px 0;border:1px solid #e0e9e4;border-radius:12px;min-width:0}
+.ty-workflow-group>legend{font-size:12px;font-weight:750;color:#53756a;padding:0 7px}.ty-workflow-group .store-form-grid{margin:8px 0}
+.ty-workflow-row{background:#f8fbfa;border-radius:9px;padding:12px;margin-bottom:10px}.ty-workflow-row-head{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:11px;color:#7d938a}
+.ty-workflow-result{padding:18px;margin-top:18px;border-radius:12px;background:#f4f9f6;border:1px solid #dfede4;overflow-wrap:anywhere}.ty-workflow-result h3,.ty-saved-result h3{font-size:15px;margin:0 0 14px}.ty-workflow-result p{font-size:12px;line-height:1.7}
+.ty-friendly-details{margin:8px 0;display:grid;gap:8px}.ty-friendly-details>div{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,2fr);gap:12px;padding:8px 0;border-bottom:1px solid #e4ece7}.ty-friendly-details dt{font-size:11px;color:#799083}.ty-friendly-details dd{font-size:12px;color:#3d5d4d;margin:0;overflow-wrap:anywhere}
+.ty-result-record{padding:12px;margin:8px 0;border:1px solid #e3ece6;border-radius:9px}.ty-result-record>strong{font-size:11px;color:#789084}.ty-saved-result{padding:22px;border-top:1px solid #edf2ef;max-height:600px;overflow:auto}
+@media(max-width:540px){.ty-workflow-toolbar>select{min-width:0;width:100%}.ty-friendly-details>div{grid-template-columns:minmax(0,1fr)}.ty-workflow-group{padding:10px}.ty-workflow-row{padding:8px}}

@@ -13,11 +13,18 @@ public sealed class IntegrationRegistry
     public ConcurrentDictionary<string, ConnectionState> Connections { get; } = new();
     public ConcurrentDictionary<string, SemaphoreSlim> Gates { get; } = new();
     public ConcurrentDictionary<string, CachedAccount> Accounts { get; } = new();
-    public IntegrationRegistry()
+    private readonly string file;
+    private readonly object saveGate = new();
+    public void Save() { lock(saveGate) { var temp=file+".tmp"; System.IO.File.WriteAllText(temp,System.Text.Json.JsonSerializer.Serialize(Connections.Values.ToArray(),new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))); System.IO.File.Move(temp,file,true); } }
+    public IntegrationRegistry(IWebHostEnvironment env)
     {
+        var folder=System.IO.Path.Combine(env.ContentRootPath,"Data");System.IO.Directory.CreateDirectory(folder);file=System.IO.Path.Combine(folder,"integration-connections.json");
+        if(System.IO.File.Exists(file))foreach(var store in System.Text.Json.JsonSerializer.Deserialize<ConnectionState[]>(System.IO.File.ReadAllText(file),new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)) ?? [])Connections[store.Id]=store;
         foreach (var marketplace in new[] { "trendyol", "hepsiburada", "n11", "amazon" })
-            Connections[marketplace] = new(marketplace, new(marketplace == "trendyol" ? "Trendyol API Sözleşme Demosu" : marketplace, marketplace, "demo", "stage"), "demo", null, null, null,
+            if(!Connections.ContainsKey(marketplace)) Connections[marketplace] = new(marketplace, new(marketplace == "trendyol" ? "Trendyol API Sözleşme Demosu" : marketplace, marketplace, "demo", "stage"), "demo", null, null, null,
                 marketplace == "trendyol" ? "Resmî Product V2 ve Order V2 cevap yapılarıyla yerel demo; dış API çağrısı yapılmadı." : "Demo · Dış API çağrısı yapılmadı.", null);
+        Connections.TryAdd("trendyol-outlet",new("trendyol-outlet",new("İnternet Tekstil Outlet · Demo","trendyol","demo","stage"),"demo",null,null,null,"Ayrı örnek stokları olan demo mağaza.",null));
+        Save();
     }
 }
 public record CachedAccount(MarketplaceAccount Account, DateTimeOffset ExpiresAt);
@@ -27,6 +34,7 @@ public static class IntegrationEndpoints
     public static void AddMarketplaceIntegrations(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<IntegrationRegistry>();
+        services.AddSingleton<DemoWorkspace>();
         services.AddSingleton<DemoMarketplaceAdapter>();
         // Her pazaryeri kendi klasöründen kayıt olur; Trendyol: Integrations/Trendyol/TrendyolEndpoints.cs
         services.AddTrendyolIntegration();
@@ -50,6 +58,7 @@ public static class IntegrationEndpoints
                 return Results.Json(new { error = "Farklı kaynaktan entegrasyon isteği reddedildi." }, statusCode: 403);
             return await next(context);
         });
+        group.MapDemoWorkspace();
         group.MapGet("/readiness", (IConfiguration configuration) => Results.Ok(new
         {
             trendyol = new
@@ -68,7 +77,7 @@ public static class IntegrationEndpoints
             if (registry.Connections.Count >= 50) return Results.BadRequest(new { error = "Bu geçici çalışma alanında en fazla 50 mağaza eklenebilir." });
             var id = Guid.NewGuid().ToString("N");
             var state = new ConnectionState(id, settings with { Name = settings.Name.Trim() }, settings.Mode == "demo" ? "demo" : "untested", null, null, null, "Henüz bağlantı testi yapılmadı.", null);
-            registry.Connections[id] = state;
+            registry.Connections[id] = state; registry.Save();
             return Results.Ok(state);
         });
         group.MapPost("/connections/{id}/{operation}", async (
@@ -128,14 +137,14 @@ public static class IntegrationEndpoints
                     Message = operation == "test" ? "Trendyol kimlik bilgileri doğrulandı." : operation == "account" ? "Satıcı hesabı okundu; sonuç bir saat önbelleğe alındı." : "Sayfa okundu; yerel kayıtlara aktarılmadı.",
                     LastCount = count, SellerId = account?.SellerId ?? state.SellerId
                 };
-                registry.Connections[id] = updated;
+                registry.Connections[id] = updated; registry.Save();
                 return Results.Ok(new { connection = updated, result });
             }
             catch (Exception ex) when (ex is IntegrationException or HttpRequestException or OperationCanceledException or System.Text.Json.JsonException or InvalidOperationException or OverflowException)
             {
                 var error = ex as IntegrationException ?? new IntegrationException(ex is OperationCanceledException ? "timeout" : "read_failed", ex is OperationCanceledException ? "API isteği zaman aşımına uğradı veya iptal edildi." : "API yanıtı okunamadı; bağlantıyı ve yanıt sözleşmesini kontrol edin.");
                 var updated = state with { Status = "error", LastOperation = DateTimeOffset.UtcNow, LastAction = operation, ErrorCode = error.Code, Message = error.Message, LastCount = null };
-                registry.Connections[id] = updated;
+                registry.Connections[id] = updated; registry.Save();
                 return Results.Json(new { error = error.Message, code = error.Code, connection = updated }, statusCode: error.Status);
             }
             finally { gate.Release(); }

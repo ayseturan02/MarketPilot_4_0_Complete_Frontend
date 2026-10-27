@@ -47,7 +47,7 @@ public static class TrendyolEndpoints
                     LastOperation = DateTimeOffset.UtcNow, LastAction = operation.Key, ErrorCode = null, LastCount = null,
                     Message = result.Sent ? $"{operation.Title}: Trendyol HTTP {result.Status}." : $"{operation.Title}: istek gönderilmedi (önizleme)."
                 };
-                registry.Connections[id] = updated;
+                registry.Connections[id] = updated; registry.Save();
                 return Results.Ok(new { connection = updated, result });
             }
             catch (Exception ex) when (ex is IntegrationException or HttpRequestException or OperationCanceledException or JsonException or InvalidOperationException)
@@ -56,7 +56,7 @@ public static class TrendyolEndpoints
                     ex is OperationCanceledException ? "API isteği zaman aşımına uğradı veya iptal edildi." : "Trendyol isteği tamamlanamadı; bağlantıyı ve gönderilen alanları kontrol edin.");
                 var updated = error.Status == 400 && error.Code is "invalid_request" or "stage_only" ? state
                     : state with { Status = "error", LastOperation = DateTimeOffset.UtcNow, LastAction = operation.Key, ErrorCode = error.Code, Message = error.Message, LastCount = null };
-                registry.Connections[id] = updated;
+                registry.Connections[id] = updated; registry.Save();
                 return Results.Json(new { error = error.Message, code = error.Code, connection = updated }, statusCode: error.Status);
             }
             finally { gate.Release(); }

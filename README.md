@@ -95,3 +95,21 @@ node tests/frontend-checks.cjs
 Kontroller; Product V2 ayrıntıları ve filtreleri, Order V2 müşteri/kargo/fatura dönüşümü, satıcı adresleri, sayfalama, kimlik başlıkları, eksik alanlar, 401/429 temizleme, eksik yapılandırma, demo ekranları ve 39 menünün korunmasını kapsar. Gerçek Trendyol hesabı, yalnızca yerel User Secrets tanımlandıktan sonra kullanıcı tarafından test edilebilir.
 
 Resmî sözleşmeler: [Yetkilendirme](https://developers.trendyol.com/docs/2-authorization), [Product V2](https://developers.trendyol.com/docs/ürün-filtreleme-onaylı-ürün-v2), [Order V2](https://developers.trendyol.com/docs/sipariş-paketlerini-çekme-getshipmentpackages), [satıcı adresleri](https://developers.trendyol.com/reference/getsuppliersaddresses).
+
+## Çalışan demo mağaza senaryoları — 27 Ekim 2026
+
+Trendyol Merkezi'nde ana demo mağaza ve Outlet demo mağazası vardır. Her mağaza ayrı örnek stoklarla çalışır: 8 tekstil ürünü/varyantı, 6 sipariş, 2 iade, 3 müşteri sorusu ve finans kayıtları.
+
+Deneme sırası:
+1. Ürünler > Detay: özellikler, varyantlar, red nedeni ve mağaza stokları.
+2. Stok ve fiyat > Düzenle: değişikliği kaydet; İşlem geçmişinde bekliyor/tamamlandı durumunu izle.
+3. Siparişler > Detay: hazırlama, demo fatura, demo kargo ve teslimat adımlarını ilerlet.
+4. Müşteri soruları > Yanıtla; İadeler > İncele ve onayla.
+5. İşlem geçmişi > örnek başarısız işlemi yeniden dene.
+6. Fatura ve garanti / Etiketler: geçersiz örnek belgeleri önizle.
+
+Mağaza kayıtları `Data/integration-connections.json`, demo stok/sipariş/işlem verileri `Data/integration-demo.json` dosyasında saklanır. Bu dizin Git dışında kalır. JSON kalıcılığı, üretim veritabanı veya çok kullanıcılı işlem altyapısı değildir. Demo işlemleri ayrı uçlardan yürür; gerçek mağazaya uygulanamaz. Bekleyen demo işler sonraki okuma sırasında tamamlanır; kesintisiz çalışan bir kuyruk işçisi değildir. Örnek belgeler gerçek fatura veya kargo etiketi olarak kullanılamaz.
+
+Gerçek mağaza bağlantısı, ayrı satıcı kimlik profilleri, kimlik doğrulama/yetkilendirme, kalıcı üretim iş kuyruğu ve gerçek uçtan uca testler hâlâ tamamlanmalıdır.
+
+Kontrol: `dotnet run --project tests/MarketPilot.DemoChecks`.

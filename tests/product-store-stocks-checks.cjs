@@ -1,0 +1,24 @@
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+const data={'integrations/connections':[]},context=vm.createContext({data,integrationResults:{},document:{querySelector:()=>null},URLSearchParams,Map,Set,Date,Promise});
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/MarketPilot.Web/wwwroot/assets/product-store-stocks.js'),'utf8'),context);
+const call=(fn,...args)=>{context.fn=fn;context.args=args;return vm.runInContext('globalThis[fn](...args)',context);};
+const store={id:'one',settings:{name:'One',marketplace:'trendyol',mode:'real',environment:'production'}};
+(async()=>{
+ assert.equal(call('psSameProduct',{barcode:'1234'},{barcode:'123',sku:''}),false);
+ assert.equal(call('psSameProduct',{barcode:'123',sku:'other'},{barcode:'123',sku:''}),true);
+ assert.equal(call('psSameProduct',{sku:'abc'},{barcode:'',sku:'ABC'}),false);
+ let calls=0;
+ context.tyRequest=async()=>{calls++;return {items:[{id:'v',barcode:'123',sku:'S',stock:0,salePrice:100},{id:'wrong',barcode:'1234',stock:99}],page:0,totalPages:1};};
+ const found=await call('psLookup',store,{barcode:'123',sku:''});assert.equal(found.state,'found');assert.equal(found.items.length,1);assert.equal(found.items[0].stock,0);
+ context.tyRequest=async()=>({items:[],totalPages:1});assert.equal((await call('psLookup',store,{barcode:'absent',sku:''})).state,'absent');
+ context.tyRequest=async()=>{throw Error('upstream');};assert.equal((await call('psLookup',store,{barcode:'123',sku:''})).state,'error');
+ data['integrations/readiness']={trendyol:{production:false}};assert.equal((await call('psLookup',store,{barcode:'123',sku:''})).state,'unconfigured');delete data['integrations/readiness'];
+ assert.equal((await call('psLookup',{...store,settings:{...store.settings,marketplace:'amazon'}},{barcode:'123'})).state,'unsupported');
+ let pages=0;context.tyRequest=async(s,url)=>{pages++;const page=Number(new URL('http://local'+url).searchParams.get('page'));return {items:[{id:'v'+page,barcode:'b'+page,sku:'S',stock:page?null:0}],totalPages:2};};
+ const variants=await call('psReadProducts',store,{barcode:'',sku:'S'},'approved');assert.equal(pages,2);assert.equal(variants.items.length,2);assert.equal(variants.items[1].stock,null);
+ context.tyRequest=async()=>({items:[],nextPageToken:'repeat'});assert.equal((await call('psReadProducts',store,{barcode:'missing'},'approved')).complete,false);
+ calls=0;context.tyRequest=async()=>{calls++;return {items:[{barcode:'123',id:'v',stock:5}],totalPages:1};};
+ data['integrations/connections']=[store,{...store,id:'alias',settings:{...store.settings,name:'Alias'}}];
+ const ref=call('psRef',{id:'local',name:'Product',barcode:'123'});const result=await call('psEnsure',ref);assert.equal(calls,1,'Aliases must query a shared seller account once');assert.equal(result.rows.length,2);assert(result.rows.every(r=>r.alias));
+ console.log('PASS: exact identity, zero versus unknown stock, absent versus failed/unconfigured/unsupported, pagination, SKU variants, repeated cursors and shared-account deduplication.');
+})().catch(e=>{console.error(e);process.exitCode=1;});
