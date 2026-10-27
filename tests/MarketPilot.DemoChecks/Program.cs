@@ -17,7 +17,8 @@ try
     var barcode = initial.Products[0].Barcode; var orderId = initial.Orders[0].PackageId;
     var pending = demo.Enqueue(settings, new("stock", "stock-1", barcode, 41, 499m));
     Check(pending.State == "pending" && demo.Snapshot(settings).Products[0].Stock == 36, "Pending job changed inventory early");
-    Check(demo.Enqueue(settings, new("stock", "stock-1", barcode, 99, 999m)).Id == pending.Id, "Duplicate command was not idempotent");
+    Check(demo.Enqueue(settings, new("stock", "stock-1", barcode, 41, 499m)).Id == pending.Id, "Duplicate command was not idempotent");
+    Reject(() => demo.Enqueue(settings, new("stock", "stock-1", barcode, 99, 999m)));
     demo.Enqueue(settings, new("order-next", "order-1", Reference: orderId));
     Reject(() => demo.Enqueue(settings, new("order-next", "order-duplicate", Reference: orderId)));
     Reject(() => demo.Enqueue(settings, new("stock", "invalid-stock", barcode, -1, 100m)));

@@ -47,6 +47,7 @@ public sealed class DemoJob
     public decimal? Price { get; set; }
     public string? Text { get; set; }
     public string RequestId { get; set; } = "";
+    public string Fingerprint { get; set; } = "";
 }
 public sealed class DemoWorkspaceState
 {
@@ -70,22 +71,47 @@ public sealed partial class DemoWorkspace
     private readonly string file;
     private readonly JsonSerializerOptions json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private Dictionary<string, DemoWorkspaceState> states;
+    private string persistedSnapshot = "{}";
     public DemoWorkspace(IWebHostEnvironment env)
     {
         var folder = Path.Combine(env.ContentRootPath, "Data"); Directory.CreateDirectory(folder);
         file = Path.Combine(folder, "integration-demo.json");
         // Never replace unreadable existing demo data with a seed silently.
         states = File.Exists(file) ? JsonSerializer.Deserialize<Dictionary<string, DemoWorkspaceState>>(File.ReadAllText(file), json) ?? throw new InvalidOperationException("Demo workspace cannot be read.") : new();
+        persistedSnapshot=JsonSerializer.Serialize(states,json);
     }
     private static string Key(ConnectionSettings settings) => $"{settings.Marketplace}|{settings.Environment}|{settings.Name}";
     private void Save()
     {
-        var temporary = file + ".tmp"; File.WriteAllText(temporary, JsonSerializer.Serialize(states, json)); File.Move(temporary, file, true);
+        var candidate=JsonSerializer.Serialize(states,json);
+        try{var temporary=file+".tmp";File.WriteAllText(temporary,candidate);File.Move(temporary,file,true);persistedSnapshot=candidate;}
+        catch{states=JsonSerializer.Deserialize<Dictionary<string,DemoWorkspaceState>>(persistedSnapshot,json)!;throw;}
+    }
+    public int ProcessPendingJobs()
+    {
+        lock(gate)
+        {
+            var count=0;
+            foreach(var state in states.Values)
+            {
+                var due=state.Jobs.Where(j=>j.State=="pending"&&j.DueAt<=DateTimeOffset.UtcNow).OrderBy(j=>j.CreatedAt).ToList();
+                foreach(var job in due){Apply(state,job);count++;}
+                if(due.Count>0)state.LastSyncAt=DateTimeOffset.UtcNow;
+            }
+            if(count>0)Save();return count;
+        }
     }
     private DemoWorkspaceState State(ConnectionSettings settings)
     {
         if (settings.Mode != "demo") throw new InvalidOperationException("Only demo stores can use this workspace.");
         if (!states.TryGetValue(Key(settings), out var state)) { state = Seed(settings); states[Key(settings)] = state; Save(); }
+        if (settings.Marketplace == "hepsiburada")
+        {
+            var changed = false;
+            for (var i = 0; i < state.Orders.Count; i++)
+                if (state.Orders[i].Cargo.Provider == "Trendyol Express · Demo") { state.Orders[i] = state.Orders[i] with { Cargo = state.Orders[i].Cargo with { Provider = "HepsiJet · Demo" } }; changed = true; }
+            if (changed) Save();
+        }
         var due = state.Jobs.Where(j => j.State == "pending" && j.DueAt <= DateTimeOffset.UtcNow).OrderBy(j => j.CreatedAt).ToList();
         foreach (var job in due) Apply(state, job);
         if (due.Count > 0) { state.LastSyncAt = DateTimeOffset.UtcNow; Save(); }
@@ -119,25 +145,32 @@ public sealed partial class DemoWorkspace
         {
             var state = State(settings);
             if (string.IsNullOrWhiteSpace(action.RequestId) || action.RequestId.Length > 100) throw new ArgumentException("İşlem kimliği gerekli.");
-            var existing = state.Jobs.FirstOrDefault(j => j.RequestId == action.RequestId); if (existing is not null) return existing;
+            var fingerprint=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(action,json))));
+            var existing = state.Jobs.FirstOrDefault(j => j.RequestId == action.RequestId); if (existing is not null) { if(existing.Fingerprint.Length>0&&existing.Fingerprint!=fingerprint)throw new ArgumentException("Aynı işlem kimliği farklı bir istek için kullanılamaz."); return existing; }
             if (state.Jobs.Count(j => j.State == "pending") >= 20) throw new ArgumentException("Bekleyen işlemlerin tamamlanmasını bekle.");
-            var job = new DemoJob { Kind = action.Type, RequestId = action.RequestId, Reference = action.Reference ?? action.Barcode ?? "", Quantity = action.Quantity, Price = action.Price, Text = action.Text };
+            var job = new DemoJob { Fingerprint=fingerprint, Kind = action.Type, RequestId = action.RequestId, Reference = action.Reference ?? action.Barcode ?? "", Quantity = action.Quantity, Price = action.Price, Text = action.Text };
             switch (action.Type)
             {
                 case "stock":
+                    if(settings.Marketplace=="n11"&&MarketPilot.Web.Integrations.N11.N11Demo.Depot(action.Barcode??""))throw new ArgumentException("n11depom stoğu satıcı düzenlemesiyle değiştirilemez.");
+                    if (settings.Marketplace == "amazon" && MarketPilot.Web.Integrations.Amazon.AmazonDemo.IsAmazonFulfilled(action.Barcode ?? "")) throw new ArgumentException("Amazon FBA stoğu satıcı stok düzenlemesiyle değiştirilemez.");
                     if (!state.Products.Any(p => p.Barcode == action.Barcode)) throw new ArgumentException("Ürün bulunamadı.");
                     if (action.Quantity is null or < 0 or > 1000000 || action.Price is null or <= 0 or > 10000000) throw new ArgumentException("Stok ve fiyatı kontrol et.");
                     job.Title = "Stok ve fiyat güncellendi"; break;
                 case "order-next":
                     var order = state.Orders.FirstOrDefault(o => o.PackageId == action.Reference) ?? throw new ArgumentException("Sipariş bulunamadı.");
+                    if(settings.Marketplace=="n11"&&MarketPilot.Web.Integrations.N11.N11Demo.DepotOrder(order))throw new ArgumentException("Bu paketi n11depom gönderir; satıcı hazırlama adımı uygulanmaz.");
+                    if (settings.Marketplace == "amazon" && MarketPilot.Web.Integrations.Amazon.AmazonDemo.Channel(order) == "AMAZON") throw new ArgumentException("Bu siparişi Amazon gönderir; satıcı hazırlama adımı uygulanmaz.");
                     if (!new[] { "Created", "Picking", "Invoiced", "Shipped" }.Contains(order.Status)) throw new ArgumentException("Sipariş için sonraki adım yok.");
                     if (state.Jobs.Any(j => j.State == "pending" && j.Kind == "order-next" && j.Reference == order.PackageId)) throw new ArgumentException("Sipariş işlemi zaten sürüyor.");
                     job.Text = order.Status; job.Title = "Sipariş durumu güncellendi"; break;
                 case "answer":
+                    if(state.Jobs.Any(j=>j.State=="pending"&&j.Kind=="answer"&&j.Reference==action.Reference))throw new ArgumentException("Bu sorunun yanıtı zaten işleniyor.");
                     if (!state.Questions.Any(q => q.Id == action.Reference && q.Status == "WAITING_FOR_ANSWER")) throw new ArgumentException("Yanıt bekleyen soru bulunamadı.");
                     if (string.IsNullOrWhiteSpace(action.Text) || action.Text.Trim().Length is < 10 or > 2000) throw new ArgumentException("Yanıt 10–2000 karakter olmalı.");
                     job.Text = action.Text.Trim(); job.Title = "Müşteri sorusu yanıtlandı"; break;
                 case "claim-approve":
+                    if(state.Jobs.Any(j=>j.State=="pending"&&j.Kind=="claim-approve"&&j.Reference==action.Reference))throw new ArgumentException("Bu iade zaten işleniyor.");
                     if (!state.Claims.Any(c => c.Id == action.Reference && c.Status == "İnceleniyor")) throw new ArgumentException("İncelenen iade bulunamadı.");
                     job.Title = "İade onaylandı ve stok güncellendi"; break;
                 case "retry":
@@ -206,7 +239,7 @@ public sealed partial class DemoWorkspace
         {
             var p = s.Products[i == 2 ? 3 : i]; var qty = i == 0 ? 2 : 1; var price = p.SalePrice!.Value;
             var invoice = new MarketplaceInvoice(i >= 2 ? "DEMO-FTR-" + (1001 + i) : "", i >= 2 ? "Invoiced" : "Bekliyor", "", false, "", "", "", false, []);
-            s.Orders.Add(new("demo-pkg-" + (1001 + i), "DEMO-" + (1001 + i), statuses[i], now.AddHours(-i * 5 - 1), customers[i], "ornek@example.invalid", price * qty, (p.ListPrice ?? price) * qty, ((p.ListPrice ?? price) - price) * qty, "TRY", "Kredi kartı", "Shipment", new("address-" + i, "Shipment", "Türkiye", "İstanbul", "Kadıköy", "34710", "Örnek Mahallesi, Demo Sokak No: 1 — Gerçek teslimat adresi değildir.", false), [new("line-" + i, p.Sku, p.Barcode, p.Name, qty, price, price * qty, 20, "TRY", statuses[i], p.CategoryId)], new("Trendyol Express · Demo", i >= 3 ? "DEMO-TRACK-" + (1001 + i) : "", "", "", "demo-pkg-" + (1001 + i), 1.5m, 1), invoice));
+            s.Orders.Add(new("demo-pkg-" + (1001 + i), "DEMO-" + (1001 + i), statuses[i], now.AddHours(-i * 5 - 1), customers[i], "ornek@example.invalid", price * qty, (p.ListPrice ?? price) * qty, ((p.ListPrice ?? price) - price) * qty, "TRY", "Kredi kartı", "Shipment", new("address-" + i, "Shipment", "Türkiye", "İstanbul", "Kadıköy", "34710", "Örnek Mahallesi, Demo Sokak No: 1 — Gerçek teslimat adresi değildir.", false), [new("line-" + i, p.Sku, p.Barcode, p.Name, qty, price, price * qty, 20, "TRY", statuses[i], p.CategoryId)], new(settings.Marketplace == "hepsiburada" ? "HepsiJet · Demo" : "Trendyol Express · Demo", i >= 3 ? "DEMO-TRACK-" + (1001 + i) : "", "", "", "demo-pkg-" + (1001 + i), 1.5m, 1), invoice));
             if (i < 3) s.ProductInfo[p.Barcode].Reserved += qty;
             s.Events.Add(new("Sipariş oluşturuldu", now.AddHours(-i * 5 - 1), "demo-pkg-" + (1001 + i)));
             if (i >= 2) s.Finance.Add(new("sale-" + i, "DEMO-" + (1001 + i), "Sale", price * qty, "Demo satış tutarı", now.AddHours(-i * 5)));

@@ -120,8 +120,10 @@ Deneme sırası:
 5. İşlem geçmişi > örnek başarısız işlemi yeniden dene.
 6. Fatura ve garanti / Etiketler: geçersiz örnek belgeleri önizle.
 
-Mağaza kayıtları `Data/integration-connections.json`, demo stok/sipariş/işlem verileri `Data/integration-demo.json` dosyasında saklanır. Bu dizin Git dışında kalır. JSON kalıcılığı, üretim veritabanı veya çok kullanıcılı işlem altyapısı değildir. Demo işlemleri ayrı uçlardan yürür; gerçek mağazaya uygulanamaz. Bekleyen demo işler sonraki okuma sırasında tamamlanır; kesintisiz çalışan bir kuyruk işçisi değildir. Örnek belgeler gerçek fatura veya kargo etiketi olarak kullanılamaz.
+Mağaza kayıtları `Data/integration-connections.json`, demo stok/sipariş/işlem verileri `Data/integration-demo.json` dosyasında saklanır. Bu dizin Git dışında kalır. JSON kalıcılığı, üretim veritabanı veya çok kullanıcılı işlem altyapısı değildir. Demo işlemleri ayrı uçlardan yürür; gerçek mağazaya uygulanamaz. Demo işleri artık sunucu açıkken arka plan servisiyle tamamlanır; tarayıcı veya okuma isteği gerekmez. Sunucu yeniden başladığında kayıtlı bekleyen işler devam eder. Bu, gerçek pazaryeri yazma kuyruğu değildir. Örnek belgeler gerçek fatura veya kargo etiketi olarak kullanılamaz.
 
 Gerçek mağaza bağlantısı, ayrı satıcı kimlik profilleri, kimlik doğrulama/yetkilendirme, kalıcı üretim iş kuyruğu ve gerçek uçtan uca testler hâlâ tamamlanmalıdır.
 
 Kontrol: `dotnet run --project tests/MarketPilot.DemoChecks`.
+
+Yerel giriş/roller, arka plan kuyruğu ve şifreli yedek kurulumu: [YEREL_GUVENLIK_VE_YEDEK.md](YEREL_GUVENLIK_VE_YEDEK.md).

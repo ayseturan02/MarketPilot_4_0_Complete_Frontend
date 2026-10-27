@@ -9,7 +9,7 @@ public sealed class DemoMarketplaceAdapter(DemoWorkspace? workspace = null) : IM
     public Task<MarketplaceAccount> AccountAsync(ConnectionSettings s, CancellationToken ct) => Task.FromResult(Account(s));
     public Task<MarketplacePage<MarketplaceProduct>> ProductsAsync(ConnectionSettings s, ProductQuery q, CancellationToken ct)
     {
-        if (workspace is not null) return Task.FromResult(workspace.Products(s, q));
+        if (workspace is not null) { var result = workspace.Products(s, q); if(s.Marketplace=="amazon")result=result with {Items=result.Items.Select(p=>MarketPilot.Web.Integrations.Amazon.AmazonDemo.IsAmazonFulfilled(p.Barcode)?p with {Stock=null}:p).ToArray()}; return Task.FromResult(result); }
         var all = new[]
         {
             new MarketplaceProduct("701", "501", "DEMO-MAIN-1", "DEMO-001", "8690000000001", "Kablosuz Demo Kulaklık", "1001", "Elektronik", "İnternet Tekstil", 2299m, 1999m, 1899m, 12, "TRY", true, "https://www.trendyol.com/", ["https://cdn.dsmcdn.com/web/logo/ty-web.svg"], "approved", []),

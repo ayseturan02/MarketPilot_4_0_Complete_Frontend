@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Net;
 using MarketPilot.Web.Integrations.Amazon;
+using MarketPilot.Web.Integrations.Boyner;
+using MarketPilot.Web.Integrations.Ticimax;
 using MarketPilot.Web.Integrations.Demo;
 using MarketPilot.Web.Integrations.Hepsiburada;
 using MarketPilot.Web.Integrations.N11;
@@ -20,7 +22,7 @@ public sealed class IntegrationRegistry
     {
         var folder=System.IO.Path.Combine(env.ContentRootPath,"Data");System.IO.Directory.CreateDirectory(folder);file=System.IO.Path.Combine(folder,"integration-connections.json");
         if(System.IO.File.Exists(file))foreach(var store in System.Text.Json.JsonSerializer.Deserialize<ConnectionState[]>(System.IO.File.ReadAllText(file),new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)) ?? [])Connections[store.Id]=store;
-        foreach (var marketplace in new[] { "trendyol", "hepsiburada", "n11", "amazon" })
+        foreach (var marketplace in new[] { "trendyol", "hepsiburada", "n11", "amazon", "boyner", "ticimax" })
             if(!Connections.ContainsKey(marketplace)) Connections[marketplace] = new(marketplace, new(marketplace == "trendyol" ? "Trendyol API Sözleşme Demosu" : marketplace, marketplace, "demo", "stage"), "demo", null, null, null,
                 marketplace == "trendyol" ? "Resmî Product V2 ve Order V2 cevap yapılarıyla yerel demo; dış API çağrısı yapılmadı." : "Demo · Dış API çağrısı yapılmadı.", null);
         Connections.TryAdd("trendyol-outlet",new("trendyol-outlet",new("İnternet Tekstil Outlet · Demo","trendyol","demo","stage"),"demo",null,null,null,"Ayrı örnek stokları olan demo mağaza.",null));
@@ -36,17 +38,17 @@ public static class IntegrationEndpoints
         services.AddSingleton<IntegrationRegistry>();
         services.AddSingleton<DemoWorkspace>();
         services.AddSingleton<DemoMarketplaceAdapter>();
-        // Her pazaryeri kendi klasöründen kayıt olur; Trendyol: Integrations/Trendyol/TrendyolEndpoints.cs
         services.AddTrendyolIntegration();
-        services.AddTransient<IMarketplaceAdapter, HepsiburadaAdapter>();
-        services.AddTransient<IMarketplaceAdapter, N11Adapter>();
-        services.AddTransient<IMarketplaceAdapter, AmazonSpApiAdapter>();
+        services.AddHepsiburadaIntegration();
+        services.AddN11Integration();
+        services.AddAmazonIntegration();
+        services.AddBoynerIntegration();
+        services.AddTicimaxIntegration();
     }
 
     public static void MapMarketplaceIntegrations(this WebApplication app)
     {
         var group = app.MapGroup("/api/integrations");
-        // This development app has no account authentication. Keep real API reads local.
         group.AddEndpointFilter(async (context, next) =>
         {
             var http = context.HttpContext;
@@ -59,8 +61,18 @@ public static class IntegrationEndpoints
             return await next(context);
         });
         group.MapDemoWorkspace();
+        group.MapHepsiburada();
+        group.MapAmazon();
+        group.MapN11();
+        group.MapBoyner();
+        group.MapTicimax();
         group.MapGet("/readiness", (IConfiguration configuration) => Results.Ok(new
         {
+            ticimax = new { stage = false, production = TicimaxSoap.IsConfigured(configuration,"production"), writes = new { stage = false, production = false } },
+            boyner = new { stage = false, production = BoynerAdapter.IsConfigured(configuration,"production"), writes = new { stage = false, production = false } },
+            n11 = new { stage = false, production = N11Adapter.IsConfigured(configuration,"production"), writes = new { stage = false, production = false } },
+            amazon = new { stage = AmazonApiClient.IsConfigured(configuration,"stage"), production = AmazonApiClient.IsConfigured(configuration,"production"), writes = new { stage = false, production = false } },
+            hepsiburada = new { stage = HepsiburadaAdapter.IsConfigured(configuration,"stage"), production = HepsiburadaAdapter.IsConfigured(configuration,"production"), writes = new { stage = false, production = false } },
             trendyol = new
             {
                 stage = TrendyolApiClient.IsConfigured(configuration, "stage"), production = TrendyolApiClient.IsConfigured(configuration, "production"),
@@ -71,7 +83,7 @@ public static class IntegrationEndpoints
         group.MapPost("/connections", (ConnectionSettings settings, IntegrationRegistry registry) =>
         {
             if (string.IsNullOrWhiteSpace(settings.Name) || settings.Name.Length > 80 ||
-                !new[] { "trendyol", "hepsiburada", "n11", "amazon" }.Contains(settings.Marketplace) ||
+                !new[] { "trendyol", "hepsiburada", "n11", "amazon", "boyner", "ticimax" }.Contains(settings.Marketplace) ||
                 !new[] { "demo", "real" }.Contains(settings.Mode) || !new[] { "stage", "production" }.Contains(settings.Environment))
                 return Results.BadRequest(new { error = "Mağaza adı, pazaryeri, mod ve ortam değerlerini kontrol edin." });
             if (registry.Connections.Count >= 50) return Results.BadRequest(new { error = "Bu geçici çalışma alanında en fazla 50 mağaza eklenebilir." });
@@ -95,9 +107,9 @@ public static class IntegrationEndpoints
             if (new[] { barcode, stockCode, orderNumber }.Any(x => x?.Length > 100) || nextPageToken?.Length > 2048 || nextCursor?.Length > 2048)
                 return Results.BadRequest(new { error = "Filtre değeri izin verilen uzunluğu aşıyor." });
             var productApproval = approval == "unapproved" ? "unapproved" : "approved";
-            if (operation == "products" && !string.IsNullOrWhiteSpace(status) && !(productApproval == "approved" ? new[] { "archived", "blacklisted", "locked", "onSale", "notOnSale" } : new[] { "rejected", "pendingApproval" }).Contains(status))
+            if (state.Settings.Marketplace != "amazon" && operation == "products" && !string.IsNullOrWhiteSpace(status) && !(productApproval == "approved" ? new[] { "archived", "blacklisted", "locked", "onSale", "notOnSale" } : new[] { "rejected", "pendingApproval" }).Contains(status))
                 return Results.BadRequest(new { error = "Geçersiz ürün durumu filtresi." });
-            if (operation == "orders" && !string.IsNullOrWhiteSpace(status) && !new[] { "Created", "Picking", "Invoiced", "Shipped", "Cancelled", "Delivered", "UnDelivered", "Returned", "AtCollectionPoint", "UnPacked", "UnSupplied", "Awaiting", "Verified" }.Contains(status))
+            if (state.Settings.Marketplace != "amazon" && operation == "orders" && !string.IsNullOrWhiteSpace(status) && !new[] { "Created", "Picking", "Invoiced", "Shipped", "Cancelled", "Delivered", "UnDelivered", "Returned", "AtCollectionPoint", "UnPacked", "UnSupplied", "Awaiting", "Verified" }.Contains(status))
                 return Results.BadRequest(new { error = "Geçersiz sipariş durumu filtresi." });
             if (operation == "orders" && stream == true && (!string.IsNullOrWhiteSpace(orderNumber) || !string.IsNullOrWhiteSpace(barcode) || status == "Verified"))
                 return Results.BadRequest(new { error = "Büyük veri akışında sipariş no, barkod ve Verified filtresi desteklenmez." });
@@ -134,7 +146,7 @@ public static class IntegrationEndpoints
                 var updated = state with {
                     Status = state.Settings.Mode == "demo" ? "demo" : "connected", LastOperation = DateTimeOffset.UtcNow,
                     LastAction = operation, ErrorCode = null,
-                    Message = operation == "test" ? "Trendyol kimlik bilgileri doğrulandı." : operation == "account" ? "Satıcı hesabı okundu; sonuç bir saat önbelleğe alındı." : "Sayfa okundu; yerel kayıtlara aktarılmadı.",
+                    Message = operation == "test" ? "Mağaza bağlantı bilgileri doğrulandı." : operation == "account" ? "Satıcı hesabı okundu; sonuç bir saat önbelleğe alındı." : "Sayfa okundu; yerel kayıtlara aktarılmadı.",
                     LastCount = count, SellerId = account?.SellerId ?? state.SellerId
                 };
                 registry.Connections[id] = updated; registry.Save();
@@ -152,7 +164,7 @@ public static class IntegrationEndpoints
         group.MapTrendyolApi();
         group.MapPost("/preview/{marketplace}/stock-price", (string marketplace, StockPriceDraft[] items) =>
         {
-            if (!new[] { "trendyol", "hepsiburada", "n11", "amazon" }.Contains(marketplace) || items.Length is 0 or > 1000 || items.Any(i => string.IsNullOrWhiteSpace(i.Barcode) || i.Stock < 0 || i.Price < 0))
+            if (!new[] { "trendyol", "hepsiburada", "n11", "amazon", "boyner", "ticimax" }.Contains(marketplace) || items.Length is 0 or > 1000 || items.Any(i => string.IsNullOrWhiteSpace(i.Barcode) || i.Stock < 0 || i.Price < 0))
                 return Results.BadRequest(new { error = "Geçerli pazaryeri, barkod ve negatif olmayan stok/fiyat gerekli (1–1000 kalem)." });
             return Results.Ok(new UpdatePreview(marketplace, false, items));
         });

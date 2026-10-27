@@ -72,11 +72,6 @@ var demo = new DemoMarketplaceAdapter();
 Check((await demo.ProductsAsync(settings, new ProductQuery(), default)).Items[0].Images.Count == 1, "Demo product details failed");
 Check((await demo.OrdersAsync(settings, new OrderQuery(Status: "Created"), default)).Items[0].Cargo.Provider.Length > 0, "Demo order details failed");
 Check((await demo.AccountAsync(settings, default)).Addresses.Count == 1, "Demo account failed");
-foreach (IMarketplaceAdapter planned in new IMarketplaceAdapter[] { new HepsiburadaAdapter(), new N11Adapter(), new AmazonSpApiAdapter() })
-{
-    try { await planned.TestAsync(settings, default); throw new Exception("Planned adapter reported success"); }
-    catch (IntegrationException e) { Check(e.Code == "adapter_not_ready", "Planned adapter not classified"); }
-}
 // Trendyol panel operations: catalog, dry-run, write gate, path validation and request shape.
 Check(TrendyolCatalog.Panels.Count == 13 && TrendyolCatalog.Operations.Count == TrendyolCatalog.Panels.Sum(p => p.Operations.Count), "Trendyol catalog keys must be unique");
 Check(TrendyolCatalog.Panels.All(p => p.Operations.All(o => o.Panel == p.Key && o.Key.StartsWith(p.Key + "."))), "Every operation must belong to its own panel");

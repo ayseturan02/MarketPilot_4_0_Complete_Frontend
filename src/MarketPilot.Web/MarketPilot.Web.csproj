@@ -5,4 +5,5 @@
     <Nullable>enable</Nullable>
     <UserSecretsId>MarketPilot-5-Local-Integration</UserSecretsId>
   </PropertyGroup>
+  <ItemGroup><Content Update="Data/**" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" /></ItemGroup>
 </Project>

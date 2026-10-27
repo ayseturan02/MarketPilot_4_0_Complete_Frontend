@@ -2,12 +2,27 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Globalization;
 using MarketPilot.Web.Integrations;
+using MarketPilot.Web.Local;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.ConfigureHttpJsonOptions(o => { o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase; o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()); });
 builder.Services.AddSingleton<DemoStore>();
 builder.Services.AddMarketplaceIntegrations(builder.Configuration);
+builder.AddLocalAccess();
+builder.Services.AddLocalReliability();
 var app = builder.Build();
+app.Use(async(context,next)=>
+{
+    try{await next();}
+    catch(OperationCanceledException)when(context.RequestAborted.IsCancellationRequested){}
+    catch(Exception)
+    {
+        try{context.RequestServices.GetRequiredService<LocalAudit>().Add("error","request","Bir sunucu isteği tamamlanamadı.");}catch(Exception){}
+        if(!context.Response.HasStarted){context.Response.Clear();context.Response.StatusCode=500;await context.Response.WriteAsJsonAsync(new{error="İşlem tamamlanamadı. Sistem olaylarını kontrol et."});}else context.Abort();
+    }
+});
+app.UseLocalAccess();
+app.MapLocalReliability();
 app.UseDefaultFiles(); app.UseStaticFiles();
 app.MapMarketplaceIntegrations();
 app.MapListingSearch();

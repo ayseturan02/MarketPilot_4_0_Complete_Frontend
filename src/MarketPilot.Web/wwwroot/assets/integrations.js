@@ -1,7 +1,7 @@
 let integrationBusy = null;
 let integrationResults = {};
 let integrationReadinessLoading = false;
-const marketplaceLabels = {trendyol:'Trendyol', hepsiburada:'Hepsiburada', n11:'n11', amazon:'Amazon'};
+const marketplaceLabels = {trendyol:'Trendyol', hepsiburada:'Hepsiburada', n11:'n11', amazon:'Amazon',boyner:'Boyner',ticimax:'Ticimax'};
 const orderStatuses = ['Created','Picking','Invoiced','Shipped','Cancelled','Delivered','UnDelivered','Returned','AtCollectionPoint','UnPacked','UnSupplied','Awaiting','Verified'];
 const productStatuses = [['','Tüm durumlar'],['onSale','Satışta'],['notOnSale','Satışta değil'],['archived','Arşivlenmiş'],['blacklisted','Kara listede'],['locked','Kilitli']];
 
@@ -26,7 +26,7 @@ function integrationCard(c) {
   return `<article class="card integration-store"><div class="integration-store-head"><div><div class="connection-name">${esc(s.name)}</div><p>${esc(marketplaceLabels[s.marketplace])} · <strong>${s.mode==='demo'?(s.marketplace==='trendyol'?'RESMÎ SÖZLEŞME DEMOSU':'DEMO'):'GERÇEK API'}</strong> · ${s.environment==='stage'?'Test ortamı':'Üretim ortamı'}</p></div><span class="integration-state state-${esc(c.status)}">${esc(labels[c.status]||c.status)}</span></div>
     <div class="integration-meta"><span>Satıcı ID: <strong>${esc(c.sellerId||'Bağlantı testinden sonra')}</strong></span><span>Son işlem: <strong>${c.lastOperation?esc(new Date(c.lastOperation).toLocaleString('tr-TR')):'Henüz yok'}</strong></span>${c.errorCode?`<span>Hata kodu: <strong>${esc(c.errorCode)}</strong></span>`:''}</div>
     <p class="integration-message">${esc(c.message)}</p>
-    ${s.mode==='real'&&s.marketplace!=='trendyol'?'<p class="integration-warning">Bu kanalın gerçek adaptörü sonraki sürüm için ayrıldı.</p>':''}
+    ${s.mode==='real'&&!['trendyol','hepsiburada','amazon','n11','boyner','ticimax'].includes(s.marketplace)?'<p class="integration-warning">Bu kanalın gerçek adaptörü sonraki sürüm için ayrıldı.</p>':''}
     <div class="integration-actions">${[['test','Bağlantıyı test et'],['account','Mağaza bilgileri'],['products','Ürünler'],['orders','Siparişler']].map(([op,label])=>`<button class="btn btn-small ${active===op?'active':''}" ${integrationBusy?'disabled':''} onclick="integrationOpen('${c.id}','${op}')">${integrationBusy===c.id+op?'İşleniyor…':label}</button>`).join('')}</div>
     ${active==='products'?integrationProductFilters(c.id,result):active==='orders'?integrationOrderFilters(c.id,result):''}
     ${result?.result?integrationResult(c.id,result):''}</article>`;
@@ -53,7 +53,7 @@ function integrationResult(id,value) {
     <small>Sonuçlar yalnızca görüntülenir; İnternet Tekstil demo kayıtlarına veya Trendyol’a yazılmaz.</small></div>`;
 }
 function integrationAccount(account,note) {
-  return `<div class="integration-result"><div class="account-summary"><div><small>PAZARYERİ</small><strong>Trendyol</strong></div><div><small>SELLER ID</small><strong>${esc(account.sellerId)}</strong></div><div><small>ORTAM</small><strong>${account.environment==='stage'?'Test':'Üretim'}</strong></div><div><small>MAĞAZA KODU</small><strong>${esc(account.storeFrontCode)}</strong></div></div><p>${esc(note)}</p>${account.addresses?.length?`<div class="address-grid">${account.addresses.map(a=>`<div><strong>${esc(a.type)}${a.isDefault?' · Varsayılan':''}</strong><span>${esc([a.city,a.district,a.postCode].filter(Boolean).join(' / '))}</span><p>${esc(a.fullAddress)}</p></div>`).join('')}</div>`:''}</div>`;
+  return `<div class="integration-result"><div class="account-summary"><div><small>PAZARYERİ</small><strong>${esc(marketplaceLabels[account.marketplace]||account.marketplace)}</strong></div><div><small>SELLER ID</small><strong>${esc(account.sellerId)}</strong></div><div><small>ORTAM</small><strong>${account.environment==='stage'?'Test':'Üretim'}</strong></div><div><small>MAĞAZA KODU</small><strong>${esc(account.storeFrontCode)}</strong></div></div><p>${esc(note)}</p>${account.addresses?.length?`<div class="address-grid">${account.addresses.map(a=>`<div><strong>${esc(a.type)}${a.isDefault?' · Varsayılan':''}</strong><span>${esc([a.city,a.district,a.postCode].filter(Boolean).join(' / '))}</span><p>${esc(a.fullAddress)}</p></div>`).join('')}</div>`:''}</div>`;
 }
 function integrationProducts(id,r) {
   return `<div class="table-wrap"><table class="data-table integration-table"><thead><tr><th>Ürün</th><th>SKU / Barkod</th><th>Kategori</th><th>Fiyat</th><th>Stok / Onay</th><th></th></tr></thead><tbody>${r.items.map((p,i)=>{const image=safeExternalUrl(p.images?.[0]);return `<tr><td><div class="product-cell">${image?`<img src="${esc(image)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:'<span class="product-placeholder">📦</span>'}<div><strong>${esc(p.name)}</strong><small>${esc(p.brandName||'Marka bilgisi yok')}</small></div></div></td><td><strong>${esc(p.sku||'—')}</strong><small>${esc(p.barcode||'—')}</small></td><td>${esc(p.categoryName||'—')}<small>${esc(p.categoryId||'')}</small></td><td>${integrationMoney(p.salePrice,p.currency)}<small>Liste: ${integrationMoney(p.listPrice,p.currency)}</small></td><td>${p.stock??'—'}<small>${esc(p.approvalStatus||'approved')}</small></td><td><button class="op-detail" onclick="integrationProductDetail('${id}',${i})">Detay →</button></td></tr>`}).join('')||'<tr><td colspan="6">Filtreye uygun ürün bulunamadı.</td></tr>'}</tbody></table></div>`;
@@ -79,17 +79,17 @@ function integrationOrderDetail(id,index) {
 }
 function detailItem(label,value) { return `<div><small>${esc(label)}</small><strong>${esc(value===null||value===undefined||value===''?'—':value)}</strong></div>`; }
 function connections() { return head('Pazaryeri Bağlantıları','Trendyol bağlantısını doğrulayın ve gerçek verileri salt okunur inceleyin.')+integrationPanel()+legacyConnections(); }
-function integrationForm(marketplace = view === 'trendyol' ? 'trendyol' : '') {
+function integrationForm(marketplace = ['trendyol','hepsiburada','amazon','n11','boyner','ticimax'].includes(view) ? view : '') {
   showModal(`<form class="store-form" aria-labelledby="store-form-title" onsubmit="integrationCreate(event)">
     <div class="store-form-header"><div class="store-form-icon">${ic('plug',24)}</div><button class="store-form-close" type="button" aria-label="Pencereyi kapat" onclick="closeModal()">${ic('close',18)}</button></div>
     <h2 id="store-form-title">Mağazanı ekle</h2><p class="store-form-subtitle">Satış kanalını seç, mağazana bir ad ver ve bağlantını oluştur.</p>
     <div class="store-form-grid">
-      <label class="store-field store-field-wide"><span>Mağaza adı</span><input name="name" required maxlength="80" autocomplete="off" placeholder="Örn. İnternet Tekstil · Trendyol"><small>Mağazan panelde bu adla görünecek.</small></label>
-      <label class="store-field"><span>Pazaryeri</span><select name="marketplace" ${marketplace==='trendyol'?'disabled':''}>${Object.entries(marketplaceLabels).map(([key,label])=>`<option value="${key}" ${key===marketplace?'selected':''}>${label}</option>`).join('')}</select></label>
+      <label class="store-field store-field-wide"><span>Mağaza adı</span><input name="name" required maxlength="80" autocomplete="off" placeholder="Örn. İnternet Tekstil · ${esc(marketplaceLabels[marketplace]||'Trendyol')}"><small>Mağazan panelde bu adla görünecek.</small></label>
+      <label class="store-field"><span>Pazaryeri</span><select name="marketplace" ${['trendyol','hepsiburada','amazon','n11','boyner','ticimax'].includes(marketplace)?'disabled':''}>${Object.entries(marketplaceLabels).map(([key,label])=>`<option value="${key}" ${key===marketplace?'selected':''}>${label}</option>`).join('')}</select></label>
       <label class="store-field"><span>Ortam</span><select name="environment"><option value="production">Üretim · Canlı mağaza</option><option value="stage">Test · Stage</option></select></label>
       <label class="store-field store-field-wide"><span>Bağlantı türü</span><select name="mode" onchange="integrationModeHint(this.value)"><option value="demo">Demo · Hesap bağlamadan dene</option><option value="real">Gerçek mağaza bağlantısı</option></select></label>
     </div>
-    <div class="store-form-note" role="status" aria-live="polite">${ic('shield',18)}<div id="store-mode-hint"><strong>Önce deneyebilirsin</strong><p>Demo mağaza örnek verilerle çalışır. Trendyol hesabında işlem yapmaz.</p></div></div>
+    <div class="store-form-note" role="status" aria-live="polite">${ic('shield',18)}<div id="store-mode-hint"><strong>Önce deneyebilirsin</strong><p>Demo mağaza örnek verilerle çalışır. Gerçek mağazanızda işlem yapmaz.</p></div></div>
     <div class="store-form-footer"><button class="btn" type="button" onclick="closeModal()">Vazgeç</button><button class="btn btn-primary" type="submit">${ic('plus',16)} Mağaza ekle</button></div>
   </form>`);
   document.querySelector('.store-form input[name=name]')?.focus();
@@ -99,7 +99,7 @@ function integrationModeHint(mode) {
   if(!hint)return;
   hint.innerHTML=mode==='real'
     ? '<strong>Bağlantın doğrulanacak</strong><p>Mağaza bağlantı bilgilerinin önceden tanımlanmış olması gerekir. Ekledikten sonra bağlantın otomatik kontrol edilir.</p>'
-    : '<strong>Önce deneyebilirsin</strong><p>Demo mağaza örnek verilerle çalışır. Trendyol hesabında işlem yapmaz.</p>';
+    : '<strong>Önce deneyebilirsin</strong><p>Demo mağaza örnek verilerle çalışır. Gerçek mağazanızda işlem yapmaz.</p>';
 }
 function integrationSetupHelp(){showModal(`<div class="integration-detail"><div class="modal-head"><div><small>GERÇEK TRENDYOL BAĞLANTISI</small><h2>Yerel güvenli yapılandırma</h2></div><button class="top-icon" onclick="closeModal()">${ic('close')}</button></div><ol class="setup-steps"><li>Trendyol Satıcı Paneli → Hesap Bilgilerim → Entegrasyon Bilgileri bölümünden Seller ID, API Key ve API Secret bilgilerini alın.</li><li>Bu bilgileri sohbete veya mağaza formuna yazmayın.</li><li>Projede PowerShell açıp aşağıdaki komutları kendi değerlerinizle çalıştırın.</li></ol><pre class="setup-code">dotnet user-secrets set "Marketplaces:Trendyol:production:SellerId" "SELLER_ID" --project src/MarketPilot.Web\ndotnet user-secrets set "Marketplaces:Trendyol:production:ApiKey" "API_KEY" --project src/MarketPilot.Web\ndotnet user-secrets set "Marketplaces:Trendyol:production:ApiSecret" "API_SECRET" --project src/MarketPilot.Web\n$env:ASPNETCORE_ENVIRONMENT="Development"\ndotnet run --project src/MarketPilot.Web --urls "http://localhost:5080"</pre><p>Ardından Gerçek API / Üretim mağazası ekleyip “Bağlantıyı test et” düğmesine basın.</p></div>`)}
 async function integrationCreate(event) {
@@ -109,18 +109,23 @@ async function integrationCreate(event) {
     settings.marketplace=form.elements.marketplace.value;
     settings.name=settings.name.trim();
     if(!settings.name)throw new Error('Mağaza adını girin.');
-    if(settings.mode==='real'&&settings.marketplace!=='trendyol')throw new Error('Bu pazaryerinin gerçek bağlantısı henüz hazır değil.');
+    if(settings.mode==='real'&&!['trendyol','hepsiburada','amazon','n11','boyner','ticimax'].includes(settings.marketplace))throw new Error('Bu pazaryerinin gerçek bağlantısı henüz hazır değil.');
     if(settings.mode==='real'){
       const readiness=await api('integrations/readiness');data['integrations/readiness']=readiness;
-      if(!readiness.trendyol?.[settings.environment])throw new Error('Mağaza bağlantı bilgileri eksik. Bağlantını tamamladıktan sonra tekrar dene.');
+      if(!readiness[settings.marketplace]?.[settings.environment])throw new Error('Mağaza bağlantı bilgileri eksik. Bağlantını tamamladıktan sonra tekrar dene.');
       const existing=(data['integrations/connections']||[]).find(c=>c.settings.marketplace===settings.marketplace&&c.settings.mode==='real'&&c.settings.environment===settings.environment);
       if(existing)throw new Error('Bu ortam için mağaza zaten var: '+existing.settings.name+'. Mevcut mağazayı seçip bağlantıyı test edin.');
     }
     const created=await api('integrations/connections',{method:'POST',body:JSON.stringify(settings)});
     data['integrations/connections']=await api('integrations/connections');
     if(settings.marketplace==='trendyol')tyStore=created.id;
+    if(settings.marketplace==='ticimax'&&typeof tcStore!=='undefined')tcStore=created.id;
+    if(settings.marketplace==='boyner'&&typeof bnStore!=='undefined')bnStore=created.id;
+    if(settings.marketplace==='n11'&&typeof ncStore!=='undefined')ncStore=created.id;
+    if(settings.marketplace==='amazon'&&typeof amStore!=='undefined')amStore=created.id;
+    if(settings.marketplace==='hepsiburada'&&typeof hbStore!=='undefined')hbStore=created.id;
     modal=null;render();
-    if(settings.mode==='real')await integrationRun(created.id,'test',0,{},[]);
+    if(settings.mode==='real'){if(settings.marketplace==='ticimax'&&typeof tcTest==='function')await tcTest();else if(settings.marketplace==='boyner'&&typeof bnTest==='function')await bnTest();else if(settings.marketplace==='n11'&&typeof ncTest==='function')await ncTest();else if(settings.marketplace==='amazon'&&typeof amTest==='function')await amTest();else if(settings.marketplace==='hepsiburada'&&typeof hbTest==='function')await hbTest();else await integrationRun(created.id,'test',0,{},[]);}
     else notice('Demo mağaza eklendi; gerçek bağlantı kurulmadı.');
   }catch(e){button.disabled=false;notice(e.message);}
 }

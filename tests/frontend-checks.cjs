@@ -7,18 +7,24 @@ const app = {innerHTML:'',focus(){}};
 const context = vm.createContext({
   document: {querySelector: () => app},
   localStorage: {getItem: () => null},
-  Intl, Date, console
+  Intl, Date, console, URLSearchParams, setInterval:()=>0
 });
 vm.runInContext(fs.readFileSync(path.join(root,'assets/integrations.js'),'utf8'), context);
 vm.runInContext(fs.readFileSync(path.join(root,'assets/trendyol/trendyol-api.js'),'utf8'), context);
 vm.runInContext(fs.readFileSync(path.join(root,'assets/trendyol/trendyol-workflows.js'),'utf8'), context);
 vm.runInContext(fs.readFileSync(path.join(root,'assets/product-store-stocks.js'),'utf8'), context);
 vm.runInContext(fs.readFileSync(path.join(root,'assets/trendyol/trendyol-demo-workspace.js'),'utf8'), context);
+vm.runInContext(fs.readFileSync(path.join(root,'assets/hepsiburada/hepsiburada-center.js'),'utf8'), context);
+vm.runInContext(fs.readFileSync(path.join(root,'assets/hepsiburada/hepsiburada-details.js'),'utf8'), context);
+vm.runInContext(fs.readFileSync(path.join(root,'assets/amazon/amazon-center.js'),'utf8'), context);
+vm.runInContext(fs.readFileSync(path.join(root,'assets/n11/n11-center.js'),'utf8'),context);
+vm.runInContext(fs.readFileSync(path.join(root,'assets/boyner/boyner-center.js'),'utf8'),context);
+vm.runInContext(fs.readFileSync(path.join(root,'assets/ticimax/ticimax-center.js'),'utf8'),context);
 const source = fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
 // Skip network bootstrap; exercise the same page render functions with explicit fixtures.
 vm.runInContext(source.slice(0,source.lastIndexOf('(async()=>')), context);
 vm.runInContext(`
-  if(Object.keys(names).length !== 39) throw new Error('39 menu entries must remain');
+  if(Object.keys(names).length !== 41) throw new Error('41 menu entries must remain');
   data.connections=[]; data.orders=[];
   data['integrations/readiness']={trendyol:{stage:false,production:false}};
   data['integrations/connections']=Object.keys(marketplaceLabels).map((marketplace,i)=>({
@@ -49,11 +55,23 @@ assert(app.innerHTML.includes('Kargo') && app.innerHTML.includes('Fatura') && ap
 assert(vm.runInContext(`safeExternalUrl('javascript:alert(1)')`,context)==='');
 assert(vm.runInContext(`integrationHasNext({page:99,size:100,totalPages:120,nextPageToken:'opaque'})`,context)===true);
 assert(vm.runInContext(`integrationHasNext({page:0,size:200,totalPages:null,hasMore:true,nextCursor:'cursor'})`,context)===true);
-for(const marketplace of ['hepsiburada','n11','amazon']) {
-  vm.runInContext(`view='${marketplace}';render();`,context);
-  assert(app.innerHTML.includes('İnternet Tekstil 5.1'));
-  assert(app.innerHTML.includes('Yeni taslak'));
-}
+vm.runInContext(`modal=null;view='n11';ncState(ncCurrent(),'products').result={items:[]};ncState(ncCurrent(),'orders').result={items:[]};ncWorkspaces.set('n11',{value:{jobs:[]}});render();`,context);
+assert(app.innerHTML.includes('n11 Merkezi')&&app.innerHTML.includes('n11depom')&&!app.innerHTML.includes('Yeni taslak'));
+vm.runInContext(`integrationForm('n11');`,context);assert(app.innerHTML.includes('value="n11" selected')&&app.innerHTML.includes('name="marketplace" disabled'));
+vm.runInContext(`modal=null;view='hepsiburada';hbWorkspaces.set('hepsiburada',{value:{products:[],orders:[],claims:[],jobs:[]}});render();`,context);
+assert.deepEqual(JSON.parse(vm.runInContext("JSON.stringify(hbTabs.map(t=>t[1]))",context)),["Genel bakış","Ürünler","Siparişler","Stok ve fiyat","Kargo","İadeler","Finans","Marka ve kategori","Fatura ve garanti","Etiketler","Adresler","İşlem geçmişi"]);
+assert(app.innerHTML.includes('Hepsiburada Merkezi')&&!app.innerHTML.includes('Yeni taslak')&&!app.innerHTML.includes('JSON'));
+assert(app.innerHTML.includes('Stok ve fiyat')&&app.innerHTML.includes('İşlem geçmişi'));
+vm.runInContext(`integrationForm('hepsiburada');`,context);
+assert(app.innerHTML.includes('name="marketplace" disabled')&&app.innerHTML.includes('value="hepsiburada" selected'));
+vm.runInContext(`modal=null;view='amazon';amState(amCurrent(),'products').result={items:[]};amState(amCurrent(),'orders').result={items:[]};amWorkspaces.set('amazon',{value:{jobs:[]}});render();`,context);
+assert(app.innerHTML.includes('Amazon Merkezi')&&app.innerHTML.includes('Amazon depoları (FBA)')&&app.innerHTML.includes('Raporlar'));
+assert(!app.innerHTML.includes('Yeni taslak')&&!app.innerHTML.includes('JSON'));
+vm.runInContext(`integrationForm('amazon');`,context);assert(app.innerHTML.includes('value="amazon" selected')&&app.innerHTML.includes('name="marketplace" disabled'));
+vm.runInContext(`modal=null;view='boyner';bnState(bnCurrent(),'products').result={items:[]};bnState(bnCurrent(),'orders').result={items:[]};bnWorkspaces.set('boyner',{value:{jobs:[]}});render();`,context);
+assert(app.innerHTML.includes('Boyner Merkezi')&&!app.innerHTML.includes('Yeni taslak'));
+vm.runInContext(`modal=null;view='ticimax';tcState(tcCurrent(),'products').result={items:[]};tcState(tcCurrent(),'orders').result={items:[]};tcWorkspaces.set('ticimax',{value:{jobs:[]}});render();`,context);assert(app.innerHTML.includes('Ticimax Merkezi'));
+vm.runInContext(`integrationForm('boyner');`,context);assert(app.innerHTML.includes('value="boyner" selected')&&app.innerHTML.includes('name="marketplace" disabled'));
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 assert(html.indexOf('/assets/integrations.js') < html.indexOf('/assets/app.js') && html.includes('/assets/trendyol/trendyol-api.js'));
 
@@ -67,4 +85,4 @@ vm.runInContext(`tyTab='products';render();`,context);
 assert(app.innerHTML.includes('Gösterilecek kayıt bulunmuyor.'));
 vm.runInContext(`integrationForm('trendyol');`,context);
 assert(app.innerHTML.includes('name="marketplace" disabled'));
-console.log('PASS: 39 menu entries, connection modes/actions, escaping, four marketplace panels, Trendyol API center, existing draft pages and script order.');
+console.log('PASS: 41 menu entries, connection modes/actions, escaping, four marketplace panels, Trendyol API center, existing draft pages and script order.');

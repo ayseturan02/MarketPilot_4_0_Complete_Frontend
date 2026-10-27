@@ -13,7 +13,7 @@ const store={id:'one',settings:{name:'One',marketplace:'trendyol',mode:'real',en
  context.tyRequest=async()=>({items:[],totalPages:1});assert.equal((await call('psLookup',store,{barcode:'absent',sku:''})).state,'absent');
  context.tyRequest=async()=>{throw Error('upstream');};assert.equal((await call('psLookup',store,{barcode:'123',sku:''})).state,'error');
  data['integrations/readiness']={trendyol:{production:false}};assert.equal((await call('psLookup',store,{barcode:'123',sku:''})).state,'unconfigured');delete data['integrations/readiness'];
- assert.equal((await call('psLookup',{...store,settings:{...store.settings,marketplace:'amazon'}},{barcode:'123'})).state,'unsupported');
+ assert.equal((await call('psLookup',{...store,settings:{...store.settings,marketplace:'unsupported'}},{barcode:'123'})).state,'unsupported');
  let pages=0;context.tyRequest=async(s,url)=>{pages++;const page=Number(new URL('http://local'+url).searchParams.get('page'));return {items:[{id:'v'+page,barcode:'b'+page,sku:'S',stock:page?null:0}],totalPages:2};};
  const variants=await call('psReadProducts',store,{barcode:'',sku:'S'},'approved');assert.equal(pages,2);assert.equal(variants.items.length,2);assert.equal(variants.items[1].stock,null);
  context.tyRequest=async()=>({items:[],nextPageToken:'repeat'});assert.equal((await call('psReadProducts',store,{barcode:'missing'},'approved')).complete,false);
