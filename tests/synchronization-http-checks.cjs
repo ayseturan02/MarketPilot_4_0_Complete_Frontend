@@ -35,7 +35,7 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   const synced=page.waitForResponse(r=>r.url()===base+'/api/sync/demo'&&r.request().method()==='POST');
   await page.getByRole('button',{name:'Demo Eşitle',exact:false}).click();
   assert.equal((await synced).status(),200);
-  await page.waitForFunction(()=>syncState?.stock.lastRunStatus==='completed'&&syncState.demo.pending===0);
+  await page.waitForFunction(()=>syncState?.stock.lastRunStatus==='completed'&&syncState.demo.pending===0&&syncState.outbox.queued===0&&syncState.outbox.waiting===0);
   assert((await page.locator('.content').innerText()).includes('Stok taraması tamamlandı'));
   assert(fs.existsSync(path.join(temp,'Data/central-stock.json')),'sync button must persist actual central stock');
 
@@ -50,7 +50,7 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   assert.equal(sale.view.items.find(i=>i.sku==='PNT-BEJ-38').quantity,7);
   await context.close();
   // No browser and no read request: only the server worker can finish these jobs.
-  await sleep(4000);
+  for(let i=0;i<150;i++){const jobs=JSON.parse(fs.readFileSync(path.join(temp,'Data/marketplace-outbox.json'),'utf8'));if(jobs.every(j=>!['queued','dispatching','waiting','uncertain'].includes(j.state)))break;await sleep(100);}
 
   const registry=JSON.parse(fs.readFileSync(path.join(temp,'Data/integration-connections.json'),'utf8'));
   for(const store of registry.filter(s=>s.settings.mode==='demo'&&!['amazon','n11'].includes(s.settings.marketplace))){

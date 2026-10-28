@@ -6,7 +6,7 @@ using System.Text.Json;
 namespace MarketPilot.Web.Integrations.Hepsiburada;
 
 // Only fixed, documented read endpoints are exposed. Credentials never reach browser/state files.
-public sealed class HepsiburadaAdapter(HttpClient http, IConfiguration configuration) : IMarketplaceAdapter
+public sealed partial class HepsiburadaAdapter(HttpClient http, IConfiguration configuration) : IMarketplaceAdapter
 {
     public string Marketplace => "hepsiburada";
     private const int MaxBytes = 10 * 1024 * 1024;
@@ -29,12 +29,13 @@ public sealed class HepsiburadaAdapter(HttpClient http, IConfiguration configura
         ("orders", "production") => "oms-external.hepsiburada.com",
         _ => throw new IntegrationException("invalid_service", "Geçersiz mağaza ortamı veya servis.", 400)
     };
-    private async Task<JsonDocument> Get(string environment, string service, string path, Dictionary<string, string> query, CancellationToken ct)
+    private Task<JsonDocument> Get(string environment, string service, string path, Dictionary<string,string> query, CancellationToken ct) => Send(environment, service, path, query, null, ct);
+    private async Task<JsonDocument> Send(string environment, string service, string path, Dictionary<string, string> query, HttpContent? body, CancellationToken ct)
     {
         Merchant(environment);
         var s = configuration.GetSection($"Marketplaces:Hepsiburada:{environment}");
         var qs = string.Join('&', query.Select(k => Uri.EscapeDataString(k.Key) + "=" + Uri.EscapeDataString(k.Value)));
-        using var request = new HttpRequestMessage(HttpMethod.Get, $"https://{Host(service, environment)}/{path}?{qs}");
+        using var request = new HttpRequestMessage(body is null ? HttpMethod.Get : HttpMethod.Post, $"https://{Host(service, environment)}/{path}?{qs}") { Content = body };
         request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(s["Username"] + ":" + s["Password"])));
         request.Headers.TryAddWithoutValidation("User-Agent", s["UserAgent"]);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -48,7 +49,7 @@ public sealed class HepsiburadaAdapter(HttpClient http, IConfiguration configura
                 429 => "Hepsiburada istek sınırına ulaşıldı. Biraz sonra yeniden deneyin.",
                 404 => "Hepsiburada kaydı bulunamadı.",
                 _ => "Hepsiburada verileri alınamadı. Daha sonra yeniden deneyin."
-            }, code is 401 or 403 ? 409 : code is 404 or 429 ? code : 502);
+            }, code is 401 or 403 ? 409 : code is 400 or 404 or 409 or 422 or 429 ? (code==422?400:code) : 502);
         }
         if (response.Content.Headers.ContentLength > MaxBytes) throw new IntegrationException("response_large", "Mağaza yanıtı boyut sınırını aştı.");
         await using var stream = await response.Content.ReadAsStreamAsync(ct);

@@ -1,7 +1,8 @@
 import { readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-const env = { ...process.env, ASPNETCORE_ENVIRONMENT: 'Production', Marketplaces__StockSource__BaseUrl: '', Marketplaces__StockSource__AllowWrites: 'false' };
+const env = { ...process.env, ASPNETCORE_ENVIRONMENT: 'Production', Marketplaces__StockSource__BaseUrl: '', Marketplaces__StockSource__AllowWrites: 'false', Synchronization__IncludeRealStores: 'false', Synchronization__AllowRealWrites: 'false' };
 // Tests must never inherit live marketplace credentials from the operator's shell.
+for(const key of Object.keys(env))if(/^MarketplaceAccounts__/i.test(key))delete env[key];
 for (const market of ['Trendyol','Hepsiburada','Amazon','N11','Boyner','Ticimax'])
   for (const mode of ['stage','production'])
     for (const key of ['SellerId','ApiKey','ApiSecret','AppKey','AppSecret','MerchantId','Username','Password','ClientId','ClientSecret','RefreshToken','UyeKodu','AllowWrites'])

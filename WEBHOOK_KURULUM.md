@@ -1,12 +1,20 @@
 # Sipariş webhook alıcısı — 27 Ekim 2026
 
+## Arayüzden kontrol
+
+**Senkronizasyon** ekranında ve **Trendyol → Genel bakış** altında “Webhook alıcısı” bölümü bulunur. Yönetici alıcı adresini, eksik ayarları, bekleyen/işlenen/başarısız bildirimleri görebilir ve başarısız bildirimi yeniden işletebilir. Hesaplar kurulmuşsa bu bölüm yalnızca yöneticiye görünür.
+
+Alıcı kodunun var olması, canlı adresin erişilebilir olduğu veya Trendyol aboneliğinin açıldığı anlamına gelmez. Alıcı hazır olma durumu ve dış HTTPS adresi ayrı gösterilir. Hiç alıcı yapılandırılmadığında da uygulama bunun nedenini gösterir; güvenlik kontrollerini devre dışı bırakarak bir alıcı açmaz.
+
+`GET /hooks/orders/{endpointId}` artık uygulamanın HTML sayfası yerine `405 Method Not Allowed` ve `Allow: POST` döndürür. Gelen bildirim yolu JSON POST içindir.
+
 ## Hazır olan akış
 
 `POST /hooks/orders/{endpointId}` → ayrı webhook kimlik doğrulaması → satıcı/paket/zaman kontrolü → kalıcı gelen bildirim sırası → `200 OK` → arka planda ortak sipariş kaydı.
 
 Alıcıya panel çerezi gerekmez. `/api` oturum, rol, yerel erişim ve istek kaynağı kontrolleri kaldırılmadı. Tek dış bildirim yolu kendi API anahtarı veya Basic kimlik doğrulamasıyla çalışır. Varsayılan kurulumda etkin alıcı ve gerçek anahtar yoktur; gerçek abonelik oluşturulmadı.
 
-Gelen paketler genel sipariş ve gönderi listesine girer. Paket aynı kimlikle güncellenir; yeni sipariş kopyası oluşturulmaz. Açık sipariş/gönderi/ana panel ekranı, sunucudaki sipariş sürümü değiştiğinde yaklaşık 10 saniyede yenilenir.
+Gelen paketler genel sipariş ve gönderi listesine girer. Paket aynı kimlikle güncellenir; yeni sipariş kopyası oluşturulmaz. Açık sipariş/gönderi/ana panel ekranı, sunucudaki sipariş sürümü değiştiğinde yaklaşık 3 saniyede yenilenir.
 
 Alıcı siparişi kaydeder; tek başına stok düşme, iade muhasebesi veya taşıyıcı etiketi üretmez. Merkezi stok otomasyonu mevcut ayrı ayarları ve izleme kurallarıyla çalışır. Bu çalışma o otomasyonu kendiliğinden etkinleştirmez.
 
@@ -32,12 +40,15 @@ Kaynaklar: [Webhook Model](https://developers.trendyol.com/docs/webhook-model), 
 
 ```text
 Marketplaces__Trendyol__production__SellerId=GERCEK_SATICI_NUMARASI
+Webhooks__Trendyol__PublicBaseUrl=https://bildirim.sirketiniz.com
 Webhooks__Trendyol__Endpoints__receiver01__Enabled=true
 Webhooks__Trendyol__Endpoints__receiver01__ConnectionId=GERCEK_MAGAZA_BAGLANTI_KIMLIGI
 Webhooks__Trendyol__Endpoints__receiver01__AuthenticationType=API_KEY
 Webhooks__Trendyol__Endpoints__receiver01__ApiKey=YENI_RASTGELE_EN_AZ_32_KARAKTER
 Webhooks__Trendyol__TrustLoopbackTlsProxy=true
 ```
+
+`src/MarketPilot.Web/appsettings.Webhooks.example.json` anahtarsız bir kurulum örneğidir; otomatik yüklenmez ve alıcısı kapalıdır. Ortam değişkenleriyle veya dağıtımın sır yönetimiyle doldurulmalıdır. `PublicBaseUrl` yalnız HTTPS kök adresidir; yol, kullanıcı bilgisi, sorgu veya fragment içeremez. Bu adresi yazmak DNS/HTTPS/proxy kurmaz ve dış erişimi doğrulamaz.
 
 API_KEY geçişinde eski anahtar kısa süreli `...__PreviousApiKey` olarak kabul edilebilir; geçiş bitince kaldırın. Basic kullanılacaksa `AuthenticationType=BASIC_AUTHENTICATION`, `Username` ve en az 32 karakterli `Password` tanımlayın. `AllowInsecureLoopback=true` yalnızca yerel test içindir; canlı ayarı değildir.
 
@@ -90,4 +101,6 @@ Proxy yerelden bağlanır, Host'u mevcut localhost kısıtına uygun iletir. HTT
 
 Yerel yönetici erişimiyle `GET /api/system/webhooks`: hazır alıcılar, bekleyen/işlenen/atlanmış/başarısız sayıları ve son olaylar. `POST /api/system/webhooks/{id}/retry` yalnızca başarısız işi yeniden sıraya alır. API anahtarları bu yanıtlarda bulunmaz. Hesap oluşturulmuşsa görüntüleyici ve operatör bu yönetim yolunu kullanamaz.
 
-`node tests/webhook-http-checks.cjs` geçici veri dizininde HTTPS sınırı, API_KEY/Basic, satıcı kontrolü, gövde sınırları, kalıcı onay, tekrarlar, eski olay, sipariş/gönderi bağlantısı, yeniden başlatma, disk hatası, roller ve hız sınırını doğrular. Ayrıca tarayıcıda açık sipariş ekranına gelen bildirimin yansıması test edilir. Test gerçek Trendyol hesabına bağlanmaz veya abonelik açmaz.
+`node tests/webhook-http-checks.cjs` geçici veri dizininde HTTPS sınırı, API_KEY/Basic, satıcı kontrolü, gövde sınırları, kalıcı onay, tekrarlar, eski olay, sipariş/gönderi bağlantısı, yeniden başlatma, disk hatası, roller ve hız sınırını doğrular. Ayrıca tarayıcıda açık sipariş ekranına gelen bildirimin yansıması; yönetici alıcı ekranı, adres ve eksik ayar gösterimi, mobil görünüm ve görüntüleyiciden gizlenmesi test edilir. Test gerçek Trendyol hesabına bağlanmaz veya abonelik açmaz.
+
+Resmî model yeniden kontrol edildi: [Trendyol Webhook Model](https://developers.trendyol.com/tr/docs/webhook-model). Gerçek hesap/anahtar eklenmedi, abonelik açılmadı ve dış servis çağrısı yapılmadı.

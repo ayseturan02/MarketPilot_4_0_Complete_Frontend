@@ -25,7 +25,7 @@ public record N11Order(MarketplaceOrder Order,string Sender,decimal? SellerInvoi
 public record N11Page<T>(IReadOnlyList<T> Items,int Page,int Size,long? TotalElements=null,int? TotalPages=null,string? TaskStatus=null);
 
 // n11 REST and the one allowlisted SOAP read operation; no live seller mutations.
-public sealed class N11Adapter(HttpClient http,IConfiguration configuration) : IMarketplaceAdapter
+public sealed partial class N11Adapter(HttpClient http,IConfiguration configuration) : IMarketplaceAdapter
 {
     public string Marketplace=>"n11";
     private JsonElement categories;private DateTimeOffset categoriesUntil;private readonly SemaphoreSlim categoryGate=new(1,1);
@@ -37,13 +37,13 @@ public sealed class N11Adapter(HttpClient http,IConfiguration configuration) : I
     }
     private async Task<byte[]> Send(ConnectionSettings s,string path,Dictionary<string,string>? query,HttpContent? body,CancellationToken ct)
     {
-        Credentials(s);var allowed=new[]{"/ms/product-query","/rest/delivery/v1/shipmentPackages","/cdn/categories","/ms/product/task-details/page-query","/ws/returnService/"};if(!allowed.Contains(path))throw new IntegrationException("invalid_operation","Geçersiz n11 işlemi.",400);
+        Credentials(s);var allowed=new[]{"/ms/product/tasks/price-stock-update","/ms/product-query","/rest/delivery/v1/shipmentPackages","/cdn/categories","/ms/product/task-details/page-query","/ws/returnService/"};if(!allowed.Contains(path))throw new IntegrationException("invalid_operation","Geçersiz n11 işlemi.",400);
         var qs=string.Join('&',(query??new()).Select(p=>Uri.EscapeDataString(p.Key)+"="+Uri.EscapeDataString(p.Value)));
         using var request=new HttpRequestMessage(body==null?HttpMethod.Get:HttpMethod.Post,"https://api.n11.com"+path+(qs.Length>0?"?"+qs:"")){Content=body};
         if(path!="/ws/returnService/"){request.Headers.TryAddWithoutValidation("appKey",configuration["Marketplaces:N11:production:AppKey"]);request.Headers.TryAddWithoutValidation("appSecret",configuration["Marketplaces:N11:production:AppSecret"]);}
         else request.Headers.TryAddWithoutValidation("SOAPAction","\"\"");
         using var response=await http.SendAsync(request,HttpCompletionOption.ResponseHeadersRead,ct);
-        if(!response.IsSuccessStatusCode){var code=(int)response.StatusCode;throw new IntegrationException(code==429?"rate_limited":"n11_error",code switch{401 or 403=>"n11 mağaza yetkisi doğrulanamadı.",429=>"n11 istek sınırına ulaşıldı. Biraz sonra yeniden deneyin.",404=>"n11 kaydı bulunamadı.",_=>"n11 verileri alınamadı. Daha sonra yeniden deneyin."},code is 401 or 403?409:code is 404 or 429?code:502);}
+        if(!response.IsSuccessStatusCode){var code=(int)response.StatusCode;throw new IntegrationException(code==429?"rate_limited":"n11_error",code switch{401 or 403=>"n11 mağaza yetkisi doğrulanamadı.",429=>"n11 istek sınırına ulaşıldı. Biraz sonra yeniden deneyin.",404=>"n11 kaydı bulunamadı.",_=>"n11 verileri alınamadı. Daha sonra yeniden deneyin."},code is 401 or 403?409:code is 400 or 404 or 409 or 422 or 429?(code==422?400:code):502);}
         const int limit=16*1024*1024;if(response.Content.Headers.ContentLength>limit)throw new IntegrationException("response_large","n11 yanıtı boyut sınırını aştı.");
         await using var stream=await response.Content.ReadAsStreamAsync(ct);using var output=new MemoryStream();var block=new byte[8192];int count;while((count=await stream.ReadAsync(block,ct))>0){if(output.Length+count>limit)throw new IntegrationException("response_large","n11 yanıtı boyut sınırını aştı.");output.Write(block,0,count);}return output.ToArray();
     }

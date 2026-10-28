@@ -18,13 +18,14 @@ function integrationPanel(marketplace) {
     ${integrationReadiness()}
     <div class="integration-store-list">${stores.map(integrationCard).join('')||'<div class="mp-empty"><strong>Bu pazaryeri için mağaza yok</strong><p>Demo veya gerçek API mağazası ekleyerek başlayın.</p></div>'}</div></section>`;
 }
-function integrationEnsureReadiness(){if(data['integrations/readiness']||integrationReadinessLoading)return;integrationReadinessLoading=true;api('integrations/readiness').then(r=>{data['integrations/readiness']=r}).catch(()=>{data['integrations/readiness']={error:true}}).finally(()=>{integrationReadinessLoading=false;render()})}
-function integrationReadiness(){const r=data['integrations/readiness'];if(!r)return '<div class="integration-readiness">API yapılandırması kontrol ediliyor…</div>';if(r.error)return '<div class="integration-readiness missing">API yapılandırma durumu okunamadı.</div>';return `<div class="integration-readiness"><strong>Trendyol API hazırlığı</strong><span class="${r.trendyol.production?'ready':'missing'}">Üretim: ${r.trendyol.production?'Hazır':'Seller ID / anahtarlar eksik'}</span><span class="${r.trendyol.stage?'ready':'missing'}">Test: ${r.trendyol.stage?'Hazır':'Seller ID / anahtarlar eksik'}</span><button class="btn btn-small" onclick="integrationSetupHelp()">Kurulum adımları</button></div>`}
+function integrationEnsureReadiness(){if(typeof fetch==='function'&&!Array.isArray(data['integrations/credential-profiles'])&&!integrationProfilesPromise)integrationLoadProfiles().then(()=>render()).catch(()=>{});if(data['integrations/readiness']||integrationReadinessLoading)return;integrationReadinessLoading=true;api('integrations/readiness').then(r=>{data['integrations/readiness']=r}).catch(()=>{data['integrations/readiness']={error:true}}).finally(()=>{integrationReadinessLoading=false;render()})}
+function integrationReadiness(){const r=data['integrations/readiness'];if(!r)return '<div class="integration-readiness">API yapılandırması kontrol ediliyor…</div>';if(r.error)return '<div class="integration-readiness missing">API yapılandırma durumu okunamadı.</div>';const profiles=r.profiles||data['integrations/credential-profiles']||[],ready=e=>Boolean(r.trendyol?.[e]||profiles.some(p=>p.marketplace==='trendyol'&&p.environment===e&&p.configured));return `<div class="integration-readiness"><strong>Trendyol API profilleri</strong><span class="${ready('production')?'ready':'missing'}">Üretim: ${ready('production')?'Hazır profil var':'Profil / anahtarlar eksik'}</span><span class="${ready('stage')?'ready':'missing'}">Test: ${ready('stage')?'Hazır profil var':'Profil / anahtarlar eksik'}</span><button class="btn btn-small" onclick="integrationSetupHelp()">Kurulum adımları</button></div>`}
+
 function integrationCard(c) {
   const s=c.settings,result=integrationResults[c.id],labels={demo:'Demo hazır',untested:'Test edilmedi',connected:'Bağlı',error:'Hata'};
   const active=result?.operation;
   return `<article class="card integration-store"><div class="integration-store-head"><div><div class="connection-name">${esc(s.name)}</div><p>${esc(marketplaceLabels[s.marketplace])} · <strong>${s.mode==='demo'?(s.marketplace==='trendyol'?'RESMÎ SÖZLEŞME DEMOSU':'DEMO'):'GERÇEK API'}</strong> · ${s.environment==='stage'?'Test ortamı':'Üretim ortamı'}</p></div><span class="integration-state state-${esc(c.status)}">${esc(labels[c.status]||c.status)}</span></div>
-    <div class="integration-meta"><span>Satıcı ID: <strong>${esc(c.sellerId||'Bağlantı testinden sonra')}</strong></span><span>Son işlem: <strong>${c.lastOperation?esc(new Date(c.lastOperation).toLocaleString('tr-TR')):'Henüz yok'}</strong></span>${c.errorCode?`<span>Hata kodu: <strong>${esc(c.errorCode)}</strong></span>`:''}</div>
+    <div class="integration-meta"><span>Kimlik profili: <strong>${esc(s.credentialProfile|| (s.mode==='demo'?'Demo':'Eski tek hesap ayarı'))}</strong></span><span>Satıcı ID: <strong>${esc(c.sellerId||'Bağlantı testinden sonra')}</strong></span><span>Son işlem: <strong>${c.lastOperation?esc(new Date(c.lastOperation).toLocaleString('tr-TR')):'Henüz yok'}</strong></span>${c.errorCode?`<span>Hata kodu: <strong>${esc(c.errorCode)}</strong></span>`:''}</div>
     <p class="integration-message">${esc(c.message)}</p>
     ${s.mode==='real'&&!['trendyol','hepsiburada','amazon','n11','boyner','ticimax'].includes(s.marketplace)?'<p class="integration-warning">Bu kanalın gerçek adaptörü sonraki sürüm için ayrıldı.</p>':''}
     <div class="integration-actions">${[['test','Bağlantıyı test et'],['account','Mağaza bilgileri'],['products','Ürünler'],['orders','Siparişler']].map(([op,label])=>`<button class="btn btn-small ${active===op?'active':''}" ${integrationBusy?'disabled':''} onclick="integrationOpen('${c.id}','${op}')">${integrationBusy===c.id+op?'İşleniyor…':label}</button>`).join('')}</div>
@@ -85,23 +86,30 @@ function integrationForm(marketplace = ['trendyol','hepsiburada','amazon','n11',
     <h2 id="store-form-title">Mağazanı ekle</h2><p class="store-form-subtitle">Satış kanalını seç, mağazana bir ad ver ve bağlantını oluştur.</p>
     <div class="store-form-grid">
       <label class="store-field store-field-wide"><span>Mağaza adı</span><input name="name" required maxlength="80" autocomplete="off" placeholder="Örn. İnternet Tekstil · ${esc(marketplaceLabels[marketplace]||'Trendyol')}"><small>Mağazan panelde bu adla görünecek.</small></label>
-      <label class="store-field"><span>Pazaryeri</span><select name="marketplace" ${['trendyol','hepsiburada','amazon','n11','boyner','ticimax'].includes(marketplace)?'disabled':''}>${Object.entries(marketplaceLabels).map(([key,label])=>`<option value="${key}" ${key===marketplace?'selected':''}>${label}</option>`).join('')}</select></label>
-      <label class="store-field"><span>Ortam</span><select name="environment"><option value="production">Üretim · Canlı mağaza</option><option value="stage">Test · Stage</option></select></label>
-      <label class="store-field store-field-wide"><span>Bağlantı türü</span><select name="mode" onchange="integrationModeHint(this.value)"><option value="demo">Demo · Hesap bağlamadan dene</option><option value="real">Gerçek mağaza bağlantısı</option></select></label>
+      <label class="store-field"><span>Pazaryeri</span><select name="marketplace" ${['trendyol','hepsiburada','amazon','n11','boyner','ticimax'].includes(marketplace)?'disabled':''} onchange="integrationProfileOptions()">${Object.entries(marketplaceLabels).map(([key,label])=>`<option value="${key}" ${key===marketplace?'selected':''}>${label}</option>`).join('')}</select></label>
+      <label class="store-field"><span>Ortam</span><select name="environment" onchange="integrationProfileOptions()"><option value="production">Üretim · Canlı mağaza</option><option value="stage">Test · Stage</option></select></label>
+      <label class="store-field store-field-wide"><span>Bağlantı türü</span><select name="mode" onchange="integrationModeHint(this.value);integrationProfileOptions()"><option value="demo">Demo · Hesap bağlamadan dene</option><option value="real">Gerçek mağaza bağlantısı</option></select></label>
     </div>
+    <label class="store-field store-field-wide" data-credential-field hidden><span>Satıcı kimlik profili</span><select name="credentialProfile" disabled><option value="">Profiller yükleniyor…</option></select><small>Her satıcı için ayrı sunucu profili seçilir. API anahtarları bu forma yazılmaz.</small></label>
     <div class="store-form-note" role="status" aria-live="polite">${ic('shield',18)}<div id="store-mode-hint"><strong>Önce deneyebilirsin</strong><p>Demo mağaza örnek verilerle çalışır. Gerçek mağazanızda işlem yapmaz.</p></div></div>
     <div class="store-form-footer"><button class="btn" type="button" onclick="closeModal()">Vazgeç</button><button class="btn btn-primary" type="submit">${ic('plus',16)} Mağaza ekle</button></div>
   </form>`);
   document.querySelector('.store-form input[name=name]')?.focus();
+  if(typeof fetch==="function")integrationLoadProfiles().then(integrationProfileOptions).catch(()=>notice("Kimlik profilleri okunamadı."));
 }
 function integrationModeHint(mode) {
   const hint=document.querySelector('#store-mode-hint');
   if(!hint)return;
   hint.innerHTML=mode==='real'
-    ? '<strong>Bağlantın doğrulanacak</strong><p>Mağaza bağlantı bilgilerinin önceden tanımlanmış olması gerekir. Ekledikten sonra bağlantın otomatik kontrol edilir.</p>'
+    ? '<strong>Bağlantın doğrulanacak</strong><p>Her satıcı için sunucuda ayrı bir kimlik profili tanımlayın ve aşağıdan seçin. Ekledikten sonra bağlantı test edilir.</p>'
     : '<strong>Önce deneyebilirsin</strong><p>Demo mağaza örnek verilerle çalışır. Gerçek mağazanızda işlem yapmaz.</p>';
 }
-function integrationSetupHelp(){showModal(`<div class="integration-detail"><div class="modal-head"><div><small>GERÇEK TRENDYOL BAĞLANTISI</small><h2>Yerel güvenli yapılandırma</h2></div><button class="top-icon" onclick="closeModal()">${ic('close')}</button></div><ol class="setup-steps"><li>Trendyol Satıcı Paneli → Hesap Bilgilerim → Entegrasyon Bilgileri bölümünden Seller ID, API Key ve API Secret bilgilerini alın.</li><li>Bu bilgileri sohbete veya mağaza formuna yazmayın.</li><li>Projede PowerShell açıp aşağıdaki komutları kendi değerlerinizle çalıştırın.</li></ol><pre class="setup-code">dotnet user-secrets set "Marketplaces:Trendyol:production:SellerId" "SELLER_ID" --project src/MarketPilot.Web\ndotnet user-secrets set "Marketplaces:Trendyol:production:ApiKey" "API_KEY" --project src/MarketPilot.Web\ndotnet user-secrets set "Marketplaces:Trendyol:production:ApiSecret" "API_SECRET" --project src/MarketPilot.Web\n$env:ASPNETCORE_ENVIRONMENT="Development"\ndotnet run --project src/MarketPilot.Web --urls "http://localhost:5080"</pre><p>Ardından Gerçek API / Üretim mağazası ekleyip “Bağlantıyı test et” düğmesine basın.</p></div>`)}
+function integrationSetupHelp(){showModal(`<div class="integration-detail"><div class="modal-head"><h2>Mağaza kimlik profili</h2><button class="top-icon" onclick="closeModal()">${ic('close')}</button></div><p>Her satıcı için ayrı bir sunucu profili tanımlayın. API anahtarlarını bu forma veya sohbete yazmayın.</p><pre class="setup-code">dotnet user-secrets set "MarketplaceAccounts:trendyol-ana:Marketplace" "trendyol" --project src/MarketPilot.Web
+dotnet user-secrets set "MarketplaceAccounts:trendyol-ana:Environment" "production" --project src/MarketPilot.Web
+dotnet user-secrets set "MarketplaceAccounts:trendyol-ana:Credentials:SellerId" "SATICI_ID" --project src/MarketPilot.Web
+dotnet user-secrets set "MarketplaceAccounts:trendyol-ana:Credentials:ApiKey" "API_KEY" --project src/MarketPilot.Web
+dotnet user-secrets set "MarketplaceAccounts:trendyol-ana:Credentials:ApiSecret" "API_SECRET" --project src/MarketPilot.Web</pre><p>User-secrets Development ortamında yüklenir. Üretimde aynı anahtarları ortam değişkenleriyle tanımlayın. İkinci satıcı için farklı profil adı kullanın; mağaza eklerken o profili seçin. Diğer kanalların alanları appsettings.Accounts.example.json dosyasındadır.</p></div>`)}
+
 async function integrationCreate(event) {
   event.preventDefault();const form=event.target,button=form.querySelector('[type=submit]');button.disabled=true;
   try{
@@ -111,10 +119,12 @@ async function integrationCreate(event) {
     if(!settings.name)throw new Error('Mağaza adını girin.');
     if(settings.mode==='real'&&!['trendyol','hepsiburada','amazon','n11','boyner','ticimax'].includes(settings.marketplace))throw new Error('Bu pazaryerinin gerçek bağlantısı henüz hazır değil.');
     if(settings.mode==='real'){
-      const readiness=await api('integrations/readiness');data['integrations/readiness']=readiness;
-      if(!readiness[settings.marketplace]?.[settings.environment])throw new Error('Mağaza bağlantı bilgileri eksik. Bağlantını tamamladıktan sonra tekrar dene.');
-      const existing=(data['integrations/connections']||[]).find(c=>c.settings.marketplace===settings.marketplace&&c.settings.mode==='real'&&c.settings.environment===settings.environment);
-      if(existing)throw new Error('Bu ortam için mağaza zaten var: '+existing.settings.name+'. Mevcut mağazayı seçip bağlantıyı test edin.');
+      const profiles=await integrationLoadProfiles(true);
+      const profile=profiles.find(p=>p.id===settings.credentialProfile&&p.marketplace===settings.marketplace&&p.environment===settings.environment);
+      if(!profile)throw new Error('Bu satıcının kimlik profilini seçin. Profil sunucuda tanımlanmalıdır.');
+      if(!profile.configured)throw new Error('Seçilen profilin API bilgileri eksik. Bilgiler daha sonra sunucuda tamamlanabilir.');
+      const existing=(data['integrations/connections']||[]).find(c=>c.settings.mode==='real'&&c.settings.credentialProfile===settings.credentialProfile&&c.settings.marketplace===settings.marketplace&&c.settings.environment===settings.environment);
+      if(existing)throw new Error('Bu satıcı profiline bağlı mağaza zaten var: '+existing.settings.name);
     }
     const created=await api('integrations/connections',{method:'POST',body:JSON.stringify(settings)});
     data['integrations/connections']=await api('integrations/connections');
@@ -164,4 +174,28 @@ async function copyProductCode(button) {
     notice((button.dataset.copyLabel||'Kod')+' kopyalandı.');
   }catch{notice('Kopyalanamadı. Numarayı seçip Ctrl+C ile kopyalayabilirsin.');}
   finally{button.disabled=false;}
+}
+let integrationProfilesPromise=null;
+async function integrationLoadProfiles(force=false){
+  if(!force&&Array.isArray(data['integrations/credential-profiles']))return data['integrations/credential-profiles'];
+  if(!force&&integrationProfilesPromise)return integrationProfilesPromise;
+  integrationProfilesPromise=api('integrations/credential-profiles').then(rows=>{
+    data['integrations/credential-profiles']=Array.isArray(rows)?rows:[];return data['integrations/credential-profiles'];
+  }).finally(()=>{integrationProfilesPromise=null});
+  return integrationProfilesPromise;
+}
+function integrationProfileOptions(){
+  const form=document.querySelector('.store-form'),field=form?.querySelector?.('[data-credential-field]');if(!field)return;
+  const real=form.elements.mode.value==='real',select=form.elements.credentialProfile,old=select.value;field.hidden=!real;select.disabled=!real;select.required=real;
+  const rows=(data['integrations/credential-profiles']||[]).filter(p=>p.marketplace===form.elements.marketplace.value&&p.environment===form.elements.environment.value);
+  select.innerHTML='<option value="">'+(rows.length?'Satıcı profilini seçin':'Bu ortam için sunucuda profil tanımlanmamış')+'</option>'+rows.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.label)+(p.configured?'':' · bilgiler eksik')+'</option>').join('');
+  if(rows.some(p=>p.id===old))select.value=old;
+}
+function integrationStoreReady(store){
+  if(!store||store.settings.mode==='demo')return true;
+  if(store.settings.credentialProfile){
+    const profile=(data['integrations/credential-profiles']||[]).find(p=>p.id===store.settings.credentialProfile);
+    return Boolean(profile?.configured&&profile.marketplace===store.settings.marketplace&&profile.environment===store.settings.environment);
+  }
+  return Boolean(data['integrations/readiness']?.[store.settings.marketplace]?.[store.settings.environment]);
 }

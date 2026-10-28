@@ -18,7 +18,7 @@ public sealed class CatalogJob
 }
 public sealed class CatalogJobTarget
 {
-    public string Key{get;set;}="";public string StoreId{get;set;}="";public string Source{get;set;}="";public string ProductId{get;set;}="";public int Version{get;set;}public string Barcode{get;set;}="";public decimal Stock{get;set;}public decimal Price{get;set;}public string State{get;set;}="pending";public string? DemoJobId{get;set;}public string? Error{get;set;}
+    public string Key{get;set;}="";public string StoreId{get;set;}="";public string Source{get;set;}="";public string ProductId{get;set;}="";public int Version{get;set;}public string Barcode{get;set;}="";public string? NativeSku{get;set;}public decimal Stock{get;set;}public decimal Price{get;set;}public string State{get;set;}="pending";public string? DemoJobId{get;set;}public string? Error{get;set;}
 }
 public sealed record CatalogQuery(string? Search=null,string? StoreId=null,string? Status=null,string? Category=null,string? Mode=null,string? Mapped=null,int Page=0,int Size=25)
 {

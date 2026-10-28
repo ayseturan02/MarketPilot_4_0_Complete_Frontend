@@ -37,6 +37,9 @@ public static class IntegrationEndpoints
     public static void AddMarketplaceIntegrations(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<IntegrationRegistry>();
+        services.AddHttpClient("MarketplaceScoped", c => c.Timeout = TimeSpan.FromSeconds(60)).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+        services.AddSingleton<MarketplaceClients>();
+        services.AddSingleton<MarketPilot.Web.Synchronization.MarketplaceStockWriter>();
         services.AddSingleton<DemoWorkspace>();
         services.AddSingleton<DemoMarketplaceAdapter>();
         services.AddTrendyolIntegration();
@@ -69,36 +72,54 @@ public static class IntegrationEndpoints
         group.MapBoyner();
         group.MapTicimax();
         group.MapCentralStock();
-        group.MapGet("/readiness", (IConfiguration configuration) => Results.Ok(new
+        group.MapGet("/readiness", (IConfiguration configuration, IntegrationRegistry registry) => Results.Ok(new
         {
-            ticimax = new { stage = false, production = TicimaxSoap.IsConfigured(configuration,"production"), writes = new { stage = false, production = false } },
-            boyner = new { stage = false, production = BoynerAdapter.IsConfigured(configuration,"production"), writes = new { stage = false, production = false } },
-            n11 = new { stage = false, production = N11Adapter.IsConfigured(configuration,"production"), writes = new { stage = false, production = false } },
-            amazon = new { stage = AmazonApiClient.IsConfigured(configuration,"stage"), production = AmazonApiClient.IsConfigured(configuration,"production"), writes = new { stage = false, production = false } },
-            hepsiburada = new { stage = HepsiburadaAdapter.IsConfigured(configuration,"stage"), production = HepsiburadaAdapter.IsConfigured(configuration,"production"), writes = new { stage = false, production = false } },
+            profiles = CredentialProfiles.List(configuration),
+            stores = registry.Connections.Values.Select(s=>CredentialProfiles.Readiness(configuration,s)).ToArray(),
+            stockPriceSupported = CredentialProfiles.Markets,
+            ticimax = new { stage = false, production = TicimaxSoap.IsConfigured(configuration,"production"), writes = new { stage = CredentialProfiles.Writes(configuration,new("", "ticimax", "real", "stage")), production = CredentialProfiles.Writes(configuration,new("", "ticimax", "real", "production")) } },
+            boyner = new { stage = false, production = BoynerAdapter.IsConfigured(configuration,"production"), writes = new { stage = CredentialProfiles.Writes(configuration,new("", "boyner", "real", "stage")), production = CredentialProfiles.Writes(configuration,new("", "boyner", "real", "production")) } },
+            n11 = new { stage = false, production = N11Adapter.IsConfigured(configuration,"production"), writes = new { stage = CredentialProfiles.Writes(configuration,new("", "n11", "real", "stage")), production = CredentialProfiles.Writes(configuration,new("", "n11", "real", "production")) } },
+            amazon = new { stage = AmazonApiClient.IsConfigured(configuration,"stage"), production = AmazonApiClient.IsConfigured(configuration,"production"), writes = new { stage = CredentialProfiles.Writes(configuration,new("", "amazon", "real", "stage")), production = CredentialProfiles.Writes(configuration,new("", "amazon", "real", "production")) } },
+            hepsiburada = new { stage = HepsiburadaAdapter.IsConfigured(configuration,"stage"), production = HepsiburadaAdapter.IsConfigured(configuration,"production"), writes = new { stage = CredentialProfiles.Writes(configuration,new("", "hepsiburada", "real", "stage")), production = CredentialProfiles.Writes(configuration,new("", "hepsiburada", "real", "production")) } },
             trendyol = new
             {
                 stage = TrendyolApiClient.IsConfigured(configuration, "stage"), production = TrendyolApiClient.IsConfigured(configuration, "production"),
                 writes = new { stage = TrendyolApiClient.WritesAllowed(configuration, "stage"), production = TrendyolApiClient.WritesAllowed(configuration, "production") }
             }
         }));
+        group.MapGet("/credential-profiles", (IConfiguration configuration) => Results.Ok(CredentialProfiles.List(configuration)));
         group.MapGet("/connections", (IntegrationRegistry registry) => Results.Ok(registry.Connections.Values.OrderBy(x => x.Settings.Marketplace).ThenBy(x => x.Settings.Name)));
-        group.MapPost("/connections", (ConnectionSettings settings, IntegrationRegistry registry) =>
+        group.MapPost("/connections", (ConnectionSettings settings, IntegrationRegistry registry, IConfiguration configuration) =>
         {
             if (string.IsNullOrWhiteSpace(settings.Name) || settings.Name.Length > 80 ||
                 !new[] { "trendyol", "hepsiburada", "n11", "amazon", "boyner", "ticimax" }.Contains(settings.Marketplace) ||
                 !new[] { "demo", "real" }.Contains(settings.Mode) || !new[] { "stage", "production" }.Contains(settings.Environment))
                 return Results.BadRequest(new { error = "Mağaza adı, pazaryeri, mod ve ortam değerlerini kontrol edin." });
             if (registry.Connections.Count >= 50) return Results.BadRequest(new { error = "Bu geçici çalışma alanında en fazla 50 mağaza eklenebilir." });
+            if (settings.Mode == "real")
+            {
+                settings = settings with { CredentialProfile = settings.CredentialProfile ?? CredentialProfiles.Unassigned };
+                if (settings.CredentialProfile != CredentialProfiles.Unassigned)
+                    try { CredentialProfiles.For(configuration, settings); } catch (IntegrationException e) { return Results.Json(new { error = e.Message, code = e.Code }, statusCode: e.Status); }
+            }
+            else settings = settings with { CredentialProfile = null };
+            lock(registry.Connections)
+            {
+            if (registry.Connections.Count >= 50) return Results.BadRequest(new { error = "En fazla 50 mağaza eklenebilir." });
+            if(settings.Mode=="real" && settings.CredentialProfile!=CredentialProfiles.Unassigned && registry.Connections.Values.Any(x=>x.Settings.Mode=="real"&&x.Settings.Marketplace==settings.Marketplace&&x.Settings.Environment==settings.Environment&&x.Settings.CredentialProfile==settings.CredentialProfile))
+                return Results.Conflict(new{error="Bu kimlik profiline bağlı mağaza zaten var. Farklı satıcı için ayrı profil seçin."});
             var id = Guid.NewGuid().ToString("N");
             var state = new ConnectionState(id, settings with { Name = settings.Name.Trim() }, settings.Mode == "demo" ? "demo" : "untested", null, null, null, "Henüz bağlantı testi yapılmadı.", null);
-            registry.Connections[id] = state; registry.Save();
+            registry.Connections[id] = state;
+            try { registry.Save(); } catch { registry.Connections.TryRemove(id,out _); throw; }
             return Results.Ok(state);
+            }
         });
         group.MapPost("/connections/{id}/{operation}", async (
             string id, string operation, int? page, int? size, string? barcode, string? stockCode, string? status, string? approval,
             string? nextPageToken, string? orderNumber, long? startDate, long? endDate, string? orderByDirection, bool? stream, string? nextCursor,
-            IntegrationRegistry registry, DemoMarketplaceAdapter demo, IEnumerable<IMarketplaceAdapter> adapters, MarketPilot.Web.Catalog.OperationsHub operations, CancellationToken ct) =>
+            IntegrationRegistry registry, DemoMarketplaceAdapter demo, MarketplaceClients clients, IConfiguration configuration, MarketPilot.Web.Catalog.OperationsHub operations, CancellationToken ct) =>
         {
             if (!registry.Connections.TryGetValue(id, out var state)) return Results.NotFound(new { error = "Mağaza bulunamadı." });
             if (!new[] { "test", "account", "products", "orders" }.Contains(operation)) return Results.NotFound();
@@ -122,12 +143,12 @@ public static class IntegrationEndpoints
             if (!await gate.WaitAsync(0, ct)) return Results.Json(new { error = "Bu mağazada bir işlem zaten sürüyor." }, statusCode: 409);
             try
             {
-                var adapter = state.Settings.Mode == "demo" ? demo : adapters.First(a => a.Marketplace == state.Settings.Marketplace);
+                var adapter = state.Settings.Mode == "demo" ? demo : clients.Adapter(state.Settings);
                 object? result = null; int? count = null; MarketplaceAccount? account = null;
                 if (operation == "test") { account = await adapter.TestAsync(state.Settings, ct); result = account; }
                 else if (operation == "account")
                 {
-                    var accountCacheKey = $"{state.Settings.Mode}:{state.Settings.Marketplace}:{state.Settings.Environment}";
+                    var accountCacheKey = $"{state.Settings.Mode}:{state.Settings.Marketplace}:{state.Settings.Environment}:{CredentialProfiles.Identity(configuration, state.Settings)}";
                     if (registry.Accounts.TryGetValue(accountCacheKey, out var cached) && cached.ExpiresAt > DateTimeOffset.UtcNow) account = cached.Account;
                     else
                     {
@@ -164,6 +185,23 @@ public static class IntegrationEndpoints
             }
             finally { gate.Release(); }
         });
+        group.MapPost("/connections/{id}/stock-price", (string id, MarketplaceStockRequest input, IntegrationRegistry registry, MarketplaceClients clients, MarketPilot.Web.Synchronization.StockOutbox outbox, MarketPilot.Web.Synchronization.MarketplaceStockWriter writer) =>
+        {
+            if(!registry.Connections.TryGetValue(id,out var store))return Results.NotFound();
+            if(!input.Confirm)return Results.BadRequest(new{error="Stok/fiyat gönderimi için açık onay gerekli."});
+            if(string.IsNullOrWhiteSpace(input.RequestId)||input.RequestId.Length>100 || input.Sku?.Length>100 || input.Barcode?.Length>100 ||
+                string.IsNullOrWhiteSpace(input.Sku)&&string.IsNullOrWhiteSpace(input.Barcode) || input.Quantity is <0 or >1000000 ||
+                input.Price is <=0 or >10000000 || input.Price.HasValue && decimal.Round(input.Price.Value,2)!=input.Price.Value)
+                return Results.BadRequest(new{error="İşlem kimliği, SKU/barkod, tam sayı stok ve en fazla iki ondalıklı fiyat gerekli."});
+            try
+            {
+                input=input with{Sku=string.IsNullOrWhiteSpace(input.Sku)?null:input.Sku.Trim(),Barcode=string.IsNullOrWhiteSpace(input.Barcode)?null:input.Barcode.Trim()};
+                if(store.Settings.Mode=="real")writer.Check(store.Settings);
+                var job=outbox.Enqueue(store,string.IsNullOrWhiteSpace(input.Barcode)?"sku:"+input.Sku:input.Barcode,input.Quantity,input.Price,"Mağaza stok/fiyat işlemi",nativeSku:input.Sku,requestId:input.RequestId);
+                return Results.Accepted("/api/sync/outbox/"+job.Id,new{job,message="Kalıcı gönderim kuyruğuna alındı; mağazadan doğrulanınca tamamlanır."});
+            }catch(IntegrationException e){return Results.Json(new{error=e.Message,code=e.Code},statusCode:e.Status);}
+            catch(ArgumentException e){return Results.BadRequest(new{error=e.Message});}
+        });
         group.MapTrendyolApi();
         group.MapPost("/preview/{marketplace}/stock-price", (string marketplace, StockPriceDraft[] items) =>
         {
@@ -173,3 +211,5 @@ public static class IntegrationEndpoints
         });
     }
 }
+
+public sealed record MarketplaceStockRequest(string RequestId, int Quantity, string? Barcode=null, string? Sku=null, decimal? Price=null, bool Confirm=false);

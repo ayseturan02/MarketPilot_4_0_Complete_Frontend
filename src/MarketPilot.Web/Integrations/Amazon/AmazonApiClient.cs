@@ -6,7 +6,7 @@ using System.Text.Json;
 namespace MarketPilot.Web.Integrations.Amazon;
 
 // Tokens are held in memory only. Only the fixed EU and LWA hosts can receive requests.
-public sealed class AmazonApiClient(IHttpClientFactory factory, IConfiguration configuration)
+public sealed partial class AmazonApiClient(IHttpClientFactory factory, IConfiguration configuration)
 {
     public const string MarketplaceId = "A33AVAJ2PDY3EV";
     private readonly ConcurrentDictionary<string, (string Value, DateTimeOffset Until, string Fingerprint)> tokens = new();
@@ -40,7 +40,8 @@ public sealed class AmazonApiClient(IHttpClientFactory factory, IConfiguration c
         }
         finally { gate.Release(); }
     }
-    public async Task<JsonDocument> Get(string environment, string path, Dictionary<string,string> query, CancellationToken ct)
+    public Task<JsonDocument> Get(string environment, string path, Dictionary<string,string> query, CancellationToken ct) => Send(environment, path, query, null, ct);
+    private async Task<JsonDocument> Send(string environment, string path, Dictionary<string,string> query, HttpContent? patch, CancellationToken ct)
     {
         Seller(environment);
         if (!path.StartsWith('/') || path.Contains('?') || path.Contains("..")) throw new IntegrationException("invalid_path", "Geçersiz Amazon işlemi.", 400);
@@ -48,7 +49,7 @@ public sealed class AmazonApiClient(IHttpClientFactory factory, IConfiguration c
         if (cooldowns.TryGetValue(key, out var until) && until > DateTimeOffset.UtcNow) throw new IntegrationException("rate_limited", "Amazon istek sınırı bekleniyor. Biraz sonra yeniden deneyin.", 429);
         var token = await Token(environment, ct);
         var qs = string.Join('&', query.Select(p=>Uri.EscapeDataString(p.Key)+"="+Uri.EscapeDataString(p.Value)));
-        using var request = new HttpRequestMessage(HttpMethod.Get, $"https://{Host(environment)}{path}{(qs.Length>0?"?"+qs:"")}");
+        using var request = new HttpRequestMessage(patch is null ? HttpMethod.Get : HttpMethod.Patch, $"https://{Host(environment)}{path}{(qs.Length>0?"?"+qs:"")}") { Content = patch };
         request.Headers.TryAddWithoutValidation("x-amz-access-token",token);
         request.Headers.TryAddWithoutValidation("x-amz-date",DateTimeOffset.UtcNow.ToString("yyyyMMddTHHmmssZ",CultureInfo.InvariantCulture));
         request.Headers.TryAddWithoutValidation("User-Agent","InternetTekstil/5.10 (Language=CSharp)");
@@ -59,7 +60,7 @@ public sealed class AmazonApiClient(IHttpClientFactory factory, IConfiguration c
             var code=(int)response.StatusCode;
             if(code==401)tokens.TryRemove(environment,out _);
             if(code==429){var delay=response.Headers.RetryAfter?.Delta??TimeSpan.FromSeconds(30);cooldowns[key]=DateTimeOffset.UtcNow.AddSeconds(Math.Clamp(delay.TotalSeconds,1,300));}
-            throw new IntegrationException(code==429?"rate_limited":"amazon_error",code switch { 401 or 403=>"Amazon bu işleme erişim vermedi. Mağaza yetkilerini kontrol edin.",404=>"Amazon kaydı bulunamadı.",429=>"Amazon istek sınırına ulaşıldı. Biraz sonra yeniden deneyin.",_=>"Amazon verileri alınamadı. Daha sonra yeniden deneyin."},code is 401 or 403?409:code is 404 or 429?code:502);
+            throw new IntegrationException(code==429?"rate_limited":"amazon_error",code switch { 401 or 403=>"Amazon bu işleme erişim vermedi. Mağaza yetkilerini kontrol edin.",404=>"Amazon kaydı bulunamadı.",429=>"Amazon istek sınırına ulaşıldı. Biraz sonra yeniden deneyin.",_=>"Amazon verileri alınamadı. Daha sonra yeniden deneyin."},code is 401 or 403?409:code is 400 or 404 or 409 or 422 or 429?(code==422?400:code):502);
         }
         return JsonDocument.Parse(await Read(response,ct));
     }

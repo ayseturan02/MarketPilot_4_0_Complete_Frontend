@@ -5,10 +5,10 @@ using MarketPilot.Web.Integrations;
 using MarketPilot.Web.Integrations.Demo;
 namespace MarketPilot.Web.Catalog;
 
-public sealed partial class CatalogHub(DemoStore db,IntegrationRegistry registry,DemoWorkspace demo)
+public sealed partial class CatalogHub(DemoStore db,IntegrationRegistry registry,DemoWorkspace demo,IServiceProvider? services=null,IConfiguration? configuration=null)
 {
     private int initialized;private readonly object bootstrapGate=new();
-    public static string Source(ConnectionState c)=>c.Settings.Mode=="demo"?$"demo|{c.Settings.Marketplace}|{c.Settings.Environment}|{c.Settings.Name}":$"real|{c.Settings.Marketplace}|{c.Settings.Environment}";
+    public static string Source(ConnectionState c)=>c.Settings.Mode=="demo"?$"demo|{c.Settings.Marketplace}|{c.Settings.Environment}|{c.Settings.Name}":$"real|{c.Settings.Marketplace}|{c.Settings.Environment}" + (c.Settings.CredentialProfile is null ? "" : "|" + c.Settings.CredentialProfile);
     public static string Key(string storeId,string identity)=>storeId+":"+Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity))).ToLowerInvariant();
     public void Ensure()
     {
@@ -28,7 +28,7 @@ public sealed partial class CatalogHub(DemoStore db,IntegrationRegistry registry
         if(!cache.TryGetValue(c.Id,out var products)){products=demo.Snapshot(c.Settings).Products.GroupBy(p=>p.Id+"\0"+p.Barcode).ToDictionary(g=>g.Key,g=>g.First());cache[c.Id]=products;}var p=products.GetValueOrDefault(link.ExternalId+"\0"+link.Barcode);
         if(p==null)return link with{Status="missing"};
         // FBA quantities are not merchant-fulfilled stock and must not become a publish target.
-        var stock=c.Settings.Marketplace=="amazon"&&MarketPilot.Web.Integrations.Amazon.AmazonDemo.IsAmazonFulfilled(p.Barcode)||c.Settings.Marketplace=="n11"&&MarketPilot.Web.Integrations.N11.N11Demo.Depot(p.Barcode)?null:p.Stock;
+        var stock=c.Settings.Mode=="demo"&&c.Settings.Marketplace=="amazon"&&MarketPilot.Web.Integrations.Amazon.AmazonDemo.IsAmazonFulfilled(p.Barcode)||c.Settings.Mode=="demo"&&c.Settings.Marketplace=="n11"&&MarketPilot.Web.Integrations.N11.N11Demo.Depot(p.Barcode)?null:p.Stock;
         return link with{Stock=stock,Price=p.SalePrice,Currency=p.Currency,Status=p.ApprovalStatus,ObservedAt=DateTimeOffset.UtcNow};
     }
     public ListingPage<CatalogProductRow> Search(CatalogQuery q)
@@ -72,10 +72,15 @@ public sealed partial class CatalogHub(DemoStore db,IntegrationRegistry registry
     public object Remap(CatalogRemap input){Ensure();return db.Modify(s=>{var link=s.Catalog.Listings.GetValueOrDefault(input.ListingKey)??throw new IntegrationException("not_found","Mağaza eşleştirmesi bulunamadı.",404);var p=s.Products.FirstOrDefault(p=>p.Id==input.ProductId)??throw new IntegrationException("not_found","Merkezi ürün bulunamadı.",404);if(p.SourceMode=="local"&&!s.Catalog.Listings.Values.Any(l=>l.ProductId==p.Id))p.SourceMode=link.Source.Split('|')[0];if(p.SourceMode!=link.Source.Split('|')[0])throw new IntegrationException("mode_mismatch","Demo ve gerçek ürünler aynı kayıtta birleştirilemez.",409);s.Catalog.Listings[link.Key]=link with{ProductId=p.Id};RefreshChannels(s,p.Id);RefreshChannels(s,link.ProductId);db.Event(s,"Ürün eşleştirmesi değişti",link.Sku+" → "+p.Sku);return new{ok=true};});}
     public object Categories(CatalogQuery q){Ensure();return db.CatalogRead(s=>{var rows=s.Products.GroupBy(p=>p.Category).Where(g=>ListingFilters.Text(g.Key,q.Search)).OrderBy(g=>g.Key).Select(g=>new{category=g.Key,products=g.Count(),brands=g.Select(p=>p.Brand).Where(b=>b.Length>0).Distinct().Take(10),bindings=s.Catalog.Categories.Values.Where(b=>b.Category==g.Key).ToArray()}).ToArray();return ListingFilters.Page(rows,new ListingQuery(Page:q.Page,Size:q.Size));});}
     public object Bind(CategoryBinding input){Ensure();if(string.IsNullOrWhiteSpace(input.Category)||input.Category.Length>200||string.IsNullOrWhiteSpace(input.ExternalCategoryId)||input.ExternalCategoryId.Length>100||input.ExternalCategoryName.Length>300||input.BrandId.Length>100||input.Attributes==null||input.Attributes.Count>100||input.Attributes.Any(a=>a.Key.Length>100||a.Value.Length>500)||!registry.Connections.ContainsKey(input.StoreId))throw new IntegrationException("invalid_mapping","Kategori, mağaza ve kanal kategori numarasını kontrol et.",400);return db.Modify(s=>{s.Catalog.Categories[Key(input.StoreId,input.Category)]=input;db.Event(s,"Kategori eşleştirildi",input.Category);return input;});}
+    private bool RealWrites(ConnectionState c)
+    {
+        try { return configuration!=null && configuration.GetValue<bool>("Synchronization:AllowRealWrites") && CredentialProfiles.Writes(CredentialProfiles.For(configuration,c.Settings),c.Settings); }
+        catch(IntegrationException){return false;}
+    }
     public PublishLine[] Preview(string[] keys)
     {
         Ensure();var fresh=Fresh();if(keys==null||keys.Length is <1 or >100||keys.Distinct().Count()!=keys.Length)throw new IntegrationException("invalid_selection","1–100 farklı mağaza kaydı seç.",400);return db.CatalogRead(s=>keys.Select(k=>{
-            var l=s.Catalog.Listings.GetValueOrDefault(k)??throw new IntegrationException("not_found","Eşleştirme bulunamadı.",404);var p=s.Products.First(x=>x.Id==l.ProductId);var c=registry.Connections.GetValueOrDefault(l.StoreId);var current=fresh(l);string? reason=c==null||Source(c)!=l.Source?"Mağaza bağlantısı değişmiş.":c.Settings.Mode!="demo"?"Gerçek mağazaya gönderim henüz açık değil.":p.Status!="Aktif"?"Ürün aktif değil.":current.Status is "missing" or "source_changed"?"Mağaza kaydı bulunamadı.":!p.StockKnown||!p.PriceKnown?"Merkezi stok veya fiyat bilinmiyor.":p.Stock!=decimal.Truncate(p.Stock)||p.Stock>1000000||p.Price is <=0 or >10000000?"Demo gönderimi için tam sayı stok ve pozitif fiyat gerekli.":p.Currency!=current.Currency||p.VatIncluded!=true?"Para birimi ve KDV dahil fiyatı kontrol et.":l.Barcode.Length==0?"Mağaza barkodu gerekli.":c.Settings.Marketplace=="amazon"&&MarketPilot.Web.Integrations.Amazon.AmazonDemo.IsAmazonFulfilled(l.Barcode)?"Amazon deposu stoğu bu işlemle değiştirilemez.":c.Settings.Marketplace=="n11"&&MarketPilot.Web.Integrations.N11.N11Demo.Depot(l.Barcode)?"n11depom stoğu bu işlemle değiştirilemez.":null;
+            var l=s.Catalog.Listings.GetValueOrDefault(k)??throw new IntegrationException("not_found","Eşleştirme bulunamadı.",404);var p=s.Products.First(x=>x.Id==l.ProductId);var c=registry.Connections.GetValueOrDefault(l.StoreId);var current=fresh(l);string? reason=c==null||Source(c)!=l.Source?"Mağaza bağlantısı değişmiş.":c.Settings.Mode=="real"&&!RealWrites(c)?"Bu mağazada gerçek stok/fiyat gönderimi açılmamış.":p.Status!="Aktif"?"Ürün aktif değil.":current.Status is "missing" or "source_changed"?"Mağaza kaydı bulunamadı.":!p.StockKnown||!p.PriceKnown?"Merkezi stok veya fiyat bilinmiyor.":p.Stock!=decimal.Truncate(p.Stock)||p.Stock>1000000||p.Price is <=0 or >10000000?"Gönderim için tam sayı stok ve pozitif fiyat gerekli.":p.Currency!=current.Currency||p.VatIncluded!=true?"Para birimi ve KDV dahil fiyatı kontrol et.":l.Barcode.Length==0&&l.Sku.Length==0?"Mağaza barkodu veya SKU gerekli.":c.Settings.Marketplace=="amazon"&&MarketPilot.Web.Integrations.Amazon.AmazonDemo.IsAmazonFulfilled(l.Barcode)?"Amazon deposu stoğu bu işlemle değiştirilemez.":c.Settings.Marketplace=="n11"&&MarketPilot.Web.Integrations.N11.N11Demo.Depot(l.Barcode)?"n11depom stoğu bu işlemle değiştirilemez.":null;
             return new PublishLine(k,p.Id,p.Version,l.StoreId,p.Name,current.Stock,current.Price,p.StockKnown?p.Stock:null,p.PriceKnown?p.Price:null,reason==null,reason);
         }).ToArray());
     }
@@ -87,8 +92,8 @@ public sealed partial class CatalogHub(DemoStore db,IntegrationRegistry registry
         var previous=db.CatalogRead(s=>s.Catalog.Jobs.FirstOrDefault(j=>j.RequestId==input.RequestId));if(previous!=null){if(previous.Fingerprint!=fp)throw new IntegrationException("idempotency_conflict","Bu işlem kimliği farklı bir istekte kullanılmış.",409);return previous;}
         var lines=Preview(input.Keys);if(lines.Any(l=>!l.Ready))throw new IntegrationException("publish_blocked",lines.First(l=>!l.Ready).Reason!,409);
         return db.Modify(s=>{var duplicate=s.Catalog.Jobs.FirstOrDefault(j=>j.RequestId==input.RequestId);if(duplicate!=null){if(duplicate.Fingerprint!=fp)throw new IntegrationException("idempotency_conflict","İşlem kimliği farklı bir istekte kullanılmış.",409);return duplicate;}
-            var job=new CatalogJob{RequestId=input.RequestId,Fingerprint=fp};foreach(var line in lines){var l=s.Catalog.Listings[line.Key];var p=s.Products.First(p=>p.Id==l.ProductId);if(!input.Versions.TryGetValue(p.Id,out var version)||version!=p.Version||line.Version!=p.Version)throw new IntegrationException("version_conflict","Önizlemeden sonra ürün değişti. Yeniden önizle.",409);job.Targets.Add(new(){Key=l.Key,StoreId=l.StoreId,Source=l.Source,ProductId=p.Id,Version=p.Version,Barcode=l.Barcode,Stock=p.Stock,Price=p.Price});}
-            s.Catalog.Jobs.Insert(0,job);db.Event(s,"Mağaza işlemi sıraya alındı",$"{job.Targets.Count} demo mağaza kaydı");return job;
+            var job=new CatalogJob{RequestId=input.RequestId,Fingerprint=fp};foreach(var line in lines){var l=s.Catalog.Listings[line.Key];var p=s.Products.First(p=>p.Id==l.ProductId);if(!input.Versions.TryGetValue(p.Id,out var version)||version!=p.Version||line.Version!=p.Version)throw new IntegrationException("version_conflict","Önizlemeden sonra ürün değişti. Yeniden önizle.",409);job.Targets.Add(new(){Key=l.Key,StoreId=l.StoreId,Source=l.Source,ProductId=p.Id,Version=p.Version,Barcode=l.Barcode,NativeSku=l.Sku,Stock=p.Stock,Price=p.Price});}
+            s.Catalog.Jobs.Insert(0,job);db.Event(s,"Mağaza işlemi sıraya alındı",$"{job.Targets.Count} mağaza kaydı");return job;
         });
     }
     public object Jobs(CatalogQuery q){Ensure();return db.CatalogRead(s=>ListingFilters.Page(s.Catalog.Jobs.Where(j=>ListingFilters.Exact(j.State,q.Status)).OrderByDescending(j=>j.CreatedAt),new ListingQuery(Page:q.Page,Size:q.Size)));}
@@ -97,13 +102,29 @@ public sealed partial class CatalogHub(DemoStore db,IntegrationRegistry registry
         if(initialized==0)return;var jobs=db.CatalogRead(s=>s.Catalog.Jobs.Where(j=>j.State=="pending").Take(10).Select(j=>JsonSerializer.Deserialize<CatalogJob>(JsonSerializer.Serialize(j))!).ToArray());
         foreach(var job in jobs)foreach(var t in job.Targets.Where(t=>t.State is "pending" or "queued")){
             ct.ThrowIfCancellationRequested();try{
-                if(!registry.Connections.TryGetValue(t.StoreId,out var store)||store.Settings.Mode!="demo"||Source(store)!=t.Source)throw new ArgumentException("Demo mağaza bağlantısı değişti.");
+                if(!registry.Connections.TryGetValue(t.StoreId,out var store)||Source(store)!=t.Source)throw new ArgumentException("Mağaza bağlantısı değişti.");
+                if(store.Settings.Mode=="real")
+                {
+                    var queue=services!.GetRequiredService<MarketPilot.Web.Synchronization.StockOutbox>();
+                    if(t.State=="pending")
+                    {
+                        var stale=db.CatalogRead(s=>s.Products.FirstOrDefault(p=>p.Id==t.ProductId)?.Version!=t.Version||s.Catalog.Listings.GetValueOrDefault(t.Key)?.ProductId!=t.ProductId);
+                        if(stale)throw new ArgumentException("Sıraya alındıktan sonra ürün veya eşleştirme değişti. Yeniden önizle.");
+                        var sent=queue.Enqueue(store,t.Barcode.Length>0?t.Barcode:"sku:"+t.NativeSku,(int)t.Stock,t.Price,"Ortak katalog",nativeSku:t.NativeSku,requestId:"catalog-"+job.Id+"-"+t.Key);t.DemoJobId=sent.Id;t.State="queued";
+                    }
+                    var result=queue.Find(t.DemoJobId!);
+                    if(result?.State=="completed")t.State="completed";
+                    else if(result==null || result.State is "failed" or "blocked" or "superseded"){t.State="failed";t.Error=result?.Error??"Kalıcı gönderim kaydı bulunamadı.";}
+                }
+                else
+                {
                 if(t.State=="pending"){
                     var stale=db.CatalogRead(s=>s.Products.FirstOrDefault(p=>p.Id==t.ProductId)?.Version!=t.Version||s.Catalog.Listings.GetValueOrDefault(t.Key)?.ProductId!=t.ProductId);if(stale)throw new ArgumentException("Sıraya alındıktan sonra ürün veya eşleştirme değişti. Yeniden önizle.");
                     var sent=demo.Enqueue(store.Settings,new("stock","catalog-"+job.Id+"-"+Key(t.StoreId,t.Key)[^16..],t.Barcode,(int)t.Stock,t.Price));t.DemoJobId=sent.Id;t.State="queued";
                 }
                 var result=demo.Snapshot(store.Settings).Jobs.FirstOrDefault(j=>j.Id==t.DemoJobId);if(result?.State=="completed")t.State="completed";else if(result==null){t.State="failed";t.Error="Mağaza işlem kaydı bulunamadı; yeniden önizle.";}else if(result.State=="failed"){t.State="failed";t.Error=result.Error;}
-            }catch(Exception e)when(e is ArgumentException or InvalidOperationException){t.State="failed";t.Error=e.Message;}
+                }
+            }catch(Exception e)when(e is ArgumentException or InvalidOperationException or IntegrationException){t.State="failed";t.Error=e.Message;}
             db.Modify(s=>{var saved=s.Catalog.Jobs.Single(j=>j.Id==job.Id);var target=saved.Targets.Single(v=>v.Key==t.Key);target.State=t.State;target.DemoJobId=t.DemoJobId;target.Error=t.Error;saved.State=saved.Targets.Any(v=>v.State is "pending" or "queued")?"pending":saved.Targets.Any(v=>v.State=="failed")?"failed":"completed";return true;});
         }await Task.CompletedTask;
     }

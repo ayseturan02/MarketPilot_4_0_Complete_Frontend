@@ -76,3 +76,7 @@ Sabit HTTPS hostları, yönlendirme kapatma, 45 saniye istek süresi ve 10 MB ya
 - [Finans işlemleri](https://developer-docs.amazon.com/sp-api/reference/listtransactions)
 
 İncelenen şema dosyaları: `orders_2026-01-01.json`, `listingsItems_2021-08-01.json`, `fbaInventory.json`, `finances_2024-06-19.json`, `reports_2021-06-30.json`, `sellers.json`, `definitionsProductTypes_2020-09-01.json` (Amazon'un resmî deposu).
+
+## Mağaza kimliği ve stok/fiyat yazma güncellemesi
+
+Mağazaya ayrı sunucu kimlik profili seçimi ve kalıcı stok/fiyat gönderimi eklendi. Bu belgedeki önceki salt okuma sınırları stok/fiyat için güncellenmiştir; diğer yazma işlemleri kapsam dışıdır. Güncel sözleşme, izin ve test sınırları: [MAGAZA_HESAPLARI_VE_YAZMA.md](MAGAZA_HESAPLARI_VE_YAZMA.md).

@@ -71,3 +71,7 @@ Dokümanların herkese açık indekslenen alanları incelendi. Hesapsız erişim
 ## Ayrıntılı ekranlar — 27 Ekim 2026
 
 Ürün kartlarında açıklama, görsel/ürün simgesi, fiziksel/satılabilir/rezerve stok ayrımı, kumaş/renk/beden, aynı modelin varyantları ve kayıtlı değişiklikler gösterilir. Sipariş detayı beş aşamalı ilerleme, teslimat adresi, kalem tutarları, fatura ve kargo bilgileriyle işlem geçmişini içerir. Kargo etiketleri, kategori/özellikler ve mağaza adresleri için etiketli demo görünümleri eklendi. Finans özeti yalnız görüntülenen sayfanın hareketlerini toplar; kâr/hakediş olarak sunulmaz. İade stok etkisi ve iş ayrıntıları açılabilir. Canlı etiket/kategori/adres bağlantıları tamamlanmadığından gerçek mağazada örnek veri gösterilmez.
+
+## Mağaza kimliği ve stok/fiyat yazma güncellemesi
+
+Mağazaya ayrı sunucu kimlik profili seçimi ve kalıcı stok/fiyat gönderimi eklendi. Bu belgedeki önceki salt okuma sınırları stok/fiyat için güncellenmiştir; diğer yazma işlemleri kapsam dışıdır. Güncel sözleşme, izin ve test sınırları: [MAGAZA_HESAPLARI_VE_YAZMA.md](MAGAZA_HESAPLARI_VE_YAZMA.md).

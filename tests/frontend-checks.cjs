@@ -36,7 +36,10 @@ vm.runInContext(`
 assert(app.innerHTML.includes('GERÇEK API') && app.innerHTML.includes('DEMO'));
 app.scrollTop=321;vm.runInContext(`render()`,context);assert.equal(app.scrollTop,321);
 assert(app.innerHTML.includes('İnternet Tekstil 5.1') && app.innerHTML.includes('Mağaza bilgileri'));
-assert(app.innerHTML.includes('Seller ID / anahtarlar eksik') && app.innerHTML.includes('Kurulum adımları'));
+assert(app.innerHTML.includes('Profil / anahtarlar eksik') && app.innerHTML.includes('Kurulum adımları'));
+const profileBadge=vm.runInContext(`(()=>{const previous=data['integrations/readiness'];try{data['integrations/readiness']={trendyol:{production:false,stage:false},profiles:[{marketplace:'trendyol',environment:'production',configured:true}]};return integrationReadiness();}finally{data['integrations/readiness']=previous;}})()`,context);
+assert(profileBadge.includes('Üretim: Hazır profil var'),'Profile readiness must not depend on legacy environment credentials');
+
 assert(app.innerHTML.includes('&lt;script&gt;unsafe&lt;/script&gt;'));
 assert(!app.innerHTML.includes('<script>unsafe</script>'));
 assert(app.innerHTML.includes('Mağaza ekle') && app.innerHTML.includes('Ürünler'));

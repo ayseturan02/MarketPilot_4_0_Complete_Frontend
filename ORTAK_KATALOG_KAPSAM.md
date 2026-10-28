@@ -18,17 +18,17 @@ Mevcut yerel ürünler silinmez. İlk geçişte mevcut demo mağazalarındaki se
 
 ## İşlem sırası
 
-Merkezi ürünü düzenle → hedef mağaza kayıtlarını seç → stok/fiyat farklarını önizle → hazır demo kayıtlarına uygula → işlem geçmişinden sonucu izle.
+Merkezi ürünü düzenle → hedef mağaza kayıtlarını seç → stok/fiyat farklarını önizle → hazır mağaza kayıtlarına uygula → işlem geçmişinden sonucu izle.
 
 İşler sunucuda kalıcı tutulur. Aynı işlem kimliği tekrar gönderildiğinde aynı iş döner; aynı kimlik farklı içerikle kullanılamaz. Ürün sürümü önizlemeden veya sıraya alınmadan sonra değişmişse eski değerlerle gönderim engellenir. İşler uygulama yeniden başladıktan sonra devam eder. Amazon FBA ve n11depom stokları satıcı stok düzenlemesinden korunur. Hedefler farklı sonuçlanırsa ayrıntıda her mağazanın sonucu görülebilir. Başarısız iş için güncel değerlerle yeni önizleme yapılır.
 
-Gerçek mağazaya stok/fiyat yazma kapalıdır. Canlı hesaplar ve sağlayıcıların gerçek yazma yetkileri doğrulanmadan bu koruma açılmamalıdır.
+Gerçek stok/fiyat hedefleri artık kalıcı pazaryeri kuyruğuna bağlanır. Mağaza profili, sunucu yazma izni, bilinen para birimi ve KDV dahil fiyat gereklidir. Varsayılan izinler kapalıdır. Ayrıntılar: [MAGAZA_HESAPLARI_VE_YAZMA.md](MAGAZA_HESAPLARI_VE_YAZMA.md).
 
 ## Sipariş, gönderi ve ana panel
 
 Genel sipariş listesi mevcut yerel kayıtlarla mağaza demo siparişlerini birlikte gösterir. Mağaza merkezindeki demo durum değişikliği genel listeye yansır. Sipariş satırından eşleşen merkezi ürüne geçilebilir. Takip numarası olan mağaza gönderileri genel gönderi listesinde de görünür. Mağaza sipariş/gönderi işlemleri ilgili merkeze yönlendirilir; yerel durum formu üzerinden yanlış kayda yazılmaz.
 
-Gerçek merkezlerde okunan sipariş sayfaları (ortak okuma yolu ve altı merkezin ilgili sayfaları) ortak sipariş deposuna eklenir/güncellenir. Bir sayfa okundu diye tüm hesap çekilmiş kabul edilmez. Genel gerçek sipariş görünümü yalnızca daha önce okunan kayıtlardan oluşur; tüm hesabın periyodik içe aktarımı/webhook mekanizması henüz yoktur. Ticimax sipariş yanıtında ürün satırları bulunmadığında merkezi liste bu satırları uydurmaz.
+Gerçek merkezlerde okunan sipariş sayfaları (ortak okuma yolu ve altı merkezin ilgili sayfaları) ortak sipariş deposuna eklenir/güncellenir. Bir sayfa okundu diye tüm hesap çekilmiş kabul edilmez. Genel gerçek sipariş görünümü yalnızca daha önce okunan kayıtlardan oluşur; zamanlanmış sipariş okuması ve webhook alıcısı artık mevcuttur; zamanlayıcı seçilen kontrol penceresini ve başarılı tarama zamanını kullanır, tüm geçmişin sınırsız aktarıldığı varsayılmaz. Ticimax sipariş yanıtında ürün satırları bulunmadığında merkezi liste bu satırları uydurmaz.
 
 Ana panelin ürün, sipariş ve kanal toplamları ortak kayıtlardan hesaplanır. TRY toplamı farklı para birimlerini dönüştürüp toplamaz. Sipariş tutarı tahsilat/net kâr değildir; iadeler ve finansal mutabakat ayrı geliştirme gerektirir.
 

@@ -30,7 +30,7 @@ public static class TrendyolEndpoints
         }));
 
         group.MapPost("/connections/{id}/operations/{key}", async (string id, string key, TrendyolOperationRequest? request,
-            IntegrationRegistry registry, TrendyolOperationRunner runner, CancellationToken ct) =>
+            IntegrationRegistry registry, MarketplaceClients clients, CancellationToken ct) =>
         {
             if (!registry.Connections.TryGetValue(id, out var state) || state.Settings.Marketplace != "trendyol")
                 return Results.NotFound(new { error = "Trendyol mağazası bulunamadı." });
@@ -40,7 +40,7 @@ public static class TrendyolEndpoints
             if (!await gate.WaitAsync(0, ct)) return Results.Json(new { error = "Bu mağazada bir işlem zaten sürüyor." }, statusCode: 409);
             try
             {
-                var result = await runner.RunAsync(operation, state.Settings, request ?? new(), ct);
+                var result = await clients.Trendyol(state.Settings).RunAsync(operation, state.Settings, request ?? new(), ct);
                 var updated = state with
                 {
                     Status = state.Settings.Mode == "demo" ? "demo" : result.Sent ? "connected" : state.Status,

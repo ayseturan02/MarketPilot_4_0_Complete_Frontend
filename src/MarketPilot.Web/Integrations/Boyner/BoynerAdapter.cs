@@ -12,7 +12,7 @@ public record BoynerClaimLine(string Id,string ProductName,string Sku,string Bar
 public record BoynerClaim(string Id,string OrderNumber,string CustomerName,string ClaimDate,BoynerClaimLine[] Lines);
 public record BoynerPage<T>(IReadOnlyList<T> Items,int Page,int Size,long? TotalElements=null,int? TotalPages=null,string? TaskStatus=null);
 
-public sealed class BoynerAdapter(HttpClient http,IConfiguration configuration):IMarketplaceAdapter
+public sealed partial class BoynerAdapter(HttpClient http,IConfiguration configuration):IMarketplaceAdapter
 {
     public string Marketplace=>"boyner";
     private JsonElement categories;private DateTimeOffset categoriesUntil;private readonly SemaphoreSlim categoryGate=new(1,1);
@@ -25,14 +25,15 @@ public sealed class BoynerAdapter(HttpClient http,IConfiguration configuration):
         if(q.StartDate.HasValue!=q.EndDate.HasValue||q.StartDate<0||q.EndDate>253402300799999||q.StartDate>q.EndDate||q.EndDate-q.StartDate>TimeSpan.FromDays(31).TotalMilliseconds)return "Tarihleri birlikte seçin; aralık en fazla 31 gün olabilir.";
         return null;
     }
-    private async Task<JsonDocument> Get(ConnectionSettings s,string path,Dictionary<string,string> query,CancellationToken ct)
+    private Task<JsonDocument> Get(ConnectionSettings s,string path,Dictionary<string,string> query,CancellationToken ct)=>Send(s,path,query,null,ct);
+    private async Task<JsonDocument> Send(ConnectionSettings s,string path,Dictionary<string,string> query,HttpContent? body,CancellationToken ct)
     {
         var supplier=Supplier(s);var qs=string.Join('&',query.Select(p=>Uri.EscapeDataString(p.Key)+"="+Uri.EscapeDataString(p.Value)));
-        using var request=new HttpRequestMessage(HttpMethod.Get,"https://merchantapi.boyner.com.tr"+path+(qs.Length>0?"?"+qs:""));
+        using var request=new HttpRequestMessage(body==null?HttpMethod.Get:HttpMethod.Post,"https://merchantapi.boyner.com.tr"+path+(qs.Length>0?"?"+qs:"")){Content=body};
         // The official security scheme describes supplierId:apiKey:apiSecretKey.
         var basic=$"{supplier}:{configuration["Marketplaces:Boyner:production:ApiKey"]}:{configuration["Marketplaces:Boyner:production:ApiSecretKey"]}";
         request.Headers.Authorization=new AuthenticationHeaderValue("Basic",Convert.ToBase64String(Encoding.UTF8.GetBytes(basic)));request.Headers.TryAddWithoutValidation("User-Agent",supplier+" SelfIntegration");request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        using var response=await http.SendAsync(request,HttpCompletionOption.ResponseHeadersRead,ct);if(!response.IsSuccessStatusCode){var code=(int)response.StatusCode;throw new IntegrationException(code==429?"rate_limited":"boyner_error",code switch{401 or 403=>"Boyner mağaza yetkisi doğrulanamadı.",429=>"Boyner istek sınırına ulaşıldı. Biraz sonra yeniden deneyin.",404=>"Boyner kaydı bulunamadı.",_=>"Boyner verileri alınamadı. Daha sonra yeniden deneyin."},code is 401 or 403?409:code is 404 or 429?code:502);}
+        using var response=await http.SendAsync(request,HttpCompletionOption.ResponseHeadersRead,ct);if(!response.IsSuccessStatusCode){var code=(int)response.StatusCode;throw new IntegrationException(code==429?"rate_limited":"boyner_error",code switch{401 or 403=>"Boyner mağaza yetkisi doğrulanamadı.",429=>"Boyner istek sınırına ulaşıldı. Biraz sonra yeniden deneyin.",404=>"Boyner kaydı bulunamadı.",_=>"Boyner verileri alınamadı. Daha sonra yeniden deneyin."},code is 401 or 403?409:code is 400 or 404 or 409 or 422 or 429?(code==422?400:code):502);}
         const int limit=16*1024*1024;if(response.Content.Headers.ContentLength>limit)throw new IntegrationException("response_large","Boyner yanıtı boyut sınırını aştı.");await using var stream=await response.Content.ReadAsStreamAsync(ct);using var output=new MemoryStream();var block=new byte[8192];int n;while((n=await stream.ReadAsync(block,ct))>0){if(output.Length+n>limit)throw new IntegrationException("response_large","Boyner yanıtı boyut sınırını aştı.");output.Write(block,0,n);}var doc=JsonDocument.Parse(output.ToArray());if(Bj.F(doc.RootElement,"success").ValueKind==JsonValueKind.False){doc.Dispose();throw new IntegrationException("boyner_rejected","Boyner isteği tamamlayamadı. Mağaza yetkisini ve sorguyu kontrol edin.");}return doc;
     }
     private static Dictionary<string,string> Paging(BoynerQuery q)=>new(){["page"]=q.Page.ToString(CultureInfo.InvariantCulture),["size"]=q.Size.ToString(CultureInfo.InvariantCulture)};

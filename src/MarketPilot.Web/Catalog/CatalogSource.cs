@@ -4,7 +4,7 @@ using MarketPilot.Web.Integrations.Demo;
 using MarketPilot.Web.Integrations.Ticimax;
 namespace MarketPilot.Web.Catalog;
 
-public sealed class CatalogSource(IntegrationRegistry registry,DemoMarketplaceAdapter demo,IEnumerable<IMarketplaceAdapter> adapters,TicimaxAdapter ticimax)
+public sealed class CatalogSource(IntegrationRegistry registry,DemoMarketplaceAdapter demo,IEnumerable<IMarketplaceAdapter> adapters,TicimaxAdapter ticimax,MarketplaceClients? clients=null)
 {
     private readonly ConcurrentDictionary<string,CandidateBatch> batches=new();
     public CandidateBatch Get(string token)
@@ -22,10 +22,10 @@ public sealed class CatalogSource(IntegrationRegistry registry,DemoMarketplaceAd
             CatalogCandidate[] rows;string? next=null;bool more;var size=store.Settings.Marketplace=="amazon"&&store.Settings.Mode=="real"?20:25;
             if(store.Settings.Marketplace=="ticimax"&&store.Settings.Mode=="real"){
                 if(q.Approval!="approved")throw new IntegrationException("unsupported_filter","Ticimax ürün kartlarında onay bekleyen başvuru filtresi bulunmuyor.",400);
-                var cards=await ticimax.Cards(store.Settings,new(q.Search,q.SearchType,Page:q.Page,Size:25),ct);rows=cards.Items.SelectMany(c=>c.Variants.Select(v=>new CatalogCandidate(CatalogHub.Key(id,CatalogHub.Identity(v.Id,v.Sku,v.Barcode)),v.Id,v.Sku,v.Barcode,c.Name,c.Category,c.Brand,v.Quantity,v.Price,"",v.VatIncluded,c.Active==true?"active":"inactive",c.Images,v.Attributes,c.Description))).ToArray();more=cards.HasMore;
+                var cards=await (clients?.Adapter<TicimaxAdapter>(store.Settings)??ticimax).Cards(store.Settings,new(q.Search,q.SearchType,Page:q.Page,Size:25),ct);rows=cards.Items.SelectMany(c=>c.Variants.Select(v=>new CatalogCandidate(CatalogHub.Key(id,CatalogHub.Identity(v.Id,v.Sku,v.Barcode)),v.Id,v.Sku,v.Barcode,c.Name,c.Category,c.Brand,v.Quantity,v.Price,"",v.VatIncluded,c.Active==true?"active":"inactive",c.Images,v.Attributes,c.Description))).ToArray();more=cards.HasMore;
             }else{
                 if(q.Search is {Length:>0}&&q.SearchType=="CARD_ID")throw new IntegrationException("unsupported_filter","Bu mağazada SKU veya barkodla ara.",400);
-                var adapter=store.Settings.Mode=="demo"?demo:adapters.FirstOrDefault(a=>a.Marketplace==store.Settings.Marketplace)??throw new IntegrationException("unsupported_marketplace","Bu mağaza desteklenmiyor.",409);
+                var adapter=store.Settings.Mode=="demo"?demo:clients?.Adapter(store.Settings)??adapters.FirstOrDefault(a=>a.Marketplace==store.Settings.Marketplace)??throw new IntegrationException("unsupported_marketplace","Bu mağaza desteklenmiyor.",409);
                 var page=await adapter.ProductsAsync(store.Settings,new(q.Page,size,q.SearchType=="BARCODE"?q.Search:null,q.SearchType=="SKU"?q.Search:null,NextPageToken:q.Token,Approval:q.Approval),ct);rows=page.Items.Select(p=>CatalogHub.Candidate(store,p)).ToArray();next=page.NextPageToken;more=page.HasMore??(page.TotalPages.HasValue?q.Page+1<page.TotalPages:next!=null||page.Items.Count>=size);
             }
             if(rows.Length>5000)throw new IntegrationException("page_too_large","Bu sayfada çok fazla varyant var. Tam ürün kimliğiyle filtrele.",409);

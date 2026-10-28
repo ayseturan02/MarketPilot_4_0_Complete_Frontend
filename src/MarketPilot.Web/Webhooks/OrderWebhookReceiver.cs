@@ -10,21 +10,19 @@ using MarketPilot.Web.Integrations.Trendyol;
 namespace MarketPilot.Web.Webhooks;
 
 public sealed record OrderHookBinding(string Id,ConnectionState Store,string SellerId,IConfigurationSection Settings);
-public sealed class OrderWebhookReceiver(IConfiguration configuration,IntegrationRegistry registry,OrderWebhookInbox inbox)
+public sealed partial class OrderWebhookReceiver(IConfiguration configuration,IntegrationRegistry registry,OrderWebhookInbox inbox)
 {
     public const string Root="Webhooks:Trendyol";
     public const int MaxBytes=2*1024*1024;
     private readonly object rateGate=new();private readonly Dictionary<string,(DateTimeOffset Start,int Count)> windows=new();
     public OrderHookBinding? Binding(string id)
     {
-        if(!Regex.IsMatch(id,"^[a-zA-Z0-9_-]{8,80}$")||new[]{"trendyol","dolap","localhost"}.Any(word=>id.Contains(word,StringComparison.OrdinalIgnoreCase)))return null;
-        var settings=configuration.GetSection(Root+":Endpoints:"+id);
-        if(!settings.GetValue<bool>("Enabled")||!registry.Connections.TryGetValue(settings["ConnectionId"]??"",out var store)||store.Settings.Mode!="real"||store.Settings.Marketplace!="trendyol"||store.Settings.Environment is not("stage" or "production"))return null;
-        var seller=configuration[$"Marketplaces:Trendyol:{store.Settings.Environment}:SellerId"];
-        if(!long.TryParse(seller,out var n)||n<1)return null;
-        var type=settings["AuthenticationType"]??"API_KEY";
-        if(type=="API_KEY"&&(settings["ApiKey"]?.Length??0)<32||type=="BASIC_AUTHENTICATION"&&((settings["Username"]?.Length??0)<1||(settings["Password"]?.Length??0)<32)||type is not("API_KEY" or "BASIC_AUTHENTICATION"))return null;
-        return new(id,store,n.ToString(System.Globalization.CultureInfo.InvariantCulture),settings);
+        var readiness = Inspect(id);
+        if (!readiness.Ready) return null;
+        var settings = configuration.GetSection(Root + ":Endpoints:" + id);
+        var store = registry.Connections[readiness.ConnectionId!];
+        var seller = CredentialProfiles.For(configuration,store.Settings)[$"Marketplaces:Trendyol:{store.Settings.Environment}:SellerId"]!;
+        return new(id, store, long.Parse(seller, System.Globalization.CultureInfo.InvariantCulture).ToString(System.Globalization.CultureInfo.InvariantCulture), settings);
     }
     private static bool Equal(string a,string b)=>CryptographicOperations.FixedTimeEquals(SHA256.HashData(Encoding.UTF8.GetBytes(a)),SHA256.HashData(Encoding.UTF8.GetBytes(b)));
     private static bool Authorized(HttpRequest request,OrderHookBinding binding)
@@ -60,7 +58,12 @@ public sealed class OrderWebhookReceiver(IConfiguration configuration,Integratio
         catch(IntegrationException e){return Results.Json(new{error=e.Message,code=e.Code},statusCode:e.Status);}
         catch(Exception e)when(e is IOException or UnauthorizedAccessException){return Results.StatusCode(503);}
     }
-    public object Status()=>new{endpoints=configuration.GetSection(Root+":Endpoints").GetChildren().Select(s=>new{id=s.Key,enabled=s.GetValue<bool>("Enabled"),ready=Binding(s.Key)!=null,authenticationType=s["AuthenticationType"]??"API_KEY",callbackPath="/hooks/orders/"+s.Key}),inbox=inbox.Status()};
+    public object Status()
+    {
+        var endpoints = configuration.GetSection(Root + ":Endpoints").GetChildren().Select(s => Inspect(s.Key)).ToArray();
+        return new { receiverImplemented = true, exampleCallbackPath = "/hooks/orders/receiver01",
+            configuredCount = endpoints.Length, readyCount = endpoints.Count(e => e.Ready), endpoints, inbox = inbox.Status() };
+    }
 }
 
 public static class OrderWebhookPayload

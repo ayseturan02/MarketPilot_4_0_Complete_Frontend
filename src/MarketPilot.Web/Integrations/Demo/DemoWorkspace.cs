@@ -92,7 +92,7 @@ public sealed partial class DemoWorkspace
     private void Save()
     {
         var candidate=JsonSerializer.Serialize(states,json);
-        try{var temporary=file+".tmp";File.WriteAllText(temporary,candidate);File.Move(temporary,file,true);persistedSnapshot=candidate;Interlocked.Increment(ref revision);}
+        try{var temporary=file+".tmp";File.WriteAllText(temporary,candidate);for(var attempt=0;;attempt++){try{File.Move(temporary,file,true);break;}catch(IOException)when(attempt<4){Thread.Sleep(10);}}persistedSnapshot=candidate;Interlocked.Increment(ref revision);}
         catch{states=JsonSerializer.Deserialize<Dictionary<string,DemoWorkspaceState>>(persistedSnapshot,json)!;throw;}
     }
     public int ProcessPendingJobs()

@@ -7,6 +7,7 @@ using MarketPilot.Web.Catalog;
 using MarketPilot.Web.Webhooks;
 using MarketPilot.Web.Integrations.CentralStock;
 using MarketPilot.Web.Integrations.Demo;
+using MarketPilot.Web.Synchronization;
 
 var builder = WebApplication.CreateBuilder(args);
 // DNS rebinding: a foreign site resolving to 127.0.0.1 sends its own Host header, so only local host names are accepted unless AllowedHosts is configured.
@@ -18,6 +19,7 @@ builder.Services.AddOrderWebhooks();
 builder.Services.AddMarketplaceIntegrations(builder.Configuration);
 builder.AddLocalAccess();
 builder.Services.AddLocalReliability();
+builder.Services.AddBackgroundSynchronization();
 var app = builder.Build();
 app.Services.GetRequiredService<CatalogHub>().Ensure();
 app.Use(async(context,next)=>
@@ -44,6 +46,7 @@ app.MapMarketplaceIntegrations();
 app.MapListingSearch();
 app.MapCatalog();
 app.MapOrderWebhooks();
+app.MapBackgroundSynchronization();
 
 app.MapGet("/api/health", (IWebHostEnvironment env, ReliabilityState reliability) => {
     var storage = File.Exists(Path.Combine(env.ContentRootPath, "Data", "demo-store.json"));
@@ -51,8 +54,8 @@ app.MapGet("/api/health", (IWebHostEnvironment env, ReliabilityState reliability
     var backup = reliability.LastBackupError is null;
     return Results.Json(new { status = storage && queue && backup ? "ok" : "degraded", mode = "local", checks = new { storage, queue, backup }, timestamp = DateTimeOffset.UtcNow }, statusCode: storage && queue && backup ? 200 : 503);
 });
-app.MapGet("/api/sync/status", (DemoWorkspace demo, CentralStockService stock, DemoStore db) => Results.Ok(new {
-    demo = demo.QueueStatus(), stock = stock.Status(),
+app.MapGet("/api/sync/status", (DemoWorkspace demo, CentralStockService stock, DemoStore db, OrderSynchronization automation, StockOutbox outbox) => Results.Ok(new {
+    demo = demo.QueueStatus(), stock = stock.Status(), automation = automation.Status(), outbox = outbox.Status(),
     catalog = db.CatalogRead(s => new { pending = s.Catalog.Jobs.Count(j => j.State == "pending"), failed = s.Catalog.Jobs.Count(j => j.State == "failed"), completed = s.Catalog.Jobs.Count(j => j.State == "completed") })
 }));
 app.MapGet("/api/overview", (OperationsHub hub) => Results.Ok(hub.Overview()));

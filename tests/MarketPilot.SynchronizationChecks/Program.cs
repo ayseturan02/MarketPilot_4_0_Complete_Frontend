@@ -4,6 +4,7 @@ using System.Text.Json;
 using MarketPilot.Web.Integrations;
 using MarketPilot.Web.Integrations.CentralStock;
 using MarketPilot.Web.Integrations.Demo;
+using MarketPilot.Web.Synchronization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,7 +30,7 @@ try
     registry.Connections["real-alias"] = store with { Id = "real-alias", Settings = store.Settings with { Name = "Same account alias" } };
     var handler = new SourceFixture();
     var adapter = new OrdersFixture();
-    using var provider = new ServiceCollection().AddSingleton<IConfiguration>(config).AddSingleton(registry).AddSingleton(demo)
+    using var provider = new ServiceCollection().AddSingleton<IConfiguration>(config).AddSingleton<IWebHostEnvironment>(env).AddSingleton(TimeProvider.System).AddSingleton<StockOutbox>().AddSingleton(registry).AddSingleton(demo)
         .AddSingleton<IHttpClientFactory>(handler).AddTransient<CentralStockSource>()
         .AddSingleton<IMarketplaceAdapter>(adapter).BuildServiceProvider();
     var service = new CentralStockService(env, provider, config);

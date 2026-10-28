@@ -66,3 +66,7 @@ Sabit api.n11.com HTTPS hostu ve işlem yolu listesi, yönlendirme kapatma, 45 s
 - [Stok/fiyat gönderim sözleşmesi](https://developer.n11.com/documentation/n11-marketplace-entegrasyonu/urun-fiyat-stok-guncelleme/)
 - [n11depom](https://developer.n11.com/documentation/n11depom/n11depom/)
 - [Değişiklik günlüğü](https://developer.n11.com/documentation/changelog/)
+
+## Mağaza kimliği ve stok/fiyat yazma güncellemesi
+
+Mağazaya ayrı sunucu kimlik profili seçimi ve kalıcı stok/fiyat gönderimi eklendi. Bu belgedeki önceki salt okuma sınırları stok/fiyat için güncellenmiştir; diğer yazma işlemleri kapsam dışıdır. Güncel sözleşme, izin ve test sınırları: [MAGAZA_HESAPLARI_VE_YAZMA.md](MAGAZA_HESAPLARI_VE_YAZMA.md).

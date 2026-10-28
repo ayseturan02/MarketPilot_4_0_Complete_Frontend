@@ -11,7 +11,7 @@ public static class HepsiburadaEndpoints
     public static void MapHepsiburada(this RouteGroupBuilder group)
     {
         group.MapGet("/hepsiburada/connections/{id}/search/{kind}", async (string id, string kind, string? orderNumber, [AsParameters] ListingQuery query,
-            IntegrationRegistry registry, HepsiburadaAdapter adapter, MarketPilot.Web.Catalog.OperationsHub operations, CancellationToken ct) =>
+            IntegrationRegistry registry, MarketplaceClients clients, MarketPilot.Web.Catalog.OperationsHub operations, CancellationToken ct) =>
         {
             if (!registry.Connections.TryGetValue(id, out var store) || store.Settings.Marketplace != "hepsiburada") return Results.NotFound();
             if (store.Settings.Mode != "real") return Results.BadRequest(new { error = "Demo mağazasını demo çalışma alanından açın." });
@@ -30,17 +30,18 @@ public static class HepsiburadaEndpoints
             if (!await gate.WaitAsync(0, ct)) return Results.Json(new { error = "Mağazada başka bir işlem sürüyor; yeniden deneyin." }, statusCode: 409);
             try
             {
+                var adapter = store.Settings.Mode == "demo" ? null : clients.Adapter<HepsiburadaAdapter>(store.Settings);
                 object result;
-                if (kind is "products" or "inventory") result = await adapter.ProductsAsync(store.Settings, new(query.Page, query.Size, query.Barcode, query.Sku, query.Status), ct);
+                if (kind is "products" or "inventory") result = await adapter!.ProductsAsync(store.Settings, new(query.Page, query.Size, query.Barcode, query.Sku, query.Status), ct);
                 else if (kind is "orders" or "shipping" or "invoices" or "labels")
                 {
                     // Native exact order-number query; never search only a fetched page.
                     long? start = query.StartDate;
                     long? end = query.EndDate;
                     if (start.HasValue != end.HasValue || end - start > TimeSpan.FromDays(31).TotalMilliseconds) return Results.BadRequest(new { error = "Tarihleri birlikte seçin; aralık en fazla 31 gün olabilir." });
-                    result = await adapter.OrdersAsync(store.Settings, new(query.Page, query.Size, kind == "invoices" ? "MissingInvoice" : query.Status, orderNumber?.Trim(), StartDate: start, EndDate: end), ct);
+                    result = await adapter!.OrdersAsync(store.Settings, new(query.Page, query.Size, kind == "invoices" ? "MissingInvoice" : query.Status, orderNumber?.Trim(), StartDate: start, EndDate: end), ct);
                 }
-                else if (kind == "claims") result = await adapter.ClaimsAsync(store.Settings, query, ct);
+                else if (kind == "claims") result = await adapter!.ClaimsAsync(store.Settings, query, ct);
                 else return Results.Json(new { error = "Bu bölümdeki gerçek veri bağlantısı henüz tamamlanmadı. Demo mağazada örneklerini inceleyebilirsiniz." }, statusCode: 501);
                 operations.Observe(store,result);registry.Connections[id] = store with { Status = "connected", LastOperation = DateTimeOffset.UtcNow, LastAction = kind, ErrorCode = null, Message = "Hepsiburada verileri okundu." }; registry.Save();
                 return Results.Ok(result);

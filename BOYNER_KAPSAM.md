@@ -60,3 +60,7 @@ Etiket sorgusu deliveryCode ve format ister; belge başarılı yanıtı ayrınt�
 - Mevcut ön yüz/ortak stok/filtre ve pazaryeri kontrolleri.
 
 Kaynak: [Boyner resmî pazaryeri API belgesi](https://merchant.boyner.com.tr/api/docs/render). Sayfadaki gömülü OpenAPI sözleşmesinin tüm işlem listesi incelendi; yalnız yukarıda belirtilen okumalar uygulanmıştır.
+
+## Mağaza kimliği ve stok/fiyat yazma güncellemesi
+
+Mağazaya ayrı sunucu kimlik profili seçimi ve kalıcı stok/fiyat gönderimi eklendi. Bu belgedeki önceki salt okuma sınırları stok/fiyat için güncellenmiştir; diğer yazma işlemleri kapsam dışıdır. Güncel sözleşme, izin ve test sınırları: [MAGAZA_HESAPLARI_VE_YAZMA.md](MAGAZA_HESAPLARI_VE_YAZMA.md).

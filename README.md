@@ -4,6 +4,8 @@
 
 Güncel ön yüz/arka uç senkronizasyon akışları ve testler: [SENKRONIZASYON_DOGRULAMA.md](SENKRONIZASYON_DOGRULAMA.md).
 
+Otomatik sipariş çekme, kalıcı stok gönderim kuyruğu ve webhook alıcısı: [OTOMATIK_SENKRONIZASYON.md](OTOMATIK_SENKRONIZASYON.md).
+
 ## Başlatma
 
 ```powershell
@@ -52,7 +54,7 @@ Satış Kanalları ekranındaki Trendyol adaptörü yalnızca şu GET uçlarına
 - `/integration/order/sellers/{sellerId}/orders/stream`
 - `/integration/sellers/{sellerId}/addresses`
 
-Bu adaptörde fiyat, stok veya sipariş durumu değiştiren dış API metodu bulunmaz; bu tür servisler yalnızca Trendyol API Merkezi’nde, `AllowWrites` açıkken ve kullanıcı onayıyla gönderilir. `POST /api/integrations/preview/{marketplace}/stock-price` yalnızca yerel bir taslağı doğrular ve her zaman `sent:false` döndürür. Sonuçlar kalıcı veritabanına yazılmaz.
+Bu okuma adaptöründen ayrı olarak altı kanalda stok/fiyat gönderimi kalıcı kuyruk üzerinden desteklenir; mağaza profili ve gerçek yazma izinleri gereklidir. Diğer Trendyol yazma servisleri API Merkezi’ndedir. `POST /api/integrations/preview/{marketplace}/stock-price` yalnızca yerel bir taslağı doğrular ve her zaman `sent:false` döndürür. Sonuçlar kalıcı veritabanına yazılmaz.
 
 Yerel yönetici/personel/görüntüleyici hesapları ve oturum koruması mevcuttur. Entegrasyon uçları ayrıca yerel makine ve aynı kaynakla sınırlıdır. İlk yönetici kurulana kadar yerel demo açıktır. İnternete açık dağıtımın HTTPS/proxy ve işletim ayarları ayrıca hazırlanmalıdır.
 
@@ -112,7 +114,7 @@ Yerel ağdaki bir uygulama HTTPS desteklemiyorsa `AllowHttp=true` verilebilir. B
 - `GET {BaseUrl}{StockPath}[?cursor=…]`: `[...]` ya da `{ "items": [{ "sku", "barcode", "name", "quantity" }], "nextCursor": "…" }`. `stockCode`, `title`, `stock` ve `available` alan adları da kabul edilir.
 - `POST {BaseUrl}{SalesPath}`: `{ requestId, channel, store, orderNumber, sku, barcode, quantity }`. Bu çağrı yalnızca `AllowWrites=true` iken yapılır. Kapalıyken satışlar kaynak güncellenene kadar yerelde düşülmeye devam eder.
 
-Ürünler önce SKU'ya, SKU yoksa barkoda göre eşleşir. Stok gönderimi demo mağazalarda ve `AllowWrites` açık gerçek Trendyol mağazasında yapılır. Diğer gerçek pazaryerleri henüz salt okunurdur. Panelde "stok elle eşitlenmeli" olarak görünürler. Amazon FBA ve n11depom stoğunu pazaryeri yönettiği için bu ürünler atlanır. Durum `Data/central-stock.json` dosyasında tutulur ve şifreli yedeğe dahildir.
+Ürünler önce SKU'ya, SKU yoksa barkoda göre eşleşir. Stok/fiyat gönderimi altı kanal için mağaza bazlı kimlik profili ve kalıcı kuyrukla desteklenir. Gerçek gönderimler profil ve sunucu yazma izinleriyle açılır; varsayılan kapalıdır. Amazon FBA ve n11depom stoğunu pazaryeri yönettiği için bu ürünler atlanır. Durum `Data/central-stock.json` dosyasında tutulur ve şifreli yedeğe dahildir.
 
 Kontrol: `node tests/central-stock-http-checks.cjs`.
 
@@ -157,3 +159,5 @@ Yerel giriş/roller, arka plan kuyruğu ve şifreli yedek kurulumu: [YEREL_GUVEN
 ## Gelen sipariş bildirimleri
 
 Trendyol için ayrı kimlik doğrulamalı `/hooks/orders/{endpointId}` alıcısı, kalıcı bildirim sırası ve ortak sipariş güncellemesi eklendi. Varsayılan olarak kapalıdır; canlı HTTPS adresi/hesap/abonelik tanımlanmadı. Kurulum ve sınırlar: [WEBHOOK_KURULUM.md](WEBHOOK_KURULUM.md).
+
+Mağaza başına ayrı API kimliği, iki satıcı hesabı ve altı kanalda stok/fiyat yazma kapsamı: [MAGAZA_HESAPLARI_VE_YAZMA.md](MAGAZA_HESAPLARI_VE_YAZMA.md).

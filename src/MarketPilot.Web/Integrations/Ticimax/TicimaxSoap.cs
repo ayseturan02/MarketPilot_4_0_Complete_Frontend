@@ -8,7 +8,7 @@ using System.Xml.Linq;
 namespace MarketPilot.Web.Integrations.Ticimax;
 
 // Ticimax stores use their own domains and WSDL contracts, rather than one marketplace host.
-public sealed class TicimaxSoap(IHttpClientFactory factory,IConfiguration configuration)
+public sealed partial class TicimaxSoap(IHttpClientFactory factory,IConfiguration configuration)
 {
     internal static readonly XNamespace Wsdl="http://schemas.xmlsoap.org/wsdl/",Xs="http://www.w3.org/2001/XMLSchema",SoapBinding="http://schemas.xmlsoap.org/wsdl/soap/",Envelope="http://schemas.xmlsoap.org/soap/envelope/";
     private readonly ConcurrentDictionary<string,(TicimaxContract Contract,DateTimeOffset Until)> contracts=new();
@@ -57,9 +57,10 @@ public sealed class TicimaxSoap(IHttpClientFactory factory,IConfiguration config
         }
         finally{gate.Release();}
     }
-    public async Task<XElement> Call(ConnectionSettings s,string service,string operation,Dictionary<string,object?> arguments,CancellationToken ct)
+    public Task<XElement> Call(ConnectionSettings s,string service,string operation,Dictionary<string,object?> arguments,CancellationToken ct) => CallCore(s,service,operation,arguments,false,ct);
+    private async Task<XElement> CallCore(ConnectionSettings s,string service,string operation,Dictionary<string,object?> arguments,bool write,CancellationToken ct)
     {
-        var allowed=new[]{"SelectUrun","SelectUrunCount","SelectKategori","SelectMarka","SelectParaBirimi","SelectTedarikci","SelectSiparis","SelectSiparisOdeme","SelectSiparisUrun","SelectSiparisKargoPaket"};if(!allowed.Contains(operation))throw new IntegrationException("write_disabled","Ticimax mağaza değiştirme işlemleri açık değil.",403);
+        var allowed=new[]{"SelectUrun","SelectUrunCount","SelectKategori","SelectMarka","SelectParaBirimi","SelectTedarikci","SelectSiparis","SelectSiparisOdeme","SelectSiparisUrun","SelectSiparisKargoPaket"};if(!(write && operation=="VaryasyonGuncelle" && CredentialProfiles.Writes(configuration,s)) && !allowed.Contains(operation))throw new IntegrationException("write_disabled","Ticimax mağaza değiştirme işlemleri açık değil.",403);
         var contract=await Contract(s,service,ct);var values=new Dictionary<string,object?>(arguments,StringComparer.OrdinalIgnoreCase){["UyeKodu"]=configuration["Marketplaces:Ticimax:production:UyeKodu"]};var (body,action)=contract.Request(operation,values);
         using var request=new HttpRequestMessage(HttpMethod.Post,contract.Address){Content=new StringContent(new XDocument(new XElement(Envelope+"Envelope",new XElement(Envelope+"Body",body))).ToString(),Encoding.UTF8,"text/xml")};request.Headers.TryAddWithoutValidation("SOAPAction","\""+action+"\"");var doc=Parse(await Send(request,ct));
         if(doc.Descendants(Envelope+"Fault").Any())throw new IntegrationException("soap_fault","Ticimax işlemi tamamlanamadı. Servis yetkisini ve mağaza sözleşmesini kontrol edin.",409);
@@ -86,6 +87,12 @@ public sealed class TicimaxContract
         var node=wsdl.Descendants(TicimaxSoap.Wsdl+"portType").Elements(TicimaxSoap.Wsdl+"operation").FirstOrDefault(e=>(string?)e.Attribute("name")==operation)??throw new IntegrationException("operation_unavailable","Bu okuma işlemi mağazanın Ticimax servisinde bulunamadı.",409);
         var input=node.Element(TicimaxSoap.Wsdl+"input")!;var message=QName(input,(string)input.Attribute("message")!);var part=wsdl.Root!.Elements(TicimaxSoap.Wsdl+"message").First(e=>(string?)e.Attribute("name")==message.LocalName).Element(TicimaxSoap.Wsdl+"part")!;
         return elements[QName(part,(string)part.Attribute("element")!)];
+    }
+    public Dictionary<string,string> ParameterFields(string operation,string parameter)
+    {
+        var argument=Fields(Type(Wrapper(operation))).SingleOrDefault(f=>string.Equals((string?)f.Attribute("name"),parameter,StringComparison.OrdinalIgnoreCase))
+            ??throw new IntegrationException("unsupported_contract","Ticimax yazma parametresi sözleşmede bulunamadı.",409);
+        return Fields(Type(argument)).ToDictionary(f=>(string)f.Attribute("name")!,f=>((string?)f.Attribute("type")??"").Split(':').Last(),StringComparer.OrdinalIgnoreCase);
     }
     public void RequirePaging(string operation){var paging=Fields(Type(Wrapper(operation))).FirstOrDefault(f=>((string?)f.Attribute("type")??"").Contains("Sayfalama",StringComparison.OrdinalIgnoreCase));var names=paging==null?[]:Fields(Type(paging)).Select(f=>(string?)f.Attribute("name")).ToArray();if(!names.Contains("BaslangicIndex")||!names.Contains("KayitSayisi"))throw new IntegrationException("unsupported_contract","Mağazanın sayfalama sözleşmesi desteklenmiyor.",409);}
     public HashSet<string> FilterFields(string operation)

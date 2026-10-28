@@ -44,3 +44,7 @@ Ondalıklı varyant stokları korunur. Vergi dahil/hariç bilgisi ayrıca göste
 - https://static.ticimax.com/dokumanlar/siparisservis.pdf (sipariş, ödeme ve kargo paketleri)
 
 PDF belgeleri ile mağazanın etkin sözleşmesi farklı olabilir; gerçek hesap testi yapılana kadar canlı uyumluluk garantisi verilmez.
+
+## Mağaza kimliği ve stok/fiyat yazma güncellemesi
+
+Mağazaya ayrı sunucu kimlik profili seçimi ve kalıcı stok/fiyat gönderimi eklendi. Bu belgedeki önceki salt okuma sınırları stok/fiyat için güncellenmiştir; diğer yazma işlemleri kapsam dışıdır. Güncel sözleşme, izin ve test sınırları: [MAGAZA_HESAPLARI_VE_YAZMA.md](MAGAZA_HESAPLARI_VE_YAZMA.md).

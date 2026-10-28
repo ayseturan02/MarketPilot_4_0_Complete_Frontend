@@ -22,7 +22,7 @@ public record ProductQuery(int Page = 0, int Size = 50, string? Barcode = null, 
 public record OrderQuery(int Page = 0, int Size = 50, string? Status = null, string? OrderNumber = null, string? Barcode = null, long? StartDate = null, long? EndDate = null, string OrderByDirection = "DESC", bool Stream = false, string? NextCursor = null);
 public record StockPriceDraft(string Barcode, int Stock, decimal Price);
 public record UpdatePreview(string Marketplace, bool Sent, IReadOnlyList<StockPriceDraft> Items);
-public record ConnectionSettings(string Name, string Marketplace, string Mode, string Environment);
+public record ConnectionSettings(string Name, string Marketplace, string Mode, string Environment, string? CredentialProfile = null);
 public record ConnectionState(string Id, ConnectionSettings Settings, string Status, DateTimeOffset? LastOperation, string? LastAction, string? ErrorCode, string? Message, int? LastCount, string? SellerId = null);
 
 public interface IMarketplaceAdapter

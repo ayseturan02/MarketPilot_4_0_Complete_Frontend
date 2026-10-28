@@ -3,6 +3,7 @@ let orderRevision=null,orderRevisionView='',orderRevisionBusy=false;
 const operationViews=['orders','shipping','dashboard','reports','connections','sync','products','mapping','inventory','barcodes','pricing','categories','listings','bulk','trendyol','hepsiburada','amazon','n11','boyner','ticimax'];
 async function refreshOrderRevision(){
  if(orderRevisionBusy||document.hidden||modal||!operationViews.includes(view)||typeof localAccess!=='undefined'&&localAccess.configured&&!localAccess.authenticated)return;
+ if(typeof auDirty!=='undefined'&&(auDirty||auSaving))return;
  if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
  orderRevisionBusy=true;
  const active=view;

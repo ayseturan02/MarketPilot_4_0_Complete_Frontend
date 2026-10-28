@@ -75,7 +75,7 @@ public sealed class TicimaxAdapter(TicimaxSoap soap):IMarketplaceAdapter
     public async Task<MarketplacePage<MarketplaceProduct>> ProductsAsync(ConnectionSettings s,ProductQuery q,CancellationToken ct)
     {
         if(string.IsNullOrWhiteSpace(q.StockCode)&&string.IsNullOrWhiteSpace(q.Barcode))throw new IntegrationException("identifier_required","Varyant stoklarını karşılaştırmak için tam SKU veya barkod gerekli.",400);var query=new TicimaxQuery(q.StockCode??q.Barcode,q.StockCode!=null?"SKU":"BARCODE",Page:q.Page,Size:25);var page=await Cards(s,query,ct);
-        var rows=page.Items.SelectMany(c=>c.Variants.Where(v=>q.StockCode!=null?v.Sku==q.StockCode:v.Barcode==q.Barcode).Select(v=>new MarketplaceProduct(v.Id,c.Id,c.Id,v.Sku,v.Barcode,c.Name,"",c.Category,c.Brand,null,null,null,v.Quantity is{} n&&n==decimal.Truncate(n)&&n<=int.MaxValue&&n>=0?(int)n:null,"",c.Active,"",c.Images,"unknown",[]))).ToArray();return new(rows,q.Page,25,null,null,page.HasMore?"page:"+(q.Page+1):null);
+        var rows=page.Items.SelectMany(c=>c.Variants.Where(v=>q.StockCode!=null?v.Sku==q.StockCode:v.Barcode==q.Barcode).Select(v=>new MarketplaceProduct(v.Id,c.Id,c.Id,v.Sku,v.Barcode,c.Name,"",c.Category,c.Brand,v.Price,v.DiscountPrice is >0?v.DiscountPrice:v.Price,null,v.Quantity is{} n&&n==decimal.Truncate(n)&&n<=int.MaxValue&&n>=0?(int)n:null,"",c.Active,"",c.Images,"unknown",[]))).ToArray();return new(rows,q.Page,25,null,null,page.HasMore?"page:"+(q.Page+1):null);
     }
     public async Task<MarketplacePage<MarketplaceOrder>> OrdersAsync(ConnectionSettings s,OrderQuery q,CancellationToken ct)
     {
