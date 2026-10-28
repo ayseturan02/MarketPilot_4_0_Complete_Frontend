@@ -6,7 +6,7 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
-const app = path.join(root, 'src', 'MarketPilot.Web', 'bin', 'Debug', 'net8.0', 'MarketPilot.Web.dll');
+const app = process.env.MARKETPILOT_WEB_DLL || path.join(root, 'src', 'MarketPilot.Web', 'bin', 'Debug', 'net8.0', 'MarketPilot.Web.dll');
 const domain = 'marketpilot.example.test';
 const origin = `https://${domain}`;
 const host = domain;
@@ -41,8 +41,8 @@ async function main() {
     'X-Forwarded-Proto': 'https',
     'X-Forwarded-For': '203.0.113.20'
   };
-  async function request(url, { body, cookie, remote = true, requestOrigin } = {}) {
-    const headers = remote ? { ...remoteHeaders } : {};
+  async function request(url, { body, cookie, remote = true, requestOrigin, forwardedProto = 'https' } = {}) {
+    const headers = remote ? { ...remoteHeaders, 'X-Forwarded-Proto': forwardedProto } : {};
     if (requestOrigin) headers.Origin = requestOrigin;
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (cookie) headers.Cookie = cookie;
@@ -65,6 +65,7 @@ async function main() {
     assert(ready, 'public-mode server did not become ready');
     assert.equal((await (await request('/api/health')).json()).mode, 'public');
     assert.equal((await request('/api/access/status')).status, 200);
+    assert.equal((await request('/api/health', { forwardedProto: 'http' })).status, 400, 'public requests must reject unencrypted transport');
     assert.equal((await request('/api/access/setup', {
       body: { name: 'admin', password: 'a-strong-test-password' },
       requestOrigin: origin

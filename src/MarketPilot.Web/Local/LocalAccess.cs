@@ -146,11 +146,16 @@ public static class LocalAccess
         app.UseAuthentication(); app.UseRateLimiter();
         app.Use(async (context, next) =>
         {
+            var publicDeployment = IsPublicDeployment(context.RequestServices.GetRequiredService<IConfiguration>());
+            var isLoopback = IsLoopback(context);
+            if (publicDeployment && !context.Request.IsHttps && !isLoopback)
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                return;
+            }
             if (!context.Request.Path.StartsWithSegments("/api")) { await next(); return; }
             var store = context.RequestServices.GetRequiredService<LocalAccountStore>();
             var path = context.Request.Path;
-            var publicDeployment = IsPublicDeployment(context.RequestServices.GetRequiredService<IConfiguration>());
-            var isLoopback = IsLoopback(context);
             var isLocalBootstrapRequest = isLoopback || publicDeployment && IsDirectLocalHostRequest(context);
             if (!publicDeployment && (!store.Configured || path.StartsWithSegments("/api/access") || path.StartsWithSegments("/api/system")) && !isLoopback)
             {
