@@ -1,5 +1,5 @@
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),net=require('node:net'),assert=require('node:assert/strict'),{spawn}=require('node:child_process');
-const {chromium}=require('C:/Users/ayse0/Desktop/hizliparmak-baslangic/.vercel/browser-tools/node_modules/playwright');
+const {chromium}=require('./browser-test-runtime.cjs');
 const project=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
  const probe=net.createServer();await new Promise((resolve,reject)=>probe.once('error',reject).listen(0,'127.0.0.1',resolve));const port=probe.address().port;await new Promise(r=>probe.close(r));

@@ -62,6 +62,7 @@ public sealed class DemoWorkspaceState
     public List<DemoEvent> Events { get; set; } = new();
     public DateTimeOffset LastSyncAt { get; set; } = DateTimeOffset.UtcNow;
 }
+public sealed record DemoQueueStatus(long Revision, int Pending, int Completed, int Failed, int Workspaces);
 public sealed record DemoAction(string Type, string RequestId, string? Barcode = null, int? Quantity = null, decimal? Price = null, string? Reference = null, string? Text = null);
 
 // Persistent, isolated sample workspace. No HTTP client or live marketplace credentials.
@@ -72,6 +73,13 @@ public sealed partial class DemoWorkspace
     private readonly JsonSerializerOptions json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private Dictionary<string, DemoWorkspaceState> states;
     private string persistedSnapshot = "{}";
+    private long revision;
+    public long Revision => Interlocked.Read(ref revision);
+    public DemoQueueStatus QueueStatus()
+    {
+        lock (gate) return new(Revision, states.Values.Sum(s => s.Jobs.Count(j => j.State == "pending")),
+            states.Values.Sum(s => s.Jobs.Count(j => j.State == "completed")), states.Values.Sum(s => s.Jobs.Count(j => j.State == "failed")), states.Count);
+    }
     public DemoWorkspace(IWebHostEnvironment env)
     {
         var folder = Path.Combine(env.ContentRootPath, "Data"); Directory.CreateDirectory(folder);
@@ -84,7 +92,7 @@ public sealed partial class DemoWorkspace
     private void Save()
     {
         var candidate=JsonSerializer.Serialize(states,json);
-        try{var temporary=file+".tmp";File.WriteAllText(temporary,candidate);File.Move(temporary,file,true);persistedSnapshot=candidate;}
+        try{var temporary=file+".tmp";File.WriteAllText(temporary,candidate);File.Move(temporary,file,true);persistedSnapshot=candidate;Interlocked.Increment(ref revision);}
         catch{states=JsonSerializer.Deserialize<Dictionary<string,DemoWorkspaceState>>(persistedSnapshot,json)!;throw;}
     }
     public int ProcessPendingJobs()

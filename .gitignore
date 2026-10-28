@@ -3,3 +3,6 @@
 **/Data/
 **/appsettings.Local.json
 .env
+
+node_modules/
+test-results/

@@ -26,6 +26,12 @@ public sealed class CentralSale
     public bool Reported { get; set; }
     public string? ReportError { get; set; }
 }
+public sealed class PendingStockPush
+{
+    public int Quantity { get; set; }
+    public DateTimeOffset RequestedAt { get; set; } = DateTimeOffset.UtcNow;
+    public string? BatchId { get; set; }
+}
 public sealed record CentralStockSettings(bool AutoSync = false, int IntervalSeconds = 60, int SafetyStock = 0);
 public sealed record CentralStockEvent(DateTimeOffset Date, string Level, string Message);
 public sealed record CentralStoreStatus(string Status, string Message, DateTimeOffset At);
@@ -38,6 +44,14 @@ public sealed class CentralStockState
     public HashSet<string> SeenOrderLines { get; set; } = new();
     public HashSet<string> WatchedStores { get; set; } = new();
     public Dictionary<string, int> Pushed { get; set; } = new();
+    public Dictionary<string, PendingStockPush> PendingPushes { get; set; } = new();
+    public Dictionary<string, int> AppliedQuantities { get; set; } = new();
+    public Dictionary<string, int> AdjustmentVersions { get; set; } = new();
+    public HashSet<string> ApprovedReturns { get; set; } = new();
+    public Dictionary<string, string> UnmatchedSales { get; set; } = new();
+    public Dictionary<string, DateTimeOffset> ScannedThrough { get; set; } = new();
+    public DateTimeOffset? LastAttemptAt { get; set; }
+    public string LastRunStatus { get; set; } = "idle";
     public Dictionary<string, CentralStoreStatus> Stores { get; set; } = new();
     /// <summary>Quantities of the built-in sample stock application, used while no real one is configured.</summary>
     public Dictionary<string, int> DemoSource { get; set; } = new();
@@ -59,18 +73,27 @@ public sealed class CentralStockService
     private readonly IServiceProvider services;
     private readonly IConfiguration configuration;
     private CentralStockState state;
+    private string persistedSnapshot;
+    private long revision;
+    public long Revision => Interlocked.Read(ref revision);
+    private readonly string sourceMode;
+    private static string StoreSource(ConnectionState store) => store.Settings.Mode == "real" ? store.Settings.Marketplace + "|" + store.Settings.Environment : store.Id;
 
     public CentralStockService(IWebHostEnvironment env, IServiceProvider services, IConfiguration configuration)
     {
         this.services = services; this.configuration = configuration;
-        var folder = Path.Combine(env.ContentRootPath, "Data"); Directory.CreateDirectory(folder); file = Path.Combine(folder, "central-stock.json");
+        var folder = Path.Combine(env.ContentRootPath, "Data"); Directory.CreateDirectory(folder); sourceMode = CentralStockSource.IsConfigured(configuration) ? "real" : "demo";
+        file = Path.Combine(folder, sourceMode == "real" ? "central-stock-real.json" : "central-stock.json");
         state = File.Exists(file) ? JsonSerializer.Deserialize<CentralStockState>(File.ReadAllText(file), json) ?? throw new InvalidOperationException("Central stock file cannot be read.") : new();
         if (state.DemoSource.Count == 0) state.DemoSource = DemoSourceSeed();
+        if (state.LastRunStatus == "running") { state.LastRunStatus = "blocked"; state.LastError = "Önceki senkronizasyon yarıda kaldı. Yeniden çalıştırılabilir."; }
+        persistedSnapshot = JsonSerializer.Serialize(state, json);
     }
 
-    public bool RealSource => CentralStockSource.IsConfigured(configuration);
+    public bool RealSource => sourceMode == "real";
+    public bool LastRunSucceeded { get { lock (gate) return state.LastRunStatus == "completed"; } }
     public CentralStockSettings Settings { get { lock (gate) return state.Settings; } }
-    public bool Due { get { lock (gate) return state.Settings.AutoSync && (state.LastRunAt is null || DateTimeOffset.UtcNow - state.LastRunAt >= TimeSpan.FromSeconds(state.Settings.IntervalSeconds)); } }
+    public bool Due { get { lock (gate) return state.Settings.AutoSync && (state.LastAttemptAt is null || DateTimeOffset.UtcNow - state.LastAttemptAt >= TimeSpan.FromSeconds(state.Settings.IntervalSeconds)); } }
 
     public void UpdateSettings(CentralStockSettings settings)
     {
@@ -83,18 +106,42 @@ public sealed class CentralStockService
         if (!await run.WaitAsync(0, ct)) return false;
         try
         {
+            lock (gate) { state.LastAttemptAt = DateTimeOffset.UtcNow; state.LastRunStatus = "running"; Save(); }
             using var scope = services.CreateScope();
             var registry = scope.ServiceProvider.GetRequiredService<IntegrationRegistry>();
             var demo = scope.ServiceProvider.GetRequiredService<DemoWorkspace>();
-            var stores = registry.Connections.Values.OrderBy(s => s.Settings.Marketplace).ThenBy(s => s.Settings.Name).ToArray();
-            if (!await PullSourceAsync(scope.ServiceProvider, ct)) return true;
-            foreach (var store in stores) await CollectSalesAsync(scope.ServiceProvider, registry, demo, store, ct);
+            // A demo sale can never reach the real ERP; aliases of one real account are counted once.
+            var stores = registry.Connections.Values.Where(s => s.Settings.Mode == sourceMode)
+                .OrderBy(s => s.Id).GroupBy(StoreSource).Select(g => g.First()).ToArray();
+            if (!await PullSourceAsync(scope.ServiceProvider, ct)) { Finish(false); return true; }
+            var complete = true;
+            foreach (var store in stores) complete &= await CollectSalesAsync(scope.ServiceProvider, registry, demo, store, ct);
             await ReportSalesAsync(scope.ServiceProvider, ct);
-            foreach (var store in stores) await DistributeAsync(scope.ServiceProvider, registry, demo, store, ct);
-            lock (gate) { state.LastRunAt = DateTimeOffset.UtcNow; Save(); }
+            if (complete)
+                foreach (var store in stores) await DistributeAsync(scope.ServiceProvider, registry, demo, store, ct);
+            else lock (gate) state.LastError = "Bazı satışlar okunamadı veya eşleşmedi. Eksik stokla kanallara gönderim durduruldu.";
+            Finish(complete);
             return true;
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { Finish(false); throw; }
+        catch
+        {
+            lock (gate) { state.LastRunStatus = "error"; state.LastError = "Senkronizasyon tamamlanamadı. Yeniden deneyin."; }
+            throw;
+        }
         finally { run.Release(); }
+    }
+
+    private void Finish(bool complete)
+    {
+        lock (gate) { state.LastRunStatus = complete ? "completed" : "blocked"; if (complete) state.LastRunAt = DateTimeOffset.UtcNow; Save(); }
+    }
+
+    public object Status()
+    {
+        lock (gate) return new { sourceMode, state.LastAttemptAt, state.LastRunAt, state.LastRunStatus, state.LastError,
+            pendingSales = state.Sales.Count(s => !s.Reported), unmatchedSales = state.UnmatchedSales.Count,
+            pendingPushes = state.PendingPushes.Count, autoSync = state.Settings.AutoSync, running = run.CurrentCount == 0 };
     }
 
     private async Task<bool> PullSourceAsync(IServiceProvider sp, CancellationToken ct)
@@ -110,8 +157,8 @@ public sealed class CentralStockService
             lock (gate)
             {
                 state.LastError = e is IntegrationException ie ? ie.Message : e is OperationCanceledException ? "Stok uygulaması zaman aşımına uğradı." : "Stok uygulamasına ulaşılamadı veya yanıtı okunamadı.";
-                // Without a fresh source the last known numbers are kept, but nothing is distributed from an empty catalog.
-                var usable = state.Items.Count > 0; Event("error", state.LastError + (usable ? " Son bilinen stokla devam edildi." : "")); Save(); return usable;
+                // Keep the displayable snapshot, but never send stale stock to any store.
+                Event("error", state.LastError + " Güncel stok okunamadığı için dağıtım durduruldu."); Save(); return false;
             }
         }
         lock (gate)
@@ -121,6 +168,8 @@ public sealed class CentralStockService
             foreach (var row in rows)
             {
                 var key = Key(row.Sku, row.Barcode);
+                if (items.ContainsKey(key) || row.Barcode.Length > 0 && items.Values.Any(i => i.Barcode == row.Barcode))
+                    throw new IntegrationException("ambiguous_stock", "Stok kaynağında tekrarlanan SKU veya barkod var. Dağıtım durduruldu.", 409);
                 items[key] = new() { Sku = row.Sku, Barcode = row.Barcode, Name = row.Name, Quantity = row.Quantity - unreported.GetValueOrDefault(key) };
             }
             state.Items = items; state.LastSourceAt = DateTimeOffset.UtcNow; state.LastError = null; Save();
@@ -128,52 +177,135 @@ public sealed class CentralStockService
         return true;
     }
 
-    private async Task CollectSalesAsync(IServiceProvider sp, IntegrationRegistry registry, DemoWorkspace demo, ConnectionState store, CancellationToken ct)
+    private async Task<bool> CollectSalesAsync(IServiceProvider sp, IntegrationRegistry registry, DemoWorkspace demo, ConnectionState store, CancellationToken ct)
     {
         IReadOnlyList<MarketplaceOrder> orders;
+        DemoWorkspaceState? snapshot = null;
+        var scannedUntil = DateTimeOffset.UtcNow;
         try
         {
-            if (store.Settings.Mode == "demo") orders = demo.Snapshot(store.Settings).Orders;
+            if (store.Settings.Mode == "demo") { snapshot = demo.Snapshot(store.Settings); orders = snapshot.Orders; }
             else
             {
                 var adapter = sp.GetServices<IMarketplaceAdapter>().FirstOrDefault(a => a.Marketplace == store.Settings.Marketplace);
-                if (adapter is null) return;
+                if (adapter is null) { SetStore(store.Id, "error", "Sipariş adaptörü bulunamadı."); return false; }
                 var gateway = registry.Gates.GetOrAdd(store.Id, _ => new(1, 1));
-                if (!await gateway.WaitAsync(0, ct)) { SetStore(store.Id, "busy", "Mağazada başka bir işlem sürdüğü için satışlar bu turda okunmadı."); return; }
+                if (!await gateway.WaitAsync(0, ct)) { SetStore(store.Id, "busy", "Mağazada başka bir işlem sürüyor; bu tur stok dağıtılmayacak."); return false; }
                 try
                 {
-                    var now = DateTimeOffset.UtcNow;
-                    orders = (await adapter.OrdersAsync(store.Settings, new(Size: 50, StartDate: now.AddDays(-2).ToUnixTimeMilliseconds(), EndDate: now.ToUnixTimeMilliseconds()), ct)).Items;
+                    DateTimeOffset from;
+                    lock (gate) from = state.ScannedThrough.TryGetValue(StoreSource(store), out var previousScan) ? previousScan.AddMinutes(-5) : scannedUntil.AddDays(-2);
+                    orders = await ReadAllOrders(adapter, store.Settings, from, scannedUntil, ct);
                 }
                 finally { gateway.Release(); }
             }
         }
         catch (Exception e) when (e is IntegrationException or HttpRequestException or JsonException or OperationCanceledException or InvalidOperationException)
         {
-            SetStore(store.Id, "error", "Siparişler okunamadı: " + (e is IntegrationException ie ? ie.Message : "bağlantıyı kontrol edin.")); return;
+            SetStore(store.Id, "error", "Siparişler tamamen okunamadı: " + (e is IntegrationException ie ? ie.Message : "bağlantıyı kontrol edin."));
+            return false;
         }
         lock (gate)
         {
-            var lines = orders.Where(o => !NotSold.Contains(o.Status)).SelectMany(o => o.Lines.Select(l => (Order: o, Line: l, Key: $"{store.Id}|{(o.PackageId.Length > 0 ? o.PackageId : o.OrderNumber)}|{l.Id}|{l.Barcode}"))).ToArray();
-            if (state.WatchedStores.Add(store.Id))
+            var lines = orders.SelectMany(o => o.Lines.Select(l => (Order: o, Line: l, Key: $"{StoreSource(store)}|{(o.PackageId.Length > 0 ? o.PackageId : o.OrderNumber)}|{l.Id}|{l.Barcode}"))).ToArray();
+            if (state.WatchedStores.Add(StoreSource(store)))
             {
-                // Orders that existed before the store was watched are already included in the stock application's numbers.
-                foreach (var x in lines) state.SeenOrderLines.Add(x.Key);
-                Event("info", $"{store.Settings.Name} izlemeye alındı; mevcut {lines.Length} sipariş satırı geçmiş kabul edildi."); Save(); return;
+                foreach (var x in lines)
+                {
+                    state.SeenOrderLines.Add(x.Key);
+                    state.AppliedQuantities[x.Key] = NotSold.Contains(x.Order.Status) ? 0 : x.Line.Quantity;
+                }
+                if (snapshot is not null) foreach (var claim in snapshot.Claims.Where(c => c.Status == "Onaylandı")) state.ApprovedReturns.Add(store.Id + "|" + claim.Id);
+                state.ScannedThrough[StoreSource(store)] = scannedUntil;
+                Event("info", $"{store.Settings.Name} izlemeye alındı; mevcut {lines.Length} sipariş satırı geçmiş kabul edildi.");
+                Save(); return true;
             }
-            var added = 0;
+            var added = 0; var complete = true;
             foreach (var (order, line, key) in lines)
             {
-                if (!state.SeenOrderLines.Add(key)) continue;
+                // Return restocking follows an approved claim, rather than an unreviewed order status.
+                if (order.Status.Equals("Returned", StringComparison.OrdinalIgnoreCase)) continue;
+                var desired = NotSold.Contains(order.Status) ? 0 : line.Quantity;
+                var previous = state.AppliedQuantities.GetValueOrDefault(key, state.SeenOrderLines.Contains(key) ? desired : 0);
+                var delta = desired - previous;
+                if (delta == 0) { state.UnmatchedSales.Remove(key); continue; }
                 var item = Find(line.Sku, line.Barcode);
-                if (item is null) { Event("warning", $"{store.Settings.Name} · {order.OrderNumber}: {line.Sku}/{line.Barcode} stok uygulamasında eşleşmedi."); continue; }
-                item.Quantity -= line.Quantity; added++;
-                state.Sales.Insert(0, new() { Id = "sale-" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(key)))[..24].ToLowerInvariant(), StoreId = store.Id, StoreName = store.Settings.Name, Marketplace = store.Settings.Marketplace, OrderNumber = order.OrderNumber, Sku = item.Sku, Barcode = item.Barcode, Quantity = line.Quantity });
-                Event(item.Quantity < 0 ? "error" : "info", $"{store.Settings.Name} satışı: {order.OrderNumber} · {item.Sku} × {line.Quantity} → merkezi stok {item.Quantity}{(item.Quantity < 0 ? " (fazla satış!)" : "")}.");
+                if (item is null)
+                {
+                    complete = false;
+                    if (!state.UnmatchedSales.ContainsKey(key)) Event("warning", $"{store.Settings.Name} · {order.OrderNumber}: {line.Sku}/{line.Barcode} eşleşmedi; satış tekrar denenecek.");
+                    state.UnmatchedSales[key] = line.Sku + "/" + line.Barcode;
+                    continue;
+                }
+                var version = state.AdjustmentVersions.GetValueOrDefault(key) + 1;
+                var id = "sale-" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(key + "|" + version)))[..24].ToLowerInvariant();
+                AddSale(store, item, order.OrderNumber, delta, id);
+                state.AppliedQuantities[key] = desired; state.AdjustmentVersions[key] = version;
+                state.SeenOrderLines.Add(key); state.UnmatchedSales.Remove(key); added++;
             }
-            SetStore(store.Id, store.Settings.Mode == "demo" ? "demo" : "connected", added > 0 ? $"{added} yeni satış satırı işlendi." : "Yeni satış yok.", save: false);
-            Save();
+            if (snapshot is not null)
+            {
+                foreach (var claim in snapshot.Claims.Where(c => c.Status == "Onaylandı"))
+                {
+                    var key = store.Id + "|" + claim.Id;
+                    if (state.ApprovedReturns.Contains(key)) continue;
+                    var item = Find("", claim.Barcode);
+                    if (item is null) { complete = false; state.UnmatchedSales[key] = claim.Barcode; continue; }
+                    AddSale(store, item, claim.OrderNumber, -claim.Quantity, "return-" + key);
+                    state.ApprovedReturns.Add(key); state.UnmatchedSales.Remove(key); added++;
+                }
+            }
+            if (complete) state.ScannedThrough[StoreSource(store)] = scannedUntil;
+            SetStore(store.Id, complete ? (store.Settings.Mode == "demo" ? "demo" : "connected") : "error", complete ? $"{added} stok hareketi işlendi." : "Eşleşmeyen satışlar var; stok dağıtımı bekliyor.", save: false);
+            Save(); return complete;
         }
+    }
+
+    private void AddSale(ConnectionState store, CentralStockItem item, string order, int quantity, string id)
+    {
+        item.Quantity -= quantity;
+        state.Sales.Insert(0, new() { Id = id, StoreId = store.Id, StoreName = store.Settings.Name, Marketplace = store.Settings.Marketplace,
+            OrderNumber = order, Sku = item.Sku, Barcode = item.Barcode, Quantity = quantity });
+        Event(item.Quantity < 0 ? "error" : "info", $"{store.Settings.Name} · {order} · {item.Sku}: {(quantity < 0 ? "Stok iadesi" : "Satış")} {Math.Abs(quantity)} → merkez {item.Quantity}.");
+    }
+
+    private static async Task<IReadOnlyList<MarketplaceOrder>> ReadAllOrders(IMarketplaceAdapter adapter, ConnectionSettings settings, DateTimeOffset from, DateTimeOffset until, CancellationToken ct)
+    {
+        var orders = new Dictionary<string, MarketplaceOrder>();
+        var requests = 0;
+        // Bounded date windows also permit recovery after the application was offline.
+        while (from < until)
+        {
+            var end = from.AddDays(2) < until ? from.AddDays(2) : until;
+            var page = 0; string? cursor = null;
+            var tokens = new HashSet<string>(); var fingerprints = new HashSet<string>();
+            while (true)
+            {
+                if (++requests > 1000) throw new IntegrationException("scan_limit", "Sipariş taraması sınırı aşıldı; hiçbir sayfa tamamlanmış sayılmadı.", 409);
+                var result = await adapter.OrdersAsync(settings, new(Page: page, Size: 50, StartDate: from.ToUnixTimeMilliseconds(), EndDate: end.ToUnixTimeMilliseconds(),
+                    OrderByDirection: "ASC", Stream: settings.Marketplace == "trendyol", NextCursor: cursor), ct);
+                if (result.Items.Count > 0)
+                {
+                    var signature = string.Join("|", result.Items.Select(o => o.PackageId + ":" + o.OrderNumber + ":" + o.LastModifiedDate));
+                    if (!fingerprints.Add(signature)) throw new IntegrationException("repeated_page", "Sipariş servisi aynı sayfayı tekrarladı; dağıtım durduruldu.", 409);
+                }
+                foreach (var order in result.Items) orders[order.PackageId.Length > 0 ? order.PackageId : order.OrderNumber] = order;
+                if (orders.Count > 200000) throw new IntegrationException("scan_limit", "Sipariş taraması kayıt sınırını aştı.", 409);
+                var next = result.NextCursor ?? result.NextPageToken;
+                if (!string.IsNullOrWhiteSpace(next))
+                {
+                    if (next.Length > 8192 || !tokens.Add(next)) throw new IntegrationException("repeated_cursor", "Sipariş imleci geçersiz veya tekrarlanıyor.", 409);
+                    cursor = next; page++; continue;
+                }
+                if (result.HasMore == true) throw new IntegrationException("missing_cursor", "Sipariş devam bilgisi eksik.", 409);
+                if (result.HasMore == false || result.TotalPages.HasValue && page + 1 >= result.TotalPages.Value ||
+                    !result.TotalPages.HasValue && result.Items.Count < result.Size) break;
+                if (result.Items.Count == 0) throw new IntegrationException("incomplete_page", "Sipariş sayfası beklenmedik şekilde boş.", 409);
+                page++;
+            }
+            from = end;
+        }
+        return orders.Values.ToArray();
     }
 
     private async Task ReportSalesAsync(IServiceProvider sp, CancellationToken ct)
@@ -225,7 +357,9 @@ public sealed class CentralStockService
         }
         if (store.Settings.Marketplace != "trendyol") { SetStore(store.Id, "readonly", "Bu pazaryerine stok gönderimi henüz desteklenmiyor; stok elle eşitlenmeli."); return; }
         List<(string Barcode, int Target)> changes;
-        lock (gate) changes = state.Items.Values.Where(i => i.Barcode.Length > 0).Select(i => (i.Barcode, Target: Math.Max(0, i.Quantity - safety))).Where(x => state.Pushed.GetValueOrDefault($"{store.Id}|{x.Barcode}", -1) != x.Target).ToList();
+        await ConfirmPushesAsync(sp, store, ct);
+        lock (gate) changes = state.Items.Values.Where(i => i.Barcode.Length > 0).Select(i => (i.Barcode, Target: Math.Max(0, i.Quantity - safety)))
+            .Where(x => !state.PendingPushes.ContainsKey($"{store.Id}|{x.Barcode}") && state.Pushed.GetValueOrDefault($"{store.Id}|{x.Barcode}", -1) != x.Target).ToList();
         if (changes.Count == 0) return;
         var gateway = registry.Gates.GetOrAdd(store.Id, _ => new(1, 1));
         if (!await gateway.WaitAsync(0, ct)) { SetStore(store.Id, "busy", "Mağazada başka bir işlem sürdüğü için stok bu turda gönderilmedi."); return; }
@@ -237,9 +371,14 @@ public sealed class CentralStockService
                 var body = JsonSerializer.SerializeToElement(new { items = batch.Select(x => new { barcode = x.Barcode, quantity = x.Target }) });
                 var result = await runner.RunAsync(operation, store.Settings, new(Body: body, Confirm: true), ct);
                 if (!result.Sent) { SetStore(store.Id, "readonly", result.Reason ?? "Stok gönderilmedi."); return; }
-                lock (gate) { foreach (var x in batch) state.Pushed[$"{store.Id}|{x.Barcode}"] = x.Target; Event("info", $"{store.Settings.Name}: {batch.Length} ürünün stoğu Trendyol'a gönderildi (HTTP {result.Status})."); Save(); }
+                lock (gate)
+                {
+                    var batchId = result.Data is { ValueKind: JsonValueKind.Object } data && data.TryGetProperty("batchRequestId", out var id) ? id.GetString() : null;
+                    foreach (var x in batch) state.PendingPushes[$"{store.Id}|{x.Barcode}"] = new() { Quantity = x.Target, BatchId = batchId };
+                    Event("info", $"{store.Settings.Name}: {batch.Length} stok isteği alındı; sonuç mağazadan okunarak doğrulanacak."); Save();
+                }
             }
-            SetStore(store.Id, "connected", $"{changes.Count} ürünün stoğu gönderildi.");
+            SetStore(store.Id, "pending", $"{changes.Count} ürün için istek gönderildi; mağaza stoğunun doğrulanması bekleniyor.");
         }
         catch (Exception e) when (e is IntegrationException or HttpRequestException or OperationCanceledException or JsonException)
         {
@@ -248,12 +387,55 @@ public sealed class CentralStockService
         finally { gateway.Release(); }
     }
 
+    private async Task ConfirmPushesAsync(IServiceProvider sp, ConnectionState store, CancellationToken ct)
+    {
+        KeyValuePair<string, PendingStockPush>[] pending;
+        lock (gate) pending = state.PendingPushes.Where(p => p.Key.StartsWith(store.Id + "|", StringComparison.Ordinal))
+            .OrderBy(p => p.Value.RequestedAt).Take(25).ToArray();
+        if (pending.Length == 0) return;
+        var adapter = sp.GetServices<IMarketplaceAdapter>().First(a => a.Marketplace == store.Settings.Marketplace);
+        foreach (var entry in pending)
+        {
+            var barcode = entry.Key[(store.Id.Length + 1)..];
+            try
+            {
+                var result = await adapter.ProductsAsync(store.Settings, new(Size: 1, Barcode: barcode), ct);
+                var actual = result.Items.SingleOrDefault(p => p.Barcode == barcode);
+                lock (gate)
+                {
+                    if (actual?.Stock == entry.Value.Quantity)
+                    {
+                        state.Pushed[entry.Key] = entry.Value.Quantity; state.PendingPushes.Remove(entry.Key);
+                        Event("info", $"{store.Settings.Name} · {barcode}: mağaza stoğu {actual.Stock} olarak doğrulandı.");
+                    }
+                    else if (DateTimeOffset.UtcNow - entry.Value.RequestedAt > TimeSpan.FromMinutes(5))
+                    {
+                        state.PendingPushes.Remove(entry.Key);
+                        Event("warning", $"{store.Settings.Name} · {barcode}: istek stoğa yansımadı; sonraki gönderimde yeniden denenecek.");
+                    }
+                    Save();
+                }
+            }
+            catch (Exception e) when (e is IntegrationException or HttpRequestException or JsonException)
+            { SetStore(store.Id, "error", "Gönderilen stok henüz doğrulanamadı; başarılı sayılmadı."); break; }
+        }
+    }
+
     public async Task<MarketplaceOrder> DemoSaleAsync(DemoSaleRequest request, CancellationToken ct)
     {
         using var scope = services.CreateScope();
         var registry = scope.ServiceProvider.GetRequiredService<IntegrationRegistry>();
-        if (!registry.Connections.TryGetValue(request.ConnectionId ?? "", out var store) || store.Settings.Mode != "demo") throw new ArgumentException("Demo mağaza bulunamadı.");
-        var order = scope.ServiceProvider.GetRequiredService<DemoWorkspace>().SimulateSale(store.Settings, request.Barcode ?? "", request.Quantity);
+        if (RealSource) throw new ArgumentException("Gerçek stok kaynağı seçiliyken demo satış oluşturulamaz.");
+        if (!await run.WaitAsync(0, ct)) throw new ArgumentException("Senkronizasyon sürüyor. Satışı biraz sonra tekrar dene.");
+        MarketplaceOrder order;
+        try
+        {
+            if (!registry.Connections.TryGetValue(request.ConnectionId ?? "", out var store) || store.Settings.Mode != "demo") throw new ArgumentException("Demo mağaza bulunamadı.");
+            // Establish the baseline before the first sale; otherwise that sale would be mistaken for history.
+            if (!state.WatchedStores.Contains(store.Id)) throw new ArgumentException("Önce merkezi stok senkronizasyonunu çalıştır.");
+            order = scope.ServiceProvider.GetRequiredService<DemoWorkspace>().SimulateSale(store.Settings, request.Barcode ?? "", request.Quantity);
+        }
+        finally { run.Release(); }
         await RunAsync(ct);
         return order;
     }
@@ -262,7 +444,7 @@ public sealed class CentralStockService
     {
         using var scope = services.CreateScope();
         var registry = scope.ServiceProvider.GetRequiredService<IntegrationRegistry>(); var demo = scope.ServiceProvider.GetRequiredService<DemoWorkspace>();
-        var stores = registry.Connections.Values.OrderBy(s => s.Settings.Marketplace).ThenBy(s => s.Settings.Name).ToArray();
+        var stores = registry.Connections.Values.Where(s => s.Settings.Mode == sourceMode).OrderBy(s => s.Settings.Marketplace).ThenBy(s => s.Settings.Name).ToArray();
         var demoProducts = stores.Where(s => s.Settings.Mode == "demo").ToDictionary(s => s.Id, s => demo.Snapshot(s.Settings).Products);
         lock (gate)
         {
@@ -270,8 +452,11 @@ public sealed class CentralStockService
             return new
             {
                 source = new { mode = RealSource ? "real" : "demo", host = CentralStockSource.BaseUri(configuration)?.Host, writes = CentralStockSource.WritesAllowed(configuration) },
-                settings = state.Settings, state.LastRunAt, state.LastSourceAt, state.LastError, running = run.CurrentCount == 0,
-                stores = stores.Select(s => new { id = s.Id, name = s.Settings.Name, marketplace = s.Settings.Marketplace, mode = s.Settings.Mode, status = state.Stores.GetValueOrDefault(s.Id) }),
+                settings = state.Settings, state.LastRunAt, state.LastSourceAt, state.LastAttemptAt, state.LastRunStatus, state.LastError,
+                unmatchedSales = state.UnmatchedSales.Count, pendingPushes = state.PendingPushes.Count,
+                pendingJobs = demoProducts.Count > 0 ? stores.Sum(s => demo.Snapshot(s.Settings).Jobs.Count(j => j.State == "pending")) : 0,
+                excludedStores = registry.Connections.Count - stores.Length, running = run.CurrentCount == 0,
+                stores = stores.Select(s => new { id = s.Id, name = s.Settings.Name, marketplace = s.Settings.Marketplace, mode = s.Settings.Mode, status = state.Stores.GetValueOrDefault(s.Id) }).ToArray(),
                 items = state.Items.Values.OrderBy(i => i.Sku).Select(i => new
                 {
                     i.Sku, i.Barcode, i.Name, quantity = i.Quantity, available = Math.Max(0, i.Quantity - safety),
@@ -281,19 +466,29 @@ public sealed class CentralStockService
                         storeId = s.Id,
                         stock = demoProducts.TryGetValue(s.Id, out var products) ? products.FirstOrDefault(p => Matches(i, p.Sku, p.Barcode))?.Stock
                             : state.Pushed.TryGetValue($"{s.Id}|{i.Barcode}", out var pushed) ? pushed : (int?)null
-                    })
-                }),
-                sales = state.Sales.Take(30), events = state.Events.Take(40)
+                    }).ToArray()
+                }).ToArray(),
+                sales = state.Sales.Take(30).Select(s => new { s.Id, s.StoreId, s.StoreName, s.Marketplace, s.OrderNumber, s.Sku, s.Barcode, s.Quantity, s.At, s.Reported, s.ReportError }).ToArray(),
+                events = state.Events.Take(40).ToArray()
             };
         }
     }
 
-    private CentralStockItem? Find(string sku, string barcode) => state.Items.Values.FirstOrDefault(i => Matches(i, sku, barcode));
+    private CentralStockItem? Find(string sku, string barcode)
+    {
+        var rows = state.Items.Values.Where(i => sku.Length > 0 ? i.Sku.Equals(sku, StringComparison.OrdinalIgnoreCase) : barcode.Length > 0 && i.Barcode == barcode).Take(2).ToArray();
+        if (rows.Length == 0 && barcode.Length > 0) rows = state.Items.Values.Where(i => i.Barcode == barcode).Take(2).ToArray();
+        return rows.Length == 1 && (barcode.Length == 0 || rows[0].Barcode.Length == 0 || rows[0].Barcode == barcode) ? rows[0] : null;
+    }
     private static bool Matches(CentralStockItem item, string sku, string barcode) => item.Sku.Length > 0 && item.Sku.Equals(sku, StringComparison.OrdinalIgnoreCase) || item.Barcode.Length > 0 && item.Barcode == barcode;
     private static string Key(string sku, string barcode) => sku.Length > 0 ? "sku:" + sku.ToUpperInvariant() : "barcode:" + barcode;
     private void SetStore(string id, string status, string message, bool save = true) { lock (gate) { state.Stores[id] = new(status, message, DateTimeOffset.UtcNow); if (save) Save(); } }
     private void Event(string level, string message) { state.Events.Insert(0, new(DateTimeOffset.UtcNow, level, message)); if (state.Events.Count > 200) state.Events.RemoveRange(200, state.Events.Count - 200); }
-    private void Save() { var tmp = file + ".tmp"; File.WriteAllText(tmp, JsonSerializer.Serialize(state, json)); File.Move(tmp, file, true); }
+    private void Save()
+    {
+        try { var candidate = JsonSerializer.Serialize(state, json); var tmp = file + ".tmp"; File.WriteAllText(tmp, candidate); File.Move(tmp, file, true); persistedSnapshot = candidate; Interlocked.Increment(ref revision); }
+        catch { state = JsonSerializer.Deserialize<CentralStockState>(persistedSnapshot, json)!; throw; }
+    }
 
     // Same SKUs/barcodes as the demo stores, so the sample stock application matches them out of the box.
     private static readonly (string Sku, string Barcode, string Name, int Quantity)[] DemoCatalog =

@@ -1,0 +1,12 @@
+{
+  "name": "marketpilot-local-checks",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "check:sync": "dotnet build src/MarketPilot.Web && dotnet run --project tests/MarketPilot.SynchronizationChecks -p:BuildProjectReferences=false && node tests/synchronization-http-checks.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  }
+}

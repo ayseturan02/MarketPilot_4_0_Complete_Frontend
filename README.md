@@ -2,6 +2,8 @@
 
 .NET 8 uygulaması. Mevcut 39 ekran, beyaz tema ve yerel demo işlemleri korunur. Satış Kanalları ile Trendyol Merkezi gerçek Trendyol verilerini salt okunur görüntüleyebilir.
 
+Güncel ön yüz/arka uç senkronizasyon akışları ve testler: [SENKRONIZASYON_DOGRULAMA.md](SENKRONIZASYON_DOGRULAMA.md).
+
 ## Başlatma
 
 ```powershell
@@ -52,7 +54,7 @@ Satış Kanalları ekranındaki Trendyol adaptörü yalnızca şu GET uçlarına
 
 Bu adaptörde fiyat, stok veya sipariş durumu değiştiren dış API metodu bulunmaz; bu tür servisler yalnızca Trendyol API Merkezi’nde, `AllowWrites` açıkken ve kullanıcı onayıyla gönderilir. `POST /api/integrations/preview/{marketplace}/stock-price` yalnızca yerel bir taslağı doğrular ve her zaman `sent:false` döndürür. Sonuçlar kalıcı veritabanına yazılmaz.
 
-Uygulamada kullanıcı hesabı doğrulaması henüz olmadığı için entegrasyon uçları sadece yerel makineden ve aynı web kaynağından erişime açıktır. İnternete açık dağıtımdan önce kullanıcı yetkilendirmesi eklenmelidir.
+Yerel yönetici/personel/görüntüleyici hesapları ve oturum koruması mevcuttur. Entegrasyon uçları ayrıca yerel makine ve aynı kaynakla sınırlıdır. İlk yönetici kurulana kadar yerel demo açıktır. İnternete açık dağıtımın HTTPS/proxy ve işletim ayarları ayrıca hazırlanmalıdır.
 
 ## Trendyol API Merkezi (5.2)
 
