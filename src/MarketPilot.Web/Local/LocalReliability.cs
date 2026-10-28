@@ -35,7 +35,7 @@ public sealed record BackupManifest(DateTimeOffset CreatedAt, Dictionary<string,
 public sealed class LocalBackups
 {
     private readonly object gate = new(); private readonly string data,folder; private readonly byte[] key;
-    private static readonly string[] Files = ["demo-store.json", "integration-demo.json", "integration-connections.json", "local-accounts.json", "system-events.json", "central-stock.json"];
+    private static readonly string[] Files = ["demo-store.json", "integration-demo.json", "integration-connections.json", "local-accounts.json", "system-events.json", "central-stock.json", "order-webhook-inbox.json"];
     private const long MaxBytes = 256L * 1024 * 1024;
     public LocalBackups(IWebHostEnvironment env)
     {

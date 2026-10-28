@@ -150,3 +150,8 @@ Yerel giriş/roller, arka plan kuyruğu ve şifreli yedek kurulumu: [YEREL_GUVEN
 ## Ortak katalog ve mağaza akışı
 
 Ürün & Katalog ekranları ortak backend kayıtlarına bağlandı. Mağaza eşleştirmeleri, stok/fiyat önizleme ve demo iş sırası, genel sipariş/gönderi bağlantıları ve sınırlar için [ortak katalog raporunu](ORTAK_KATALOG_KAPSAM.md) okuyun. Gerçek mağazaya yazma kapalıdır; veritabanı bu aşamada kurulmadı.
+
+
+## Gelen sipariş bildirimleri
+
+Trendyol için ayrı kimlik doğrulamalı `/hooks/orders/{endpointId}` alıcısı, kalıcı bildirim sırası ve ortak sipariş güncellemesi eklendi. Varsayılan olarak kapalıdır; canlı HTTPS adresi/hesap/abonelik tanımlanmadı. Kurulum ve sınırlar: [WEBHOOK_KURULUM.md](WEBHOOK_KURULUM.md).

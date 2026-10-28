@@ -111,7 +111,7 @@ public sealed class TrendyolAdapter(HttpClient http, IConfiguration configuratio
     private Task<JsonDocument> GetAsync(ConnectionSettings settings, string path, IEnumerable<KeyValuePair<string, string>> parameters, bool storeFrontHeader, CancellationToken ct) =>
         client.GetJsonAsync(settings.Environment, path, parameters, storeFrontHeader, ct);
 
-    private static MarketplaceOrder MapOrder(JsonElement order)
+    public static MarketplaceOrder MapOrder(JsonElement order)
     {
         var shipment = Object(order, "shipmentAddress");
         var invoiceAddress = Object(order, "invoiceAddress");
@@ -130,7 +130,7 @@ public sealed class TrendyolAdapter(HttpClient http, IConfiguration configuratio
             First(order, "shipmentPackageId", "id"), Str(order, "orderNumber"), First(order, "shipmentPackageStatus", "status"), UnixDate(Number(order, "orderDate")),
             ($"{Str(order, "customerFirstName")} {Str(order, "customerLastName")}").Trim(), Str(order, "customerEmail"),
             FirstNumber(order, "packageTotalPrice", "totalPrice"), Number(order, "packageGrossAmount"), Number(order, "packageTotalDiscount"), Str(order, "currencyCode"),
-            Str(order, "paymentMethod"), Str(order, "deliveryAddressType"), shipmentAddress, lines, cargo, invoice);
+            Str(order, "paymentMethod"), Str(order, "deliveryAddressType"), shipmentAddress, lines, cargo, invoice,ToLong(Number(order,"lastModifiedDate")));
     }
 
     private static MarketplacePage<T> Page<T>(IReadOnlyList<T> items, JsonElement root, int page, int size) =>

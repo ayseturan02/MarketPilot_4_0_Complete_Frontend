@@ -4,6 +4,7 @@ using System.Globalization;
 using MarketPilot.Web.Integrations;
 using MarketPilot.Web.Local;
 using MarketPilot.Web.Catalog;
+using MarketPilot.Web.Webhooks;
 
 var builder = WebApplication.CreateBuilder(args);
 // DNS rebinding: a foreign site resolving to 127.0.0.1 sends its own Host header, so only local host names are accepted unless AllowedHosts is configured.
@@ -11,6 +12,7 @@ if (string.IsNullOrWhiteSpace(builder.Configuration["AllowedHosts"]) || builder.
 builder.Services.ConfigureHttpJsonOptions(o => { o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase; o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()); });
 builder.Services.AddSingleton<DemoStore>();
 builder.Services.AddCatalog();
+builder.Services.AddOrderWebhooks();
 builder.Services.AddMarketplaceIntegrations(builder.Configuration);
 builder.AddLocalAccess();
 builder.Services.AddLocalReliability();
@@ -39,6 +41,7 @@ app.UseDefaultFiles(); app.UseStaticFiles();
 app.MapMarketplaceIntegrations();
 app.MapListingSearch();
 app.MapCatalog();
+app.MapOrderWebhooks();
 
 app.MapGet("/api/health", () => Results.Ok(new { status="ok", mode="demo", apiConnected=false, timestamp=DateTimeOffset.UtcNow }));
 app.MapGet("/api/overview", (OperationsHub hub) => Results.Ok(hub.Overview()));

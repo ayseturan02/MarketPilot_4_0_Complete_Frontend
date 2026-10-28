@@ -4,6 +4,7 @@ namespace MarketPilot.Web.Catalog;
 public sealed class CatalogState
 {
     public Dictionary<string,ObservedOrder> Orders {get;set;}=new();
+    public long OrderRevision{get;set;}
     public int Version {get;set;}
     public Dictionary<string,CatalogListing> Listings {get;set;}=new();
     public List<CatalogJob> Jobs {get;set;}=new();

@@ -1,0 +1,4 @@
+// Refresh visible operational lists when the server has accepted newer order data.
+let orderRevision=null,orderRevisionView='',orderRevisionBusy=false;
+async function refreshOrderRevision(){if(orderRevisionBusy||document.hidden||modal||!['orders','shipping','dashboard'].includes(view)||typeof localAccess!=='undefined'&&localAccess.configured&&!localAccess.authenticated)return;orderRevisionBusy=true;const active=view;try{const result=await api('operations/revision');if(view!==active||modal||result.revision===orderRevision&&orderRevisionView===active)return;orderRevision=result.revision;orderRevisionView=active;if(active==='dashboard'){data.overview=await api('overview');if(view===active&&!modal)render();}else{const holder=hpStates.get(active==='shipping'?'shipments':'orders');if(holder){holder.controller?.abort();holder.entry=null;holder.signature='';}if(view===active)render();}}catch{}finally{orderRevisionBusy=false;}}
+setInterval(refreshOrderRevision,10000);
