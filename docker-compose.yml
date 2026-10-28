@@ -7,6 +7,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       Deployment__Mode: public
+      Deployment__BootstrapGatewayIp: ${MARKETPILOT_GATEWAY_IP:-172.30.0.1}
       Deployment__TrustedProxyIp: ${MARKETPILOT_CADDY_IP:-172.30.0.2}
       AllowedHosts: "${MARKETPILOT_DOMAIN:?Set MARKETPILOT_DOMAIN in .env};localhost;127.0.0.1"
       ASPNETCORE_HTTP_PORTS: 8080
@@ -53,6 +54,7 @@ networks:
     ipam:
       config:
         - subnet: ${MARKETPILOT_DOCKER_SUBNET:-172.30.0.0/24}
+          gateway: ${MARKETPILOT_GATEWAY_IP:-172.30.0.1}
 
 volumes:
   marketpilot_data:
