@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MarketPilot.Web.Analytics;
 using System.Text.Json.Serialization;
 using System.Net;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -84,6 +85,7 @@ app.MapListingSearch();
 app.MapCatalog();
 app.MapOrderWebhooks();
 app.MapBackgroundSynchronization();
+app.MapAnalyticsWorkspace();
 
 app.MapGet("/api/health", (IWebHostEnvironment env, ReliabilityState reliability, IConfiguration configuration) => {
     var storage = File.Exists(Path.Combine(env.ContentRootPath, "Data", "demo-store.json"));
@@ -99,6 +101,7 @@ app.MapGet("/api/overview", (OperationsHub hub) => Results.Ok(hub.Overview()));
 app.MapGet("/api/products", (DemoStore db) => Results.Ok(db.SearchProducts(new ListingQuery(Size:50)).Items));
 app.MapPost("/api/products", (DemoStore db, ProductDraft draft) => {
     if(string.IsNullOrWhiteSpace(draft.Name) || string.IsNullOrWhiteSpace(draft.Sku) || draft.Name.Length > 300 || draft.Sku.Length > 100 || draft.Price is < 0 or > 10000000 || draft.Stock is < 0 or > 10000000) return Results.BadRequest(new {error="Ürün adı, SKU, pozitif fiyat ve stok gerekli."});
+    if(draft.Channels?.Any(RetiredChannelCleanup.IsRetired)==true) return Results.BadRequest(new {error="Bu satış kanalı artık kullanılmıyor."});
     var p = db.Modify(s => { if(s.Products.Any(x=>x.Sku.Equals(draft.Sku.Trim(),StringComparison.OrdinalIgnoreCase))) return null;
         var item=new Product {Id=Guid.NewGuid().ToString("N")[..8],Name=draft.Name.Trim(),Sku=draft.Sku.Trim(),Category=draft.Category??"Diğer",Price=draft.Price,Stock=draft.Stock,Image=draft.Image??"📦",Channels=draft.Channels??new(),Status="Aktif"}; s.Products.Insert(0,item); db.Event(s,"Ürün eklendi",item.Name); return item; });
     return p is null ? Results.Conflict(new {error="Bu SKU zaten kayıtlı."}) : Results.Ok(p);
@@ -196,10 +199,10 @@ public class Connection {public string Id{get;set;}="";public string Name{get;se
 public record ConnectionPatch(bool Enabled);
 public class Activity {public string Title{get;set;}="";public string Detail{get;set;}="";public DateTimeOffset At{get;set;}=DateTimeOffset.Now;}
 public class Settings {public string BusinessName{get;set;}="İnternet Tekstil";public string Currency{get;set;}="TRY";public int LowStockThreshold{get;set;}=10;public bool EmailNotifications{get;set;}=true;public bool SyncNotifications{get;set;}=true;}
-public class Database {public CatalogState Catalog{get;set;}=new();public List<StockMovement> StockMovements{get;set;}=new();public List<Shipment> Shipments{get;set;}=new();public List<Product> Products{get;set;}=new();public List<Order> Orders{get;set;}=new();public List<Connection> Connections{get;set;}=new();public List<Activity> Activity{get;set;}=new();public Settings Settings{get;set;}=new();public DateTimeOffset LastSync{get;set;}=DateTimeOffset.Now.AddMinutes(-18);}
+public class Database {public Dictionary<string,ProductCost> ProductCosts{get;set;}=new();public CatalogState Catalog{get;set;}=new();public List<StockMovement> StockMovements{get;set;}=new();public List<Shipment> Shipments{get;set;}=new();public List<Product> Products{get;set;}=new();public List<Order> Orders{get;set;}=new();public List<Connection> Connections{get;set;}=new();public List<Activity> Activity{get;set;}=new();public Settings Settings{get;set;}=new();public DateTimeOffset LastSync{get;set;}=DateTimeOffset.Now.AddMinutes(-18);}
 public partial class DemoStore {
  private readonly object _gate=new();private readonly string _file;private readonly JsonSerializerOptions _json=new(JsonSerializerDefaults.Web){WriteIndented=true}; private Database _data; private long _revision; private readonly string _instance=Guid.NewGuid().ToString("N"); public string Revision => _instance + ":" + Interlocked.Read(ref _revision);
- public DemoStore(IWebHostEnvironment env){var folder=Path.Combine(env.ContentRootPath,"Data");Directory.CreateDirectory(folder);_file=Path.Combine(folder,"demo-store.json");_data=File.Exists(_file)?JsonSerializer.Deserialize<Database>(File.ReadAllText(_file),_json)??throw new InvalidOperationException("Local catalogue file cannot be read."):Seed();Save();}
+ public DemoStore(IWebHostEnvironment env){var folder=Path.Combine(env.ContentRootPath,"Data");Directory.CreateDirectory(folder);_file=Path.Combine(folder,"demo-store.json");_data=File.Exists(_file)?JsonSerializer.Deserialize<Database>(File.ReadAllText(_file),_json)??throw new InvalidOperationException("Local catalogue file cannot be read."):Seed();RetiredChannelCleanup.Apply(_data);Save();}
  public Database Read(){lock(_gate){return JsonSerializer.Deserialize<Database>(JsonSerializer.Serialize(_data,_json),_json)!;}}
  public T Modify<T>(Func<Database,T> action){lock(_gate){var before=JsonSerializer.Serialize(_data,_json);try{var r=action(_data);Save();return r;}catch{_data=JsonSerializer.Deserialize<Database>(before,_json)!;throw;}}}
  public void Event(Database s,string title,string detail){s.Activity.Insert(0,new Activity{Title=title,Detail=detail});s.Activity=s.Activity.Take(40).ToList();}
@@ -209,17 +212,17 @@ public partial class DemoStore {
  var items=new (string name,string sku,string category,decimal price,int stock,string icon,string[] channels)[]{
  ("Kablosuz Bluetooth Kulaklık","ELK-1001","Elektronik",1899,124,"🎧",new[]{"Trendyol","Amazon"}),
  ("Minimalist Seramik Vazo","EV-2040","Ev & Yaşam",749,8,"🏺",new[]{"Hepsiburada","n11"}),
- ("Organik Pamuk Oversize Tişört","MOD-3002","Moda",599,86,"👕",new[]{"Trendyol","WooCommerce"}),
+ ("Organik Pamuk Oversize Tişört","MOD-3002","Moda",599,86,"👕",new[]{"Trendyol"}),
  ("Paslanmaz Çelik Termos 500ml","EV-1018","Ev & Yaşam",1099,42,"🥤",new[]{"Amazon","Trendyol","n11"}),
  ("Ergonomik Kablosuz Mouse","ELK-1033","Elektronik",1299,5,"🖱️",new[]{"Hepsiburada","Amazon"}),
- ("Deri Kapaklı Not Defteri","KRT-4512","Kırtasiye",329,235,"📓",new[]{"n11","WooCommerce"}),
+ ("Deri Kapaklı Not Defteri","KRT-4512","Kırtasiye",329,235,"📓",new[]{"n11"}),
  ("Aromaterapi Mum Seti","EV-5551","Ev & Yaşam",429,64,"🕯️",new[]{"Trendyol","Hepsiburada"}),
- ("Akıllı Masa Lambası","ELK-6090","Elektronik",1799,19,"💡",new[]{"Amazon","WooCommerce"}),
+ ("Akıllı Masa Lambası","ELK-6090","Elektronik",1799,19,"💡",new[]{"Amazon"}),
  ("Spor Su Matarası","SP-3339","Spor",489,102,"🏃",new[]{"Trendyol","n11"})};
  int i=1;foreach(var t in items)d.Products.Add(new Product{Id=$"p{i++:000}",Name=t.name,Sku=t.sku,Category=t.category,Price=t.price,Stock=t.stock,Image=t.icon,Channels=t.channels.ToList()});
- var customers=new[]{"Zeynep Kaya","Mehmet Yılmaz","Elif Demir","Burak Aydın","Sude Şahin","Ahmet Arslan","Deniz Öztürk","Ceren Koç","Can Yıldız","Merve Öz"};var channels=new[]{"Trendyol","Hepsiburada","Amazon","n11","WooCommerce"};var statuses=new[]{"Yeni","Hazırlanıyor","Kargolandı","Tamamlandı","Tamamlandı","Tamamlandı","İptal"};var rng=new Random(47);
+ var customers=new[]{"Zeynep Kaya","Mehmet Yılmaz","Elif Demir","Burak Aydın","Sude Şahin","Ahmet Arslan","Deniz Öztürk","Ceren Koç","Can Yıldız","Merve Öz"};var channels=new[]{"Trendyol","Hepsiburada","Amazon","n11"};var statuses=new[]{"Yeni","Hazırlanıyor","Kargolandı","Tamamlandı","Tamamlandı","Tamamlandı","İptal"};var rng=new Random(47);
  for(int j=0;j<32;j++){var p=d.Products[rng.Next(d.Products.Count)];var qty=rng.Next(1,4);d.Orders.Add(new Order{Id=$"MP-{260000+j}",Customer=customers[j%customers.Length],Channel=channels[j%channels.Length],Product=p.Name,Total=p.Price*qty,Quantity=qty,Status=statuses[j%statuses.Length],Date=DateTimeOffset.Now.AddHours(-j*3-rng.Next(1,3))});}
- var cons=new (string,string,string,bool,string)[]{("Trendyol","T","#ff7c31",true,"Demo bağlantı · Gerçek API bağlı değil"),("Hepsiburada","H","#f49b22",true,"Demo bağlantı · Gerçek API bağlı değil"),("Amazon","a","#252b37",true,"Demo bağlantı · Gerçek API bağlı değil"),("n11","n","#d34a7b",false,"Bağlantı henüz yapılandırılmadı"),("WooCommerce","W","#8558c4",true,"Demo bağlantı · Gerçek API bağlı değil"),("Shopify","S","#76b64c",false,"Adaptör geliştirme aşamasında"),("ÇiçekSepeti","Ç","#ee5a69",false,"Adaptör geliştirme aşamasında"),("PrestaShop","P","#3482c6",false,"Adaptör geliştirme aşamasında"),("eBay","e","#527cda",false,"Adaptör geliştirme aşamasında")};
+ var cons=new (string,string,string,bool,string)[]{("Trendyol","T","#ff7c31",true,"Demo bağlantı · Gerçek API bağlı değil"),("Hepsiburada","H","#f49b22",true,"Demo bağlantı · Gerçek API bağlı değil"),("Amazon","a","#252b37",true,"Demo bağlantı · Gerçek API bağlı değil"),("n11","n","#d34a7b",false,"Bağlantı henüz yapılandırılmadı"),("Shopify","S","#76b64c",false,"Adaptör geliştirme aşamasında"),("ÇiçekSepeti","Ç","#ee5a69",false,"Adaptör geliştirme aşamasında"),("PrestaShop","P","#3482c6",false,"Adaptör geliştirme aşamasında"),("eBay","e","#527cda",false,"Adaptör geliştirme aşamasında")};
  int k=1;foreach(var c in cons)d.Connections.Add(new Connection{Id=$"c{k++}",Name=c.Item1,Initial=c.Item2,Color=c.Item3,Enabled=c.Item4,Available=c.Item4,Note=c.Item5});
  d.Activity=new(){new(){Title="Sipariş alındı",Detail="MP-260000 · Trendyol",At=DateTimeOffset.Now.AddMinutes(-6)},new(){Title="Stok kontrol edildi",Detail="9 ürün · Örnek veri",At=DateTimeOffset.Now.AddMinutes(-18)},new(){Title="Yeni ürün listelendi",Detail="Kablosuz Bluetooth Kulaklık",At=DateTimeOffset.Now.AddHours(-1)},new(){Title="Kargo durumu güncellendi",Detail="MP-260002 · Örnek işlem",At=DateTimeOffset.Now.AddHours(-2)}};return d;
  }

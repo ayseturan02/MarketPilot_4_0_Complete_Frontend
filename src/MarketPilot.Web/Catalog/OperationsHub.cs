@@ -10,13 +10,15 @@ public sealed partial class OperationsHub(DemoStore db, IntegrationRegistry regi
     private static string Status(string status) => status switch { "Created" or "Unshipped" or "Pending" or "PendingAvailability" => "Yeni", "Picking" or "Invoiced" => "Hazırlanıyor", "Shipped" => "Kargolandı", "Delivered" => "Tamamlandı", "Cancelled" or "Canceled" => "İptal", "Returned" => "İade", _ => status };
     private static string ShipmentStatus(string status) => status switch { "Shipped" => "Kargoya verildi", "Delivered" => "Teslim edildi", "Cancelled" => "İptal", _ => "Hazırlanıyor" };
     private (ConnectionState Store, DemoWorkspaceState Workspace)[] Workspaces() => registry.Connections.Values.Where(c => c.Settings.Mode == "demo").GroupBy(CatalogHub.Source).Select(g => g.First()).Select(c => (c, demo.Snapshot(c.Settings))).ToArray();
+    // Internal aggregation snapshot includes every order, independently of API paging limits.
+    public IReadOnlyList<Order> AllOrders() => Orders(new ListingQuery(Size: int.MaxValue)).Items;
     public ListingPage<Order> Orders(ListingQuery q)
     {
         var spaces = Workspaces();
         return db.CatalogRead(s =>
         {
             var byStore = s.Catalog.Listings.Values.GroupBy(l => l.StoreId + "|" + l.Barcode).ToDictionary(g => g.Key, g => g.Select(l => l.ProductId).Distinct().Count() == 1 ? g.First().ProductId : null);
-            var channels = spaces.SelectMany(w => w.Workspace.Orders.Select(o => new Order { Id = CatalogHub.Key(w.Store.Id, "order:" + o.PackageId), StoreId = w.Store.Id, PackageId = o.PackageId, ChannelOrderNumber = o.OrderNumber, SourceMode = "demo", Customer = o.CustomerName, Channel = Name(w.Store.Settings.Marketplace), Product = string.Join(" · ", o.Lines.Select(l => l.Name)), Total = o.Total ?? 0, Currency = o.Currency, Quantity = o.Lines.Sum(l => l.Quantity), Status = Status(o.Status), Date = o.OrderDate ?? DateTimeOffset.MinValue, Lines = o.Lines.Select(l => new OperationLine(l.Name, l.Sku, l.Barcode, l.Quantity, l.GrossAmount, byStore.GetValueOrDefault(w.Store.Id + "|" + l.Barcode))).ToArray() }));
+            var channels = spaces.SelectMany(w => w.Workspace.Orders.Select(o => new Order { Id = CatalogHub.Key(w.Store.Id, "order:" + o.PackageId), StoreId = w.Store.Id, PackageId = o.PackageId, ChannelOrderNumber = o.OrderNumber, SourceMode = "demo", Customer = o.CustomerName, Channel = Name(w.Store.Settings.Marketplace), Product = string.Join(" · ", o.Lines.Select(l => l.Name)), Total = o.Total ?? 0, TotalKnown = o.Total.HasValue, Currency = o.Currency, Quantity = o.Lines.Sum(l => l.Quantity), Status = Status(o.Status), Date = o.OrderDate ?? DateTimeOffset.MinValue, Lines = o.Lines.Select(l => new OperationLine(l.Name, l.Sku, l.Barcode, l.Quantity, l.GrossAmount, byStore.GetValueOrDefault(w.Store.Id + "|" + l.Barcode))).ToArray() }));
             var observed = s.Catalog.Orders.Values.Where(v => registry.Connections.TryGetValue(v.StoreId, out var c) && CatalogHub.Source(c) == v.Source).Select(v => Project(registry.Connections[v.StoreId], v.Order, byStore));
             var rows = s.Orders.Concat(channels).Concat(observed).Where(o => string.IsNullOrWhiteSpace(q.Search) || ListingFilters.Text(o.Id, q.Search) || ListingFilters.Text(o.ChannelOrderNumber, q.Search) || ListingFilters.Text(o.Customer, q.Search) || ListingFilters.Text(o.Product, q.Search) || o.Lines.Any(l => ListingFilters.Text(l.Barcode, q.Search) || ListingFilters.Text(l.Sku, q.Search)))
                 .Where(o => ListingFilters.Exact(o.Status, q.Status) && ListingFilters.Exact(o.Channel, q.Channel) && ListingFilters.Date(o.Date, q) && ListingFilters.Range(o.Total, q.MinPrice, q.MaxPrice));
@@ -47,7 +49,7 @@ public sealed partial class OperationsHub(DemoStore db, IntegrationRegistry regi
         var spaces = Workspaces();
         return db.CatalogRead(s =>
         {
-            var summary = s.Orders.Select(o => (Channel: o.Channel, Amount: o.Total, Currency: o.Currency, Cancelled: o.Status == "İptal"))
+            var summary = s.Orders.Select(o => (Channel: o.Channel, Amount: o.TotalKnown ? o.Total : 0, Currency: o.Currency, Cancelled: o.Status == "İptal"))
                 .Concat(spaces.SelectMany(w => w.Workspace.Orders.Select(o => (Name(w.Store.Settings.Marketplace), o.Total ?? 0, o.Currency, Status(o.Status) == "İptal"))))
                 .Concat(s.Catalog.Orders.Values.Where(v => registry.Connections.TryGetValue(v.StoreId, out var c) && CatalogHub.Source(c) == v.Source).Select(v => (Name(registry.Connections[v.StoreId].Settings.Marketplace), v.Order.Total ?? 0, v.Order.Currency, Status(v.Order.Status) == "İptal"))).ToArray();
             return new {

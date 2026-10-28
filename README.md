@@ -163,3 +163,13 @@ Yerel giriş/roller, arka plan kuyruğu ve şifreli yedek kurulumu: [YEREL_GUVEN
 Trendyol için ayrı kimlik doğrulamalı `/hooks/orders/{endpointId}` alıcısı, kalıcı bildirim sırası ve ortak sipariş güncellemesi eklendi. Varsayılan olarak kapalıdır; canlı HTTPS adresi/hesap/abonelik tanımlanmadı. Kurulum ve sınırlar: [WEBHOOK_KURULUM.md](WEBHOOK_KURULUM.md).
 
 Mağaza başına ayrı API kimliği, iki satıcı hesabı ve altı kanalda stok/fiyat yazma kapsamı: [MAGAZA_HESAPLARI_VE_YAZMA.md](MAGAZA_HESAPLARI_VE_YAZMA.md).
+
+## Bağlantılı Analiz ve Sistem ekranları
+
+Analiz & Sistem menüsü sipariş, merkezi katalog, mağaza bağlantıları ve arka plan servisleriyle aynı kalıcı verileri kullanır. Raporlar tüm siparişleri tarih, kanal, kaynak ve para birimine göre hesaplar; bilinmeyen tutarlar ortalamaya eklenmez ve farklı para birimleri birleştirilmez.
+
+Kârlılık ekranındaki ürün maliyetlerini yönetici kaydeder. Alış, komisyon oranı, birim kargo ve diğer maliyetler `demo-store.json` içinde saklanır ve mevcut şifreli yedeklere dahildir. Güncel katalog fiyatı değiştiğinde birim katkı yeniden hesaplanır. Maliyet/fiyat eksikse hesap gösterilmez; bu hesap dönem net kârı veya hakediş hesabı değildir.
+
+Bildirimler stok eşiği ve servis/kuyruk durumlarından üretilir. İşlem kayıtlarında operasyon geçmişi, yöneticiler için ayrıca sistem olayları bulunur. Otomasyon ekranı Senkronizasyon ekranıyla aynı zamanlayıcı ve gönderim kuyruğunu yönetir. Genel ayarlardaki stok eşiği ve senkronizasyon bildirim tercihi ilgili ekranlara yansır; e-posta gönderim servisi yapılandırılmış değildir.
+
+Uçlar: `/api/analytics/reports`, `/api/analytics/profit`, `/api/analytics/workspace`, yönetici yazması için `PUT /api/analytics/costs/{id}`. `node tests/analytics-system-http-checks.cjs` geçici verilerle hesap tutarlılığını, yeniden başlatmada kalıcılığı, ekranların birlikte güncellenmesini, mobil görünümü ve rol sınırlarını sınar.
