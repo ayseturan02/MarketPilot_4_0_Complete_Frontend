@@ -9,17 +9,19 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   const item=(v,sku)=>(v.view||v).items.find(i=>i.sku===sku);
   // Demo stores whose stock is not managed by the channel itself (FBA / n11depom) must all follow the central number.
   const followers=(v,i)=>v.stores.filter(s=>s.mode==='demo'&&!['amazon','n11'].includes(s.marketplace)).map(s=>i.channels.find(c=>c.storeId===s.id).stock);
+  // Demo channel jobs fall due 2 s after queueing and the worker ticks every second; poll instead of one fixed wait.
+  const settle=async(sku,expected)=>{let r;for(let i=0;i<30;i++){await sleep(500);r=await call('');if([...new Set(followers(r.json,item(r.json,sku)))].join()===String(expected))break;}return r;};
   try{
     for(let i=0;i<60;i++){try{if((await fetch(base+'/api/health')).ok)break;}catch{}await sleep(500);}
     let r=await call('/run',{});assert.equal(r.status,200);assert.equal(r.json.source.mode,'demo');
     assert.ok(r.json.events.some(e=>e.message.includes('izlemeye alındı')),'existing orders are baselined, not deducted');
     assert.equal(item(r.json,'PNT-BEJ-38').quantity,9,'baseline keeps source quantity');
-    await sleep(3500);r=await call('');assert.deepEqual([...new Set(followers(r.json,item(r.json,'PNT-BEJ-38')))],[9],'all channels equal central stock');
+    r=await settle('PNT-BEJ-38',9);assert.deepEqual([...new Set(followers(r.json,item(r.json,'PNT-BEJ-38')))],[9],'all channels equal central stock');
     r=await call('/demo-sale',{connectionId:'trendyol',barcode:'8691000000005',quantity:2});assert.equal(r.status,200);
     assert.equal(item(r.json,'PNT-BEJ-38').quantity,7,'sale deducted centrally');assert.ok(r.json.view.sales[0].reported,'sale reported to source');
-    await sleep(3500);r=await call('');assert.deepEqual([...new Set(followers(r.json,item(r.json,'PNT-BEJ-38')))],[7],'sale on one channel lowers every channel');
+    r=await settle('PNT-BEJ-38',7);assert.deepEqual([...new Set(followers(r.json,item(r.json,'PNT-BEJ-38')))],[7],'sale on one channel lowers every channel');
     r=await call('/run',{});assert.equal(item(r.json,'PNT-BEJ-38').quantity,7,'re-reading the source does not double count a reported sale');
-    r=await call('/settings',{autoSync:false,intervalSeconds:60,safetyStock:2});assert.equal(r.status,200);await call('/run',{});await sleep(3500);r=await call('');
+    r=await call('/settings',{autoSync:false,intervalSeconds:60,safetyStock:2});assert.equal(r.status,200);await call('/run',{});r=await settle('PNT-BEJ-38',5);
     assert.equal(item(r.json,'PNT-BEJ-38').available,5);assert.deepEqual([...new Set(followers(r.json,item(r.json,'PNT-BEJ-38')))],[5],'safety stock withheld from channels');
     r=await call('/demo-sale',{connectionId:'trendyol',barcode:'8691000000003',quantity:5});assert.equal(r.status,400,'cannot sell more than the channel shows');
     r=await call('/settings',{autoSync:true,intervalSeconds:5,safetyStock:0});assert.equal(r.status,400,'interval lower bound');
