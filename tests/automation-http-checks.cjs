@@ -19,7 +19,7 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
-  await page.goto(base+'/#sync');
+  await page.goto(base+'/#sync',{waitUntil:'domcontentloaded'});
   await page.locator('[data-automation] form').waitFor();
   await page.locator('[data-automation] input[name=enabled]').check();
   await page.locator('[data-automation] input[name=intervalSeconds]').fill('30');

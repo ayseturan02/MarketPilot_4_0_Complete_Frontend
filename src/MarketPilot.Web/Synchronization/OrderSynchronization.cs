@@ -55,7 +55,7 @@ public sealed class OrderSynchronization
         try { var candidate = JsonSerializer.Serialize(state, json); File.WriteAllText(file + ".tmp", candidate); for (var commitAttempt = 0; ; commitAttempt++)
         {
             try { File.Move(file + ".tmp", file, true); break; }
-            catch (IOException) when (commitAttempt < 4) { Thread.Sleep(10); }
+            catch (Exception moveError) when (commitAttempt < 4 && (moveError is IOException or UnauthorizedAccessException)) { Thread.Sleep(10 * (1 << commitAttempt)); }
         } persisted = candidate; Interlocked.Increment(ref revision); }
         catch { state = JsonSerializer.Deserialize<AutomationState>(persisted, json)!; throw; }
     }

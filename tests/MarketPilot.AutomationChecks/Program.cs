@@ -133,6 +133,20 @@ try
     Check(uncertain.ConfirmedStock(live.Id, "FIXTURE-BARCODE") is null, "A new account must not inherit previous stock confirmation");
     config["Marketplaces:Trendyol:stage:SellerId"] = "123";
 
+    // Windows can report an open destination as ACCESS_DENIED rather than an IOException.
+    if(OperatingSystem.IsWindows())
+    {
+        var held=new FileStream(outboxFile,FileMode.Open,FileAccess.Read,FileShare.ReadWrite);
+        var releaser=new Thread(()=>{Thread.Sleep(60);held.Dispose();}){IsBackground=true};
+        releaser.Start();
+        try
+        {
+            var retried=uncertain.Enqueue(demoStore,product.Barcode,68,product.SalePrice,"transient Windows destination lock");
+            Check(uncertain.Find(retried.Id)?.Quantity==68,"Temporary read locks must not lose an accepted stock target");
+        }
+        finally{releaser.Join();held.Dispose();}
+    }
+
     var snapshot = Json(uncertain.Status()).GetRawText();
     var blocker = outboxFile + ".tmp"; Directory.CreateDirectory(blocker);
     try { uncertain.Enqueue(demoStore, product.Barcode, 66, product.SalePrice, "disk fixture"); throw new Exception("Disk failure was accepted"); }
@@ -140,7 +154,7 @@ try
     catch (UnauthorizedAccessException) { }
     finally { Directory.Delete(blocker); }
     Check(Json(uncertain.Status()).GetRawText() == snapshot, "Failed queue persistence must roll back memory");
-    Console.WriteLine("PASS automatic synchronization/outbox: scheduled multi-page import, interval and restart recovery, failure backoff, disabled polling, durable dispatch, idempotency, real-write guard, 429 retry, readback, uncertain-send recovery and disk rollback. All transports mocked.");
+    Console.WriteLine("PASS automatic synchronization/outbox: scheduled multi-page import, interval and restart recovery, failure backoff, disabled polling, durable dispatch, idempotency, real-write guard, 429 retry, readback, uncertain-send recovery, transient Windows read locks and disk rollback. All transports mocked.");
 }
 finally
 {

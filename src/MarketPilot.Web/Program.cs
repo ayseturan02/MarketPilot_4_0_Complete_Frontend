@@ -10,6 +10,8 @@ using MarketPilot.Web.Integrations.Demo;
 using MarketPilot.Web.Synchronization;
 
 var builder = WebApplication.CreateBuilder(args);
+// Held for the process lifetime; fails fast before any store reads or writes the Data folder.
+builder.Services.AddSingleton(DataDirectoryLock.Acquire(builder.Environment.ContentRootPath));
 // DNS rebinding: a foreign site resolving to 127.0.0.1 sends its own Host header, so only local host names are accepted unless AllowedHosts is configured.
 if (string.IsNullOrWhiteSpace(builder.Configuration["AllowedHosts"]) || builder.Configuration["AllowedHosts"] == "*") builder.Configuration["AllowedHosts"] = "localhost;127.0.0.1;[::1]";
 builder.Services.ConfigureHttpJsonOptions(o => { o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase; o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()); });
