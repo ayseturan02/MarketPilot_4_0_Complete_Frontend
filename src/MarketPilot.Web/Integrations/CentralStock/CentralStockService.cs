@@ -164,12 +164,16 @@ public sealed class CentralStockService
         lock (gate)
         {
             var unreported = state.Sales.Where(s => !s.Reported).GroupBy(s => Key(s.Sku, s.Barcode)).ToDictionary(g => g.Key, g => g.Sum(s => s.Quantity));
-            var items = new Dictionary<string, CentralStockItem>();
+            var items = new Dictionary<string, CentralStockItem>(); var barcodes = new HashSet<string>();
             foreach (var row in rows)
             {
                 var key = Key(row.Sku, row.Barcode);
-                if (items.ContainsKey(key) || row.Barcode.Length > 0 && items.Values.Any(i => i.Barcode == row.Barcode))
-                    throw new IntegrationException("ambiguous_stock", "Stok kaynağında tekrarlanan SKU veya barkod var. Dağıtım durduruldu.", 409);
+                if (items.ContainsKey(key) || row.Barcode.Length > 0 && !barcodes.Add(row.Barcode))
+                {
+                    // Ambiguous source data blocks distribution like a failed read, without failing the background run.
+                    state.LastError = $"Stok kaynağında tekrarlanan SKU veya barkod var ({(row.Sku.Length > 0 ? row.Sku : row.Barcode)}).";
+                    Event("error", state.LastError + " Dağıtım durduruldu."); Save(); return false;
+                }
                 items[key] = new() { Sku = row.Sku, Barcode = row.Barcode, Name = row.Name, Quantity = row.Quantity - unreported.GetValueOrDefault(key) };
             }
             state.Items = items; state.LastSourceAt = DateTimeOffset.UtcNow; state.LastError = null; Save();
@@ -416,7 +420,7 @@ public sealed class CentralStockService
                     Save();
                 }
             }
-            catch (Exception e) when (e is IntegrationException or HttpRequestException or JsonException)
+            catch (Exception e) when (e is IntegrationException or HttpRequestException or JsonException or OperationCanceledException)
             { SetStore(store.Id, "error", "Gönderilen stok henüz doğrulanamadı; başarılı sayılmadı."); break; }
         }
     }
@@ -510,7 +514,8 @@ public sealed class CentralStockWorker(CentralStockService service, ILogger<Cent
         {
             while (await timer.WaitForNextTickAsync(stoppingToken))
                 try { if (service.Due) await service.RunAsync(stoppingToken); }
-                catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidOperationException) { logger.LogWarning("Central stock run failed."); }
+                // An unhandled exception here would stop the whole host; only shutdown cancellation may leave the loop.
+                catch (Exception e) when (e is not OperationCanceledException || !stoppingToken.IsCancellationRequested) { logger.LogWarning("Central stock run failed: {Type}", e.GetType().Name); }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
     }

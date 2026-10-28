@@ -74,6 +74,12 @@ try
     adapter.RepeatPage = false;
     await service.RunAsync(default);
     Check(service.LastRunSucceeded, "A blocked sync must recover");
+    handler.DuplicateRow = true;
+    await service.RunAsync(default);
+    Check(!service.LastRunSucceeded && View(service).GetProperty("lastError").GetString()!.Contains("tekrarlanan") && Quantity(service, "B") == 10, "Duplicate source rows must block distribution without throwing");
+    handler.DuplicateRow = false;
+    await service.RunAsync(default);
+    Check(service.LastRunSucceeded, "Sync must recover after duplicate source rows are fixed");
     var before = service.Settings;
     var blocking = Path.Combine(folder, "Data", "central-stock-real.json.tmp");
     Directory.CreateDirectory(blocking);
@@ -103,7 +109,7 @@ try
     await demoService.RunAsync(default);
     Check(Quantity(demoService, "PNT-BEJ-38") == 7, "Demo sale must remain idempotent on the next scan");
     Check(JsonSerializer.Serialize(frozenView) == frozenJson, "A response snapshot must not change during a later background run");
-    Console.WriteLine("PASS synchronization regressions: all pages, alias deduplication, demo/real isolation, unmatched retry, cancellation/return idempotency, source failure, repeated pages, recovery and disk rollback. Mock transports only.");
+    Console.WriteLine("PASS synchronization regressions: all pages, alias deduplication, demo/real isolation, unmatched retry, cancellation/return idempotency, source failure, repeated pages, duplicate source rows, recovery and disk rollback. Mock transports only.");
 }
 finally
 {
@@ -135,12 +141,16 @@ sealed class SourceFixture : HttpMessageHandler, IHttpClientFactory
     public Dictionary<string, int> Stock = new() { ["A"] = 10, ["B"] = 10 };
     public List<(string Id, int Quantity)> Reports = new();
     private readonly HashSet<string> received = new();
-    public bool FailRead;
+    public bool FailRead, DuplicateRow;
     public HttpClient CreateClient(string name) => new(this, false);
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
         if (request.Method == HttpMethod.Get)
-            return new(FailRead ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(Stock.Select(x => new { sku = x.Key, barcode = x.Key + "-barcode", name = x.Key, quantity = x.Value })), Encoding.UTF8, "application/json") };
+        {
+            var rows = Stock.Select(x => new { sku = x.Key, barcode = x.Key + "-barcode", name = x.Key, quantity = x.Value }).ToList();
+            if (DuplicateRow) rows.Add(rows[0] with { name = "Duplicate" });
+            return new(FailRead ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(rows), Encoding.UTF8, "application/json") };
+        }
         using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
         var root = body.RootElement; var id = root.GetProperty("requestId").GetString()!;
         var quantity = root.GetProperty("quantity").GetInt32();

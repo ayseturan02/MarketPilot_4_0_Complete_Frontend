@@ -35,7 +35,7 @@ public sealed class OrderWebhookInbox
             foreach(var item in due){ct.ThrowIfCancellationRequested();string state="processed";string? error=null;try{
                 var binding=receiver.Binding(item.EndpointId);if(binding==null||binding.Store.Id!=item.ConnectionId||CatalogHub.Source(binding.Store)!=item.Source||binding.SellerId!=item.SellerId){state="failed";error="Bildirim mağaza bağlantısı değişmiş veya devre dışı.";}
                 else{var applied=operations.Observe(binding.Store,new MarketplacePage<MarketplaceOrder>([item.Order],0,1,1,1,null));if(applied==0)state="ignored";}
-            }catch(Exception e)when(e is IOException or UnauthorizedAccessException or InvalidOperationException){state="pending";error="Sipariş kaydedilemedi; otomatik tekrar denenecek.";}
+            }catch(Exception e)when(e is not OperationCanceledException){state="pending";error="Sipariş kaydedilemedi; otomatik tekrar denenecek.";}
                 lock(gate){var stored=events[item.Id];stored.Attempts++;stored.State=state=="pending"&&stored.Attempts>=8?"failed":state;stored.Error=error;stored.DueAt=DateTimeOffset.UtcNow.AddSeconds(Math.Min(300,Math.Pow(2,stored.Attempts)));if(stored.State!="pending")stored.FinishedAt=DateTimeOffset.UtcNow;Save();}
             }
         }finally{processing.Release();}
@@ -43,5 +43,5 @@ public sealed class OrderWebhookInbox
 }
 public sealed class OrderWebhookWorker(OrderWebhookInbox inbox,OrderWebhookReceiver receiver,OperationsHub operations,ILogger<OrderWebhookWorker> log):BackgroundService
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken){using var timer=new PeriodicTimer(TimeSpan.FromSeconds(1));try{while(await timer.WaitForNextTickAsync(stoppingToken))try{await inbox.Process(receiver,operations,stoppingToken);}catch(Exception e)when(e is IOException or UnauthorizedAccessException or InvalidOperationException){log.LogWarning("Webhook inbox processing failed: {Type}",e.GetType().Name);}}catch(OperationCanceledException)when(stoppingToken.IsCancellationRequested){}}
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken){using var timer=new PeriodicTimer(TimeSpan.FromSeconds(1));try{while(await timer.WaitForNextTickAsync(stoppingToken))try{await inbox.Process(receiver,operations,stoppingToken);}catch(Exception e)when(e is not OperationCanceledException||!stoppingToken.IsCancellationRequested){log.LogWarning("Webhook inbox processing failed: {Type}",e.GetType().Name);}}catch(OperationCanceledException)when(stoppingToken.IsCancellationRequested){}}
 }
