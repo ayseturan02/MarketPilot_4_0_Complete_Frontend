@@ -21,3 +21,8 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run check
+      - run: docker compose config --quiet
+        env:
+          MARKETPILOT_DOMAIN: marketpilot.example.test
+      - run: docker build -t marketpilot:ci .
+      - run: node scripts/check-docker-deployment.cjs

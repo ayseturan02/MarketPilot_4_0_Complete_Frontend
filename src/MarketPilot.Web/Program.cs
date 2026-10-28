@@ -26,6 +26,10 @@ if (publicDeployment)
     if (!IPAddress.TryParse(builder.Configuration["Deployment:TrustedProxyIp"], out var trustedProxy))
         throw new InvalidOperationException("İnternet dağıtımında Deployment:TrustedProxyIp geçerli bir proxy IP adresi olmalıdır.");
 
+    var bootstrapGateway = builder.Configuration["Deployment:BootstrapGatewayIp"];
+    if (bootstrapGateway is not null && !IPAddress.TryParse(bootstrapGateway, out _))
+        throw new InvalidOperationException("Deployment:BootstrapGatewayIp geçerli bir IP adresi olmalıdır.");
+
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
     {
         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;

@@ -107,14 +107,22 @@ public static class LocalAccess
     public static bool IsLoopback(HttpContext context) =>
         context.Connection.RemoteIpAddress is { } ip && System.Net.IPAddress.IsLoopback(ip);
 
-    private static bool IsDirectLocalHostRequest(HttpContext context)
+    private static bool IsTrustedBootstrapGatewayRequest(HttpContext context, IConfiguration configuration)
     {
+        if (!System.Net.IPAddress.TryParse(configuration["Deployment:BootstrapGatewayIp"], out var gateway) ||
+            context.Connection.RemoteIpAddress is not { } remote ||
+            !remote.MapToIPv6().Equals(gateway.MapToIPv6()))
+            return false;
+
         var host = context.Request.Host.Host;
         var localHost = host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
             System.Net.IPAddress.TryParse(host, out var address) && System.Net.IPAddress.IsLoopback(address);
         return localHost && !context.Request.Headers.ContainsKey("X-Forwarded-For") &&
             !context.Request.Headers.ContainsKey("X-Forwarded-Host") &&
-            !context.Request.Headers.ContainsKey("X-Forwarded-Proto");
+            !context.Request.Headers.ContainsKey("X-Forwarded-Proto") &&
+            !context.Request.Headers.ContainsKey("X-Original-For") &&
+            !context.Request.Headers.ContainsKey("X-Original-Host") &&
+            !context.Request.Headers.ContainsKey("X-Original-Proto");
     }
 
     public static void AddLocalAccess(this WebApplicationBuilder builder)
@@ -146,9 +154,11 @@ public static class LocalAccess
         app.UseAuthentication(); app.UseRateLimiter();
         app.Use(async (context, next) =>
         {
-            var publicDeployment = IsPublicDeployment(context.RequestServices.GetRequiredService<IConfiguration>());
+            var configuration = context.RequestServices.GetRequiredService<IConfiguration>();
+            var publicDeployment = IsPublicDeployment(configuration);
             var isLoopback = IsLoopback(context);
-            if (publicDeployment && !context.Request.IsHttps && !isLoopback)
+            var isLocalBootstrapRequest = isLoopback || publicDeployment && IsTrustedBootstrapGatewayRequest(context, configuration);
+            if (publicDeployment && !context.Request.IsHttps && !isLocalBootstrapRequest)
             {
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
                 return;
@@ -156,7 +166,6 @@ public static class LocalAccess
             if (!context.Request.Path.StartsWithSegments("/api")) { await next(); return; }
             var store = context.RequestServices.GetRequiredService<LocalAccountStore>();
             var path = context.Request.Path;
-            var isLocalBootstrapRequest = isLoopback || publicDeployment && IsDirectLocalHostRequest(context);
             if (!publicDeployment && (!store.Configured || path.StartsWithSegments("/api/access") || path.StartsWithSegments("/api/system")) && !isLoopback)
             {
                 context.Response.StatusCode = 403; return;

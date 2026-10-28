@@ -4,7 +4,7 @@ Bu kurulum tek sunucu ve tek uygulama süreci içindir. Caddy, alan adı için o
 
 ## Gereksinimler
 
-- Güncel Docker Engine ve Docker Compose eklentisi
+- Linux sunucuda güncel Docker Engine ve Docker Compose eklentisi
 - Sabit, herkese açık sunucu IP'si ve bu IP'ye yönlenen bir alan adı
 - Sunucunun güvenlik duvarında TCP 80/443 (isteğe bağlı HTTP/3 için UDP 443) erişimi
 - Docker'ın kullandığı `172.30.0.0/24` ile çakışmayan ağ aralığı
@@ -15,9 +15,9 @@ Bu kurulum tek sunucu ve tek uygulama süreci içindir. Caddy, alan adı için o
 
 1. Depoyu sunucuya alın ve `.env.example` dosyasını `.env` olarak kopyalayın. `MARKETPILOT_DOMAIN` değerini kendi alan adınızla değiştirin. `.env` Git tarafından yok sayılır; içine mağaza parolası veya API anahtarı koymayın.
 2. Alan adının A kaydını sunucunun IP'sine yönlendirin. IPv6 kullanmıyorsanız yanlış bir AAAA kaydı bırakmayın.
-3. Gerekirse `.env` içindeki Docker alt ağını, Caddy IP'sini ve uygulama IP'sini birlikte, çakışmayan adreslerle değiştirin.
+3. Gerekirse `.env` içindeki Docker alt ağını, ağ geçidini (`MARKETPILOT_GATEWAY_IP`), Caddy IP'sini ve uygulama IP'sini birlikte, çakışmayan adreslerle değiştirin.
 4. Sunucuda `docker compose up -d --build` çalıştırın. `docker compose logs -f caddy marketpilot` ile sertifika ve uygulama başlangıç kayıtlarını izleyin.
-5. İlk yönetici hesabını sunucunun SSH tüneli üzerinden oluşturun. Yerel bilgisayarda `ssh -L 5080:127.0.0.1:5080 SUNUCU_KULLANICISI@SUNUCU` çalıştırın, `http://localhost:5080` adresini açın ve güçlü, benzersiz bir yönetici parolası belirleyin. Kurulum tamamlandıktan sonra paneli yalnızca `https://ALAN_ADINIZ` üzerinden kullanın. Uygulama portu sunucuda yalnızca loopback arayüzüne bağlıdır; internete doğrudan açılmaz.
+5. İlk yönetici hesabını sunucunun SSH tüneli üzerinden oluşturun. Yerel bilgisayarda `ssh -L 5081:127.0.0.1:5080 SUNUCU_KULLANICISI@SUNUCU` çalıştırın, `http://localhost:5081` adresini açın ve güçlü, benzersiz bir yönetici parolası belirleyin. Yerel tünel portu 5081, bilgisayarda çalışan 5080 numaralı uygulamayla çakışmaz. Kurulum tamamlandıktan sonra paneli yalnızca `https://ALAN_ADINIZ` üzerinden kullanın. Uygulama portu sunucuda yalnızca loopback arayüzüne bağlıdır; internete doğrudan açılmaz.
 6. `/api/health` yanıtının `200`, `status: "ok"` ve `mode: "public"` olduğunu, tarayıcı geliştirici araçlarında panelin HTTPS kullandığını ve oturum çerezinin `Secure`, `HttpOnly`, `SameSite=Strict` niteliklerini taşıdığını doğrulayın.
 
 İlk yönetici oluşturulmadan önce internetten API kurulumu ve yönetici hesabı oluşturma engellenir. SSH tüneliyle yapılan ilk kurulumdan sonra giriş ve yetkili API kullanımı HTTPS üzerinden mümkündür. Her API isteği oturum doğrulamasından geçer; görüntüleyici rolünün yazma sınırı korunur.
@@ -34,3 +34,7 @@ Bu kurulum tek sunucu ve tek uygulama süreci içindir. Caddy, alan adı için o
 ## Yerel doğrulama
 
 Dağıtım erişim davranışı `node tests/deployment-http-checks.cjs` ile geçici bir veri klasöründe sınanır. Compose yapılandırmasını doğrulamak için alan adı ayarlandıktan sonra `docker compose config --quiet` çalıştırın.
+
+Docker ilk kurulumunda HTTP istisnası yalnızca yapılandırılmış ağ geçidi IP’sinden, `localhost`/loopback Host değeriyle ve yönlendirme başlıkları olmadan gelen isteklere tanınır. Bu, sunucunun `127.0.0.1:5080` portuna bağlı SSH tünelini kapsar; internetten veya Caddy üzerinden gelen istekler HTTPS ve oturum denetiminden geçer. `Deployment:BootstrapGatewayIp` ayarına genel istemci veya proxy IP’si vermeyin.
+
+CI ayrıca `docker build -t marketpilot:ci .` ve `node scripts/check-docker-deployment.cjs` ile gerçek Linux konteynerini salt okunur dosya sistemi ve kalıcı veri hacmiyle başlatır; ağ geçidi üzerinden ilk kurulum, HTTPS zorunluluğu, oturum ve yeniden başlatma sonrası verinin korunmasını doğrular.
