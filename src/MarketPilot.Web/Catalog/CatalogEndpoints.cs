@@ -1,5 +1,5 @@
-using System.Net;
 using MarketPilot.Web.Integrations;
+using MarketPilot.Web.Local;
 namespace MarketPilot.Web.Catalog;
 public static class CatalogEndpoints
 {
@@ -16,7 +16,9 @@ public static class CatalogEndpoints
         group.AddEndpointFilter(async (context, next) =>
         {
             var http = context.HttpContext;
-            if (http.Connection.RemoteIpAddress is not { } ip || !IPAddress.IsLoopback(ip))
+            if (!LocalAccess.IsLoopback(http) &&
+                !(LocalAccess.IsPublicDeployment(http.RequestServices.GetRequiredService<IConfiguration>()) &&
+                  http.User.Identity?.IsAuthenticated == true))
                 return Results.Json(new {
                     error = "Katalog çalışma alanı yalnızca yerel erişime açıktır."
                 }, statusCode: 403);

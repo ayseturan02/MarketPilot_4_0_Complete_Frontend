@@ -1,0 +1,11 @@
+.git
+.github
+.copilot
+.env
+.vs
+.vscode
+**/bin
+**/obj
+**/Data
+node_modules
+test-results
