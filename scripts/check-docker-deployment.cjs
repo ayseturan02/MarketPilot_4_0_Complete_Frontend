@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
+const http = require('node:http');
 
 const image = process.env.MARKETPILOT_DOCKER_IMAGE || 'marketpilot:ci';
 const name = `marketpilot-check-${randomUUID()}`;
@@ -32,7 +33,7 @@ async function main() {
     const info = JSON.parse(docker('inspect', name))[0];
     assert.notEqual(info.Config.User, '0', 'application must run without root privileges');
     assert(info.Config.User && info.Config.User !== 'root');
-    const base = `http://127.0.0.1:${info.NetworkSettings.Ports['8080/tcp'][0].HostPort}`;
+    let base = `http://127.0.0.1:${info.NetworkSettings.Ports['8080/tcp'][0].HostPort}`;
     async function request(url, { remote = false, proto = 'https', cookie, body, headers = {} } = {}) {
       const allHeaders = remote ? {
         Host: domain,
@@ -42,10 +43,27 @@ async function main() {
       } : {};
       if (body !== undefined) allHeaders['Content-Type'] = 'application/json';
       if (cookie) allHeaders.Cookie = cookie;
-      return fetch(base + url, {
-        method: body === undefined ? 'GET' : 'POST',
-        headers: { ...allHeaders, ...headers },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) })
+      return new Promise((resolve, reject) => {
+        // Use node:http so the Host header reaches the server unchanged on every Node version.
+        const req = http.request(base + url, {
+          method: body === undefined ? 'GET' : 'POST',
+          headers: { ...allHeaders, ...headers }
+        }, res => {
+          const chunks = [];
+          res.on('data', chunk => chunks.push(chunk));
+          res.on('error', reject);
+          res.on('end', () => {
+            const responseHeaders = new Headers();
+            for (const [key, value] of Object.entries(res.headers)) {
+              for (const item of Array.isArray(value) ? value : [value])
+                if (item !== undefined) responseHeaders.append(key, item);
+            }
+            resolve(new Response(Buffer.concat(chunks), { status: res.statusCode, headers: responseHeaders }));
+          });
+        });
+        req.on('error', reject);
+        req.setTimeout(5000, () => req.destroy(new Error('Docker HTTP request timed out')));
+        req.end(body === undefined ? undefined : JSON.stringify(body));
       });
     }
     async function ready() {
@@ -78,6 +96,9 @@ async function main() {
     assert.equal((await request('/api/products', { remote: true })).status, 401);
     assert.equal((await request('/api/products', { remote: true, cookie })).status, 200);
     docker('restart', name);
+    // Docker may allocate a different ephemeral host port when the container restarts.
+    const restarted = JSON.parse(docker('inspect', name))[0];
+    base = `http://127.0.0.1:${restarted.NetworkSettings.Ports['8080/tcp'][0].HostPort}`;
     await ready();
     assert.equal((await (await request('/api/access/status')).json()).configured, true,
       'administrator account must survive restart');
