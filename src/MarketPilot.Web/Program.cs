@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Globalization;
+using System.Net;
+using Microsoft.AspNetCore.HttpOverrides;
 using MarketPilot.Web.Integrations;
 using MarketPilot.Web.Local;
 using MarketPilot.Web.Catalog;
@@ -10,10 +11,35 @@ using MarketPilot.Web.Integrations.Demo;
 using MarketPilot.Web.Synchronization;
 
 var builder = WebApplication.CreateBuilder(args);
+var configuredDeploymentMode = builder.Configuration["Deployment:Mode"];
+if (configuredDeploymentMode is not null &&
+    configuredDeploymentMode is not ("local" or "public"))
+    throw new InvalidOperationException("Deployment:Mode yalnızca 'local' veya 'public' olabilir.");
+var publicDeployment = LocalAccess.IsPublicDeployment(builder.Configuration);
+if (publicDeployment)
+{
+    var allowedHosts = builder.Configuration["AllowedHosts"];
+    if (builder.Environment.IsDevelopment() || string.IsNullOrWhiteSpace(allowedHosts) ||
+        allowedHosts.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Any(host => host == "*"))
+        throw new InvalidOperationException("İnternet dağıtımında Development ortamı kapalı olmalı ve AllowedHosts açıkça tanımlanmalıdır.");
+
+    if (!IPAddress.TryParse(builder.Configuration["Deployment:TrustedProxyIp"], out var trustedProxy))
+        throw new InvalidOperationException("İnternet dağıtımında Deployment:TrustedProxyIp geçerli bir proxy IP adresi olmalıdır.");
+
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+        options.KnownProxies.Add(trustedProxy);
+        options.ForwardLimit = 1;
+        options.RequireHeaderSymmetry = true;
+    });
+}
 // Held for the process lifetime; fails fast before any store reads or writes the Data folder.
 builder.Services.AddSingleton(DataDirectoryLock.Acquire(builder.Environment.ContentRootPath));
 // DNS rebinding: a foreign site resolving to 127.0.0.1 sends its own Host header, so only local host names are accepted unless AllowedHosts is configured.
-if (string.IsNullOrWhiteSpace(builder.Configuration["AllowedHosts"]) || builder.Configuration["AllowedHosts"] == "*") builder.Configuration["AllowedHosts"] = "localhost;127.0.0.1;[::1]";
+if (!publicDeployment && (string.IsNullOrWhiteSpace(builder.Configuration["AllowedHosts"]) || builder.Configuration["AllowedHosts"] == "*")) builder.Configuration["AllowedHosts"] = "localhost;127.0.0.1;[::1]";
 builder.Services.ConfigureHttpJsonOptions(o => { o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase; o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()); });
 builder.Services.AddSingleton<DemoStore>();
 builder.Services.AddCatalog();
@@ -23,6 +49,11 @@ builder.AddLocalAccess();
 builder.Services.AddLocalReliability();
 builder.Services.AddBackgroundSynchronization();
 var app = builder.Build();
+if (publicDeployment)
+{
+    app.UseForwardedHeaders();
+    app.UseHsts();
+}
 app.Services.GetRequiredService<CatalogHub>().Ensure();
 app.Use(async(context,next)=>
 {
@@ -50,11 +81,11 @@ app.MapCatalog();
 app.MapOrderWebhooks();
 app.MapBackgroundSynchronization();
 
-app.MapGet("/api/health", (IWebHostEnvironment env, ReliabilityState reliability) => {
+app.MapGet("/api/health", (IWebHostEnvironment env, ReliabilityState reliability, IConfiguration configuration) => {
     var storage = File.Exists(Path.Combine(env.ContentRootPath, "Data", "demo-store.json"));
     var queue = reliability.LastQueueError is null && (reliability.LastQueueTick is null || DateTimeOffset.TryParse(reliability.LastQueueTick, out var tick) && DateTimeOffset.UtcNow - tick < TimeSpan.FromSeconds(30));
     var backup = reliability.LastBackupError is null;
-    return Results.Json(new { status = storage && queue && backup ? "ok" : "degraded", mode = "local", checks = new { storage, queue, backup }, timestamp = DateTimeOffset.UtcNow }, statusCode: storage && queue && backup ? 200 : 503);
+    return Results.Json(new { status = storage && queue && backup ? "ok" : "degraded", mode = LocalAccess.IsPublicDeployment(configuration) ? "public" : "local", checks = new { storage, queue, backup }, timestamp = DateTimeOffset.UtcNow }, statusCode: storage && queue && backup ? 200 : 503);
 });
 app.MapGet("/api/sync/status", (DemoWorkspace demo, CentralStockService stock, DemoStore db, OrderSynchronization automation, StockOutbox outbox) => Results.Ok(new {
     demo = demo.QueueStatus(), stock = stock.Status(), automation = automation.Status(), outbox = outbox.Status(),
@@ -100,7 +131,8 @@ app.MapPost("/api/sync/demo", async (DemoStore db, CentralStockService stock, De
 app.MapGet("/api/activity",(DemoStore db)=>Results.Ok(db.Read().Activity));
 app.MapGet("/api/settings",(DemoStore db)=>Results.Ok(db.Read().Settings));
 app.MapPut("/api/settings",(DemoStore db,Settings settings)=>{if(string.IsNullOrWhiteSpace(settings.BusinessName)||settings.BusinessName.Length>200||settings.Currency is null||!System.Text.RegularExpressions.Regex.IsMatch(settings.Currency,"^[A-Z]{3}$")||settings.LowStockThreshold is <0 or >10000000)return Results.BadRequest(new{error="İşletme adı, para birimi veya stok eşiği geçersiz."});db.Modify(s=>{s.Settings=settings;db.Event(s,"Ayarlar güncellendi","Tercihler kaydedildi");return true;});return Results.Ok(settings);});
-app.MapGet("/api/export/products.csv",(DemoStore db)=>{var products=db.Read().Products;static string Esc(string s)=>"\""+(s.Length>0&&"=+-@\t\r".Contains(s[0])?"'"+s:s).Replace("\"","\"\"")+"\"";var lines=new List<string>{"Id,Ürün,SKU,Kategori,Fiyat,Stok,Durum"}; lines.AddRange(products.Select(p=>string.Join(",",Esc(p.Id),Esc(p.Name),Esc(p.Sku),Esc(p.Category),p.Price.ToString(CultureInfo.InvariantCulture),p.Stock.ToString(CultureInfo.InvariantCulture),Esc(p.Status))));return Results.File(System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(string.Join("\r\n",lines))).ToArray(),"text/csv","urunler.csv");});
+app.MapGet("/api/export/products.csv", (DemoStore db) =>
+    Results.File(ProductCsv.Create(db.Read().Products), "text/csv", "urunler.csv"));
 
 // MarketPilot 2.0: internal stock ledger, barcodes and demo shipping records.
 app.MapGet("/api/stock/movements", (DemoStore db) => Results.Ok(db.Read().StockMovements));

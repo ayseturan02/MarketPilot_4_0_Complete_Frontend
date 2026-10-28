@@ -18,6 +18,7 @@ public sealed record TrendyolRawResponse(int Status, string ContentType, byte[] 
 public sealed class TrendyolApiClient(HttpClient http, IConfiguration configuration)
 {
     public const int MaxResponseBytes = 10 * 1024 * 1024;
+    private const int MaxRateLimitRetries = 2;
 
     public static string Host(string environment) => environment == "stage" ? "stageapigw.trendyol.com" : "apigw.trendyol.com";
 
@@ -50,18 +51,38 @@ public sealed class TrendyolApiClient(HttpClient http, IConfiguration configurat
         HttpContent? content, IReadOnlyDictionary<string, string>? headers, bool errorDetails, CancellationToken ct)
     {
         var (seller, key, secret) = Credentials(environment);
-        using var request = new HttpRequestMessage(method, BuildUrl(environment, path, parameters)) { Content = content };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{key}:{secret}")));
-        request.Headers.TryAddWithoutValidation("User-Agent", $"{seller} - SelfIntegration");
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        foreach (var header in headers ?? new Dictionary<string, string>())
-            request.Headers.TryAddWithoutValidation(header.Key, header.Value == "{sellerId}" ? seller : header.Value);
-        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
-        var body = await ReadLimitedAsync(response, ct);
-        var code = (int)response.StatusCode;
-        if (!response.IsSuccessStatusCode)
-            throw Error(code, errorDetails && code is >= 400 and < 500 and not 401 and not 403 ? ValidationMessages(body) : null);
-        return new(code, response.Content.Headers.ContentType?.ToString() ?? "", body);
+        for (var attempt = 0; ; attempt++)
+        {
+            using var request = new HttpRequestMessage(method, BuildUrl(environment, path, parameters))
+            {
+                Content = content
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{key}:{secret}")));
+            request.Headers.TryAddWithoutValidation("User-Agent", $"{seller} - SelfIntegration");
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            foreach (var header in headers ?? new Dictionary<string, string>())
+                request.Headers.TryAddWithoutValidation(header.Key, header.Value == "{sellerId}" ? seller : header.Value);
+
+            using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+            var code = (int)response.StatusCode;
+            if (code == 429 && method == HttpMethod.Get && attempt < MaxRateLimitRetries)
+            {
+                await Task.Delay(RetryDelay(response.Headers.RetryAfter, attempt), ct);
+                continue;
+            }
+
+            var body = await ReadLimitedAsync(response, ct);
+            if (!response.IsSuccessStatusCode)
+                throw Error(code, errorDetails && code is >= 400 and < 500 and not 401 and not 403 ? ValidationMessages(body) : null);
+            return new(code, response.Content.Headers.ContentType?.ToString() ?? "", body);
+        }
+    }
+
+    private static TimeSpan RetryDelay(RetryConditionHeaderValue? retryAfter, int attempt)
+    {
+        var suggested = retryAfter?.Delta ??
+            (retryAfter?.Date is { } retryAt ? retryAt - DateTimeOffset.UtcNow : TimeSpan.FromSeconds(Math.Pow(2, attempt)));
+        return TimeSpan.FromSeconds(Math.Clamp(suggested.TotalSeconds, 0, 30));
     }
 
     public async Task<JsonDocument> GetJsonAsync(string environment, string path, IEnumerable<KeyValuePair<string, string>> parameters, bool storeFrontHeader, CancellationToken ct)

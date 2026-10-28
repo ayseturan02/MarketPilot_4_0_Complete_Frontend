@@ -56,7 +56,9 @@ Satış Kanalları ekranındaki Trendyol adaptörü yalnızca şu GET uçlarına
 
 Bu okuma adaptöründen ayrı olarak altı kanalda stok/fiyat gönderimi kalıcı kuyruk üzerinden desteklenir; mağaza profili ve gerçek yazma izinleri gereklidir. Diğer Trendyol yazma servisleri API Merkezi’ndedir. `POST /api/integrations/preview/{marketplace}/stock-price` yalnızca yerel bir taslağı doğrular ve her zaman `sent:false` döndürür. Sonuçlar kalıcı veritabanına yazılmaz.
 
-Yerel yönetici/personel/görüntüleyici hesapları ve oturum koruması mevcuttur. Entegrasyon uçları ayrıca yerel makine ve aynı kaynakla sınırlıdır. İlk yönetici kurulana kadar yerel demo açıktır. İnternete açık dağıtımın HTTPS/proxy ve işletim ayarları ayrıca hazırlanmalıdır.
+Yerel yönetici/personel/görüntüleyici hesapları ve oturum koruması mevcuttur. Yerel başlatma ilk yönetici kurulana kadar API'leri yerel makineyle sınırlar. İnternet dağıtımı için ayrı, açıkça etkinleştirilen HTTPS/proxy profili ve kurulum adımları [DEPLOYMENT.md](DEPLOYMENT.md) dosyasındadır.
+
+Tek sunucu üzerinde HTTPS'li dağıtım için [DEPLOYMENT.md](DEPLOYMENT.md) dosyasındaki Docker Compose + Caddy kurulumunu kullanın. İlk yönetici SSH tüneli üzerinden oluşturulmadan internet erişimi açılmaz; dağıtım için gerçek alan adı ve sunucu gereklidir.
 
 ## Trendyol API Merkezi (5.2)
 

@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Net;
 using MarketPilot.Web.Integrations.Amazon;
 using MarketPilot.Web.Integrations.Boyner;
 using MarketPilot.Web.Integrations.CentralStock;
@@ -8,6 +7,7 @@ using MarketPilot.Web.Integrations.Demo;
 using MarketPilot.Web.Integrations.Hepsiburada;
 using MarketPilot.Web.Integrations.N11;
 using MarketPilot.Web.Integrations.Trendyol;
+using MarketPilot.Web.Local;
 
 namespace MarketPilot.Web.Integrations;
 
@@ -58,7 +58,9 @@ public static class IntegrationEndpoints
         {
             var http = context.HttpContext;
             http.Response.Headers.CacheControl = "no-store";
-            if (http.Connection.RemoteIpAddress is not { } ip || !IPAddress.IsLoopback(ip))
+            if (!LocalAccess.IsLoopback(http) &&
+                !(LocalAccess.IsPublicDeployment(http.RequestServices.GetRequiredService<IConfiguration>()) &&
+                  http.User.Identity?.IsAuthenticated == true))
                 return Results.Json(new { error = "Entegrasyon paneli yalnızca yerel erişime açıktır." }, statusCode: 403);
             if (http.Request.Headers.TryGetValue("Origin", out var origin) &&
                 origin.ToString() != $"{http.Request.Scheme}://{http.Request.Host}")

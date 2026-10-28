@@ -58,9 +58,39 @@ Check(handler.Uri!.AbsolutePath.EndsWith("/sellers/123/addresses") && handler.St
 handler.Status = HttpStatusCode.Unauthorized; handler.Body = "test-secret upstream private content";
 try { await adapter.TestAsync(settings, default); throw new Exception("401 accepted"); }
 catch (IntegrationException e) { Check(e.Code == "upstream_401" && !e.Message.Contains("test-secret"), "Unsafe 401 response"); }
-handler.Status = HttpStatusCode.TooManyRequests;
+handler.Status = HttpStatusCode.TooManyRequests; handler.RetryAfter = TimeSpan.Zero;
+var callsBeforeRateLimit = handler.Calls;
 try { await adapter.TestAsync(settings, default); throw new Exception("429 accepted"); }
-catch (IntegrationException e) { Check(e.Code == "upstream_429", "Rate limit not classified"); }
+catch (IntegrationException e) { Check(e.Code == "upstream_429" && handler.Calls == callsBeforeRateLimit + 3, $"Rate limit retry or final classification failed ({e.Code}, {handler.Calls - callsBeforeRateLimit} calls)"); }
+var retryHandler = new FixtureHandler
+{
+    ResponseFactory = attempt =>
+    {
+        var response = new HttpResponseMessage(attempt == 1 ? HttpStatusCode.TooManyRequests : HttpStatusCode.OK)
+        {
+            Content = new StringContent(attempt == 1 ? "rate limited" : ProductJson())
+        };
+        if (attempt == 1) response.Headers.RetryAfter = new(TimeSpan.Zero);
+        return response;
+    }
+};
+var retryAdapter = new TrendyolAdapter(new HttpClient(retryHandler), configuration);
+Check((await retryAdapter.TestAsync(settings, default)).SellerId == "123" && retryHandler.Calls == 2, "GET must retry after Retry-After and recover");
+var noWriteRetryHandler = new FixtureHandler
+{
+    AllowWrites = true,
+    ResponseFactory = _ => new HttpResponseMessage(HttpStatusCode.TooManyRequests)
+    {
+        Content = new StringContent("rate limited")
+    }
+};
+try
+{
+    await new TrendyolApiClient(new HttpClient(noWriteRetryHandler), configuration).SendAsync(
+        "stage", HttpMethod.Post, "orders", [], new StringContent("{}"), null, false, default);
+    throw new Exception("POST rate limit accepted");
+}
+catch (IntegrationException e) { Check(e.Code == "upstream_429" && noWriteRetryHandler.Calls == 1, "Non-idempotent request must not be replayed"); }
 handler.Status = HttpStatusCode.OK; handler.Body = "{}";
 try { await adapter.TestAsync(settings, default); throw new Exception("Malformed response accepted"); }
 catch (IntegrationException e) { Check(e.Code == "invalid_response", "Malformed schema not classified"); }
@@ -136,6 +166,8 @@ sealed class FixtureHandler : HttpMessageHandler
     public bool AllowWrites;
     public HttpMethod? Method;
     public string? RequestBody;
+    public TimeSpan? RetryAfter;
+    public Func<int, HttpResponseMessage>? ResponseFactory;
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         Calls++; Uri = request.RequestUri; Authorization = request.Headers.Authorization?.ToString();
@@ -143,6 +175,9 @@ sealed class FixtureHandler : HttpMessageHandler
         StoreFront = request.Headers.TryGetValues("storeFrontCode", out var values) ? values.Single() : null;
         Method = request.Method; RequestBody = request.Content?.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult();
         if (request.Method != HttpMethod.Get && !AllowWrites) throw new Exception("Unexpected marketplace write");
-        return Task.FromResult(new HttpResponseMessage(Status) { Content = new StringContent(Body) });
+        if (ResponseFactory is { } responseFactory) return Task.FromResult(responseFactory(Calls));
+        var response = new HttpResponseMessage(Status) { Content = new StringContent(Body) };
+        if (RetryAfter is { } retryAfter) response.Headers.RetryAfter = new(retryAfter);
+        return Task.FromResult(response);
     }
 }

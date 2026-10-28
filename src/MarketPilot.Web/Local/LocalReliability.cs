@@ -103,16 +103,69 @@ public sealed class DemoQueueWorker(DemoWorkspace demo, ReliabilityState state, 
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer=new PeriodicTimer(TimeSpan.FromSeconds(1));DateTimeOffset nextLog=DateTimeOffset.MinValue;
-        try { while(await timer.WaitForNextTickAsync(stoppingToken))try{var completed=demo.ProcessPendingJobs();state.LastQueueTick=DateTimeOffset.UtcNow.ToString("O");state.LastQueueError=null;if(completed>0)audit.Add("info","queue",$"{completed} demo işlemi tamamlandı.");}catch(Exception e)when(e is not OperationCanceledException||!stoppingToken.IsCancellationRequested){state.LastQueueError="Demo kuyruğu tamamlanamadı.";if(DateTimeOffset.UtcNow>=nextLog){nextLog=DateTimeOffset.UtcNow.AddMinutes(5);logger.LogWarning("Local demo queue processing failed.");try{audit.Add("error","queue",state.LastQueueError);}catch(Exception auditError)when(auditError is IOException or UnauthorizedAccessException){}}} }catch(OperationCanceledException)when(stoppingToken.IsCancellationRequested){}
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        var nextLog = DateTimeOffset.MinValue;
+        try
+        {
+            while (await timer.WaitForNextTickAsync(stoppingToken))
+            {
+                try
+                {
+                    var completed = demo.ProcessPendingJobs();
+                    state.LastQueueTick = DateTimeOffset.UtcNow.ToString("O");
+                    state.LastQueueError = null;
+                    if (completed > 0) audit.Add("info", "queue", $"{completed} demo işlemi tamamlandı.");
+                }
+                catch (Exception error) when (error is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
+                {
+                    state.LastQueueError = "Demo kuyruğu tamamlanamadı.";
+                    if (DateTimeOffset.UtcNow < nextLog) continue;
+                    nextLog = DateTimeOffset.UtcNow.AddMinutes(5);
+                    logger.LogWarning("Local demo queue processing failed ({ErrorType}).", error.GetType().Name);
+                    try
+                    {
+                        audit.Add("error", "queue", state.LastQueueError);
+                    }
+                    catch (Exception auditError) when (auditError is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
+                    {
+                        // A failure while recording the original failure must not escape the worker either.
+                        logger.LogWarning("Local queue failure could not be audited ({ErrorType}).", auditError.GetType().Name);
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
     }
 }
-public sealed class LocalBackupWorker(LocalBackups backups,ReliabilityState state,LocalAudit audit,ILogger<LocalBackupWorker> logger):BackgroundService
+public sealed class LocalBackupWorker(LocalBackups backups, ReliabilityState state, LocalAudit audit, ILogger<LocalBackupWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer=new PeriodicTimer(TimeSpan.FromMinutes(1));
-        try { do{try{var latest=backups.List().FirstOrDefault();if(latest is null||DateTimeOffset.UtcNow-latest.CreatedAt>TimeSpan.FromHours(24)){var backup=backups.Create();state.LastBackupSuccess=backup.CreatedAt.ToString("O");state.LastBackupError=null;audit.Add("info","backup","Şifreli yerel yedek oluşturuldu ve doğrulandı.");}else state.LastBackupSuccess=latest.CreatedAt.ToString("O");}catch(Exception e)when(e is not OperationCanceledException||!stoppingToken.IsCancellationRequested){state.LastBackupError="Otomatik yedek tamamlanamadı.";logger.LogWarning("Local encrypted backup failed.");}}while(await timer.WaitForNextTickAsync(stoppingToken));}catch(OperationCanceledException)when(stoppingToken.IsCancellationRequested){}
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
+        try
+        {
+            do
+            {
+                try
+                {
+                    var latest = backups.List().FirstOrDefault();
+                    if (latest is null || DateTimeOffset.UtcNow - latest.CreatedAt > TimeSpan.FromHours(24))
+                    {
+                        var backup = backups.Create();
+                        state.LastBackupSuccess = backup.CreatedAt.ToString("O");
+                        state.LastBackupError = null;
+                        audit.Add("info", "backup", "Şifreli yerel yedek oluşturuldu ve doğrulandı.");
+                    }
+                    else state.LastBackupSuccess = latest.CreatedAt.ToString("O");
+                }
+                catch (Exception error) when (error is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
+                {
+                    state.LastBackupError = "Otomatik yedek tamamlanamadı.";
+                    logger.LogWarning("Local encrypted backup failed ({ErrorType}).", error.GetType().Name);
+                }
+            } while (await timer.WaitForNextTickAsync(stoppingToken));
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
     }
 }
 public sealed record VerifyBackupRequest(string Name);

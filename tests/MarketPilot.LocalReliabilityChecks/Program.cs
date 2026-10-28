@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Globalization;
+using System.Text;
+using Microsoft.Extensions.Logging;
 
 static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
 static void Reject(Action action){try{action();}catch(ArgumentException){return;}catch(InvalidOperationException){return;}catch(CryptographicException){return;}throw new Exception("Invalid action accepted");}
@@ -29,7 +32,57 @@ try
  File.WriteAllBytes(archivePath,archive);new LocalBackups(env).Verify(backup.Name);Reject(()=>backups.Download("../local-accounts.json"));
  // A second process on the same Data folder must be refused; the folder is free again after release.
  using(DataDirectoryLock.Acquire(folder)){Reject(()=>DataDirectoryLock.Acquire(folder));}using(DataDirectoryLock.Acquire(folder)){}
- Console.WriteLine("PASS: hashed local accounts, role/session revocation, disabled users, persistence, restart-resumed background jobs, idempotency conflict, encrypted backup roundtrip, tamper rejection, traversal protection and single-process data lock. Temporary data only.");
+
+ // Exported decimal values and quoting must stay stable under the operator's locale.
+ var previousCulture=CultureInfo.CurrentCulture;
+ try
+ {
+     var product=new Product{Id="CSV-1",Name="Virgül, \"tırnak\"",Sku="=FORMULA",Category="Giyim",Price=1234.50m,Stock=1.5m,Status="Aktif"};
+     byte[]? canonical=null;
+     foreach(var locale in new[]{"tr-TR","de-DE","en-US"})
+     {
+         CultureInfo.CurrentCulture=CultureInfo.GetCultureInfo(locale);
+         var bytes=ProductCsv.Create([product]);
+         canonical??=bytes;
+         Check(bytes.SequenceEqual(canonical),"CSV output changed under "+locale);
+         Check(bytes.Take(3).SequenceEqual(Encoding.UTF8.GetPreamble()),"CSV UTF-8 BOM missing");
+         var csv=Encoding.UTF8.GetString(bytes);
+         Check(csv.Contains("\"Virgül, \"\"tırnak\"\"\"")&&csv.Contains("\"'=FORMULA\""),"CSV escaping or formula protection lost");
+         Check(csv.Contains(",1234.50,1.5,\"Aktif\""),"CSV numeric columns merged under "+locale);
+     }
+ }
+ finally{CultureInfo.CurrentCulture=previousCulture;}
+
+ // Unexpected data/XML faults must leave the workers alive and must allow a clean shutdown.
+ var workerEnv=new LocalTestEnvironment{ContentRootPath=Path.Combine(folder,"worker-faults")};
+ Directory.CreateDirectory(Path.Combine(workerEnv.ContentRootPath,"Data","keys"));
+ var failedState=new DemoWorkspaceState{Products=null!};
+ failedState.Jobs.Add(new DemoJob{Kind="stock",Reference="fixture",Quantity=1,Price=1m,DueAt=DateTimeOffset.UtcNow.AddSeconds(-1)});
+ File.WriteAllText(Path.Combine(workerEnv.ContentRootPath,"Data","integration-demo.json"),
+     JsonSerializer.Serialize(new Dictionary<string,DemoWorkspaceState>{{"trendyol|stage|Fault",failedState}},new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+ File.WriteAllText(Path.Combine(workerEnv.ContentRootPath,"Data","keys","invalid.xml"),"<unclosed>");
+ var workerAudit=new LocalAudit(workerEnv);
+ var queueState=new ReliabilityState();var backupState=new ReliabilityState();
+ var queueLog=new CapturingLogger<DemoQueueWorker>();var backupLog=new CapturingLogger<LocalBackupWorker>();
+ using var queueWorker=new DemoQueueWorker(new DemoWorkspace(workerEnv),queueState,workerAudit,queueLog);
+ using var backupWorker=new LocalBackupWorker(new LocalBackups(workerEnv),backupState,workerAudit,backupLog);
+ await backupWorker.StartAsync(default);
+ await queueWorker.StartAsync(default);
+ try
+ {
+     for(var attempt=0;attempt<100&&queueState.LastQueueError is null;attempt++)await Task.Delay(25);
+     Check(queueState.LastQueueError is not null&&queueLog.Messages.Any(m=>m.Contains("NullReferenceException")),"Unexpected queue error was not recorded");
+     Check(backupState.LastBackupError is not null&&backupLog.Messages.Any(m=>m.Contains("XmlException")),"Unexpected backup XML error was not recorded");
+     Check(queueWorker.ExecuteTask is{IsCompleted:false}&&backupWorker.ExecuteTask is{IsCompleted:false},"Unexpected fault stopped a worker");
+     Check(backupState.LastBackupSuccess is null,"A failed backup was reported as successful");
+ }
+ finally
+ {
+     using var shutdown=new CancellationTokenSource(TimeSpan.FromSeconds(5));
+     await queueWorker.StopAsync(shutdown.Token);await backupWorker.StopAsync(shutdown.Token);
+ }
+ Check(queueWorker.ExecuteTask?.IsCompletedSuccessfully==true&&backupWorker.ExecuteTask?.IsCompletedSuccessfully==true,"Shutdown cancellation faulted a worker");
+ Console.WriteLine("PASS: hashed local accounts, role/session revocation, disabled users, persistence, restart-resumed background jobs, idempotency conflict, encrypted backup roundtrip, tamper rejection, traversal protection single-process data lock, locale-independent CSV and unexpected worker failures/clean shutdown. Temporary data only.");
 }
 finally
 {
@@ -39,4 +92,12 @@ finally
 sealed class LocalTestEnvironment:IWebHostEnvironment
 {
  public string ApplicationName{get;set;}="MarketPilot.Web";public string EnvironmentName{get;set;}="Development";public string ContentRootPath{get;set;}="";public IFileProvider ContentRootFileProvider{get;set;}=new NullFileProvider();public string WebRootPath{get;set;}="";public IFileProvider WebRootFileProvider{get;set;}=new NullFileProvider();
+}
+
+sealed class CapturingLogger<T>:ILogger<T>
+{
+    public System.Collections.Concurrent.ConcurrentQueue<string> Messages{get;}=new();
+    public IDisposable? BeginScope<TState>(TState state)where TState:notnull=>null;
+    public bool IsEnabled(LogLevel level)=>true;
+    public void Log<TState>(LogLevel level,EventId id,TState state,Exception? exception,Func<TState,Exception?,string> formatter)=>Messages.Enqueue(formatter(state,exception));
 }

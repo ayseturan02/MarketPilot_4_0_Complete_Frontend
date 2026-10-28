@@ -1,0 +1,60 @@
+services:
+  marketpilot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Deployment__Mode: public
+      Deployment__TrustedProxyIp: ${MARKETPILOT_CADDY_IP:-172.30.0.2}
+      AllowedHosts: "${MARKETPILOT_DOMAIN:?Set MARKETPILOT_DOMAIN in .env};localhost;127.0.0.1"
+      ASPNETCORE_HTTP_PORTS: 8080
+    ports:
+      - "127.0.0.1:5080:8080"
+    volumes:
+      - marketpilot_data:/app/Data
+    networks:
+      marketpilot:
+        ipv4_address: ${MARKETPILOT_APP_IP:-172.30.0.3}
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 30s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      MARKETPILOT_DOMAIN: ${MARKETPILOT_DOMAIN:?Set MARKETPILOT_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      marketpilot:
+        ipv4_address: ${MARKETPILOT_CADDY_IP:-172.30.0.2}
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - marketpilot
+
+networks:
+  marketpilot:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${MARKETPILOT_DOCKER_SUBNET:-172.30.0.0/24}
+
+volumes:
+  marketpilot_data:
+  caddy_data:
+  caddy_config:

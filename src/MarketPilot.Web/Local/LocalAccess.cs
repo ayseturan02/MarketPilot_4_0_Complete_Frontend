@@ -101,6 +101,22 @@ public sealed class LocalAccountStore
 
 public static class LocalAccess
 {
+    public static bool IsPublicDeployment(IConfiguration configuration) =>
+        string.Equals(configuration["Deployment:Mode"], "public", StringComparison.OrdinalIgnoreCase);
+
+    public static bool IsLoopback(HttpContext context) =>
+        context.Connection.RemoteIpAddress is { } ip && System.Net.IPAddress.IsLoopback(ip);
+
+    private static bool IsDirectLocalHostRequest(HttpContext context)
+    {
+        var host = context.Request.Host.Host;
+        var localHost = host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+            System.Net.IPAddress.TryParse(host, out var address) && System.Net.IPAddress.IsLoopback(address);
+        return localHost && !context.Request.Headers.ContainsKey("X-Forwarded-For") &&
+            !context.Request.Headers.ContainsKey("X-Forwarded-Host") &&
+            !context.Request.Headers.ContainsKey("X-Forwarded-Proto");
+    }
+
     public static void AddLocalAccess(this WebApplicationBuilder builder)
     {
         var keys = Path.Combine(builder.Environment.ContentRootPath, "Data", "keys"); Directory.CreateDirectory(keys);
@@ -108,7 +124,8 @@ public static class LocalAccess
         builder.Services.AddSingleton<LocalAccountStore>();
         builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(o =>
         {
-            o.Cookie.Name = "it_session"; o.Cookie.HttpOnly = true; o.Cookie.SameSite = SameSiteMode.Strict; o.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+            o.Cookie.Name = "it_session"; o.Cookie.HttpOnly = true; o.Cookie.SameSite = SameSiteMode.Strict;
+            o.Cookie.SecurePolicy = IsPublicDeployment(builder.Configuration) ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
             o.ExpireTimeSpan = TimeSpan.FromHours(8); o.SlidingExpiration = false;
             o.Events.OnRedirectToLogin = c => { c.Response.StatusCode = 401; return Task.CompletedTask; };
             o.Events.OnRedirectToAccessDenied = c => { c.Response.StatusCode = 403; return Task.CompletedTask; };
@@ -132,11 +149,16 @@ public static class LocalAccess
             if (!context.Request.Path.StartsWithSegments("/api")) { await next(); return; }
             var store = context.RequestServices.GetRequiredService<LocalAccountStore>();
             var path = context.Request.Path;
-            // Before the first admin exists the API has no login, so it must never be reachable from another machine.
-            if (!store.Configured || path.StartsWithSegments("/api/access") || path.StartsWithSegments("/api/system"))
+            var publicDeployment = IsPublicDeployment(context.RequestServices.GetRequiredService<IConfiguration>());
+            var isLoopback = IsLoopback(context);
+            var isLocalBootstrapRequest = isLoopback || publicDeployment && IsDirectLocalHostRequest(context);
+            if (!publicDeployment && (!store.Configured || path.StartsWithSegments("/api/access") || path.StartsWithSegments("/api/system")) && !isLoopback)
             {
-                if (context.Connection.RemoteIpAddress is not { } ip || !System.Net.IPAddress.IsLoopback(ip)) { context.Response.StatusCode = 403; return; }
+                context.Response.StatusCode = 403; return;
             }
+            if (publicDeployment && (!store.Configured || path == "/api/access/setup") && !isLocalBootstrapRequest &&
+                path != "/api/health" && path != "/api/access/status")
+            { context.Response.StatusCode = 403; return; }
             var publicAccess = path == "/api/health" || path == "/api/access/status" || path == "/api/access/login" || path == "/api/access/setup";
             if (store.Configured && !publicAccess && context.User.Identity?.IsAuthenticated != true) { context.Response.StatusCode = 401; await context.Response.WriteAsJsonAsync(new { error = "Önce giriş yap." }); return; }
             if (store.Configured && context.User.IsInRole("viewer") && context.Request.Method is not ("GET" or "HEAD") && !ReadOnlyPost(context)) { context.Response.StatusCode = 403; await context.Response.WriteAsJsonAsync(new { error = "Bu hesap yalnızca görüntüleme yetkisine sahip." }); return; }
