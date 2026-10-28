@@ -8,6 +8,9 @@ Senkronizasyon ekranındaki **Demo Eşitle**, `POST /api/sync/demo` üzerinden m
 
 - Demo kanalları ve gerçek kaynaklar ayrı dosya/işlem kapsamları kullanır. Demo satış gerçek ERP'ye gönderilemez.
 - Sipariş taraması tüm sayfaları/imleçleri okur. Tekrarlayan sayfa, eksik devam bilgisi veya okunamayan kaynakta dağıtım durur.
+- Trendyol sipariş akışı son güncelleme tarihine göre okunur; sonraki turlar son taramadan 5 dakika geriye bakar. Sipariş tarihine göre filtreleyen diğer pazaryerlerinde her tur en az son 2 günü kapsar; böylece yeni siparişlerin iptali kaçmaz. Daha eski siparişlerin iptali bu pazaryerlerinde ayrıca izlenmelidir.
+- Stok kaynağında tekrar eden SKU veya barkod varsa tur nedeniyle durur; uygulama ve diğer arka plan işleri çalışmaya devam eder.
+- Gerçek stok kaynağı ilk açıldığında eski `central-stock.json` gerçek kaynakla kullanılmışsa yalnız gerçek mağazalara ait bildirilmemiş satışlar, izlenen sipariş satırları ve güvenlik stoğu taşınır; otomatik senkronizasyon kapalı başlar. Demo verisi taşınmaz.
 - Eşleşmeyen satış işlenmiş sayılmaz; eşleşme sağlandığında yeniden denenir.
 - Tekrar tarama satışları çoğaltmaz. Takip edilen iptal ve onaylı demo iadesi stoğa bir kez yansır.
 - Demo kuyruk işleri tarayıcı kapalıyken de işlenir; kaydedilen stok ve işler sunucu yeniden başlatıldığında korunur.

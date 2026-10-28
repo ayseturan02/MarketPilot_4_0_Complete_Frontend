@@ -74,6 +74,7 @@ try
     adapter.RepeatPage = false;
     await service.RunAsync(default);
     Check(service.LastRunSucceeded, "A blocked sync must recover");
+    Check(adapter.Starts.Last() <= DateTimeOffset.UtcNow.AddDays(-2).AddMinutes(1).ToUnixTimeMilliseconds(), "Order-date marketplaces must keep scanning the last two days");
     handler.DuplicateRow = true;
     await service.RunAsync(default);
     Check(!service.LastRunSucceeded && View(service).GetProperty("lastError").GetString()!.Contains("tekrarlanan") && Quantity(service, "B") == 10, "Duplicate source rows must block distribution without throwing");
@@ -109,7 +110,30 @@ try
     await demoService.RunAsync(default);
     Check(Quantity(demoService, "PNT-BEJ-38") == 7, "Demo sale must remain idempotent on the next scan");
     Check(JsonSerializer.Serialize(frozenView) == frozenJson, "A response snapshot must not change during a later background run");
-    Console.WriteLine("PASS synchronization regressions: all pages, alias deduplication, demo/real isolation, unmatched retry, cancellation/return idempotency, source failure, repeated pages, duplicate source rows, recovery and disk rollback. Mock transports only.");
+
+    // Legacy state: before real and demo had separate files, a real source wrote central-stock.json.
+    static TestEnvironment Legacy(string root, CentralStockState old)
+    {
+        Directory.CreateDirectory(Path.Combine(root, "Data"));
+        File.WriteAllText(Path.Combine(root, "Data", "central-stock.json"), JsonSerializer.Serialize(old, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        return new TestEnvironment { ContentRootPath = root };
+    }
+    var realLegacy = new CentralStockService(Legacy(Path.Combine(folder, "legacy-real"), new CentralStockState {
+        Settings = new(true, 120, 3),
+        Items = { ["sku:ERP-ONLY"] = new() { Sku = "ERP-ONLY", Quantity = 4 } },
+        WatchedStores = { "real-fixture", "trendyol" },
+        SeenOrderLines = { "real-fixture|old-a|line-old-a|A-barcode" },
+        Sales = { new() { Id = "legacy-real", StoreId = "real-fixture", Sku = "A", Barcode = "A-barcode", Quantity = 1, ReportError = "AllowWrites kapalı" },
+                  new() { Id = "legacy-demo", StoreId = "trendyol", Sku = "A", Barcode = "A-barcode", Quantity = 1 } } }), provider, config);
+    var legacySales = View(realLegacy).GetProperty("sales").EnumerateArray().Select(s => s.GetProperty("id").GetString()).ToArray();
+    Check(legacySales.SequenceEqual(new[] { "legacy-real" }) && !realLegacy.Settings.AutoSync && realLegacy.Settings.SafetyStock == 3, "Legacy real state must carry only real unreported sales, with auto sync off");
+    await realLegacy.RunAsync(default);
+    Check(handler.Reports.Any(r => r.Id == "legacy-real") && !handler.Reports.Any(r => r.Id == "legacy-demo"), "A migrated real sale must reach the source; a demo sale never");
+    var demoLegacy = new CentralStockService(Legacy(Path.Combine(folder, "legacy-demo"), new CentralStockState {
+        Items = { ["sku:SWT-GRI-M"] = new() { Sku = "SWT-GRI-M", Quantity = 30 } },
+        Sales = { new() { Id = "interrupted-demo", StoreId = "real-fixture", Sku = "A", Barcode = "A-barcode", Quantity = 1 } } }), provider, config);
+    Check(View(demoLegacy).GetProperty("sales").GetArrayLength() == 0, "Demo-source legacy state must not be migrated to a real source");
+    Console.WriteLine("PASS synchronization regressions: all pages, alias deduplication, demo/real isolation, unmatched retry, cancellation/return idempotency, source failure, repeated pages, duplicate source rows, two-day window, legacy migration, recovery and disk rollback. Mock transports only.");
 }
 finally
 {
@@ -123,12 +147,13 @@ sealed class OrdersFixture : IMarketplaceAdapter
     public string Marketplace => "hepsiburada";
     public List<MarketplaceOrder> Rows = new();
     public List<int> Pages = new();
+    public List<long?> Starts = new();
     public bool RepeatPage;
     public static MarketplaceOrder Order(string id, string sku, int quantity = 1) => new(id, id, "Created", DateTimeOffset.UtcNow, "Fixture", "", quantity * 10, quantity * 10, 0, "TRY", "", "", null,
         [new("line-" + id, sku, sku + "-barcode", sku, quantity, 10, quantity * 10, 20, "TRY", "Created", "")], new("", "", "", "", "", null, null), new("", "", "", false, "", "", "", null, []));
     public Task<MarketplacePage<MarketplaceOrder>> OrdersAsync(ConnectionSettings settings, OrderQuery query, CancellationToken ct)
     {
-        Pages.Add(query.Page);
+        Pages.Add(query.Page); Starts.Add(query.StartDate);
         var row = Rows[RepeatPage ? 0 : query.Page];
         return Task.FromResult(new MarketplacePage<MarketplaceOrder>([row], query.Page, 1, Rows.Count, Rows.Count, null));
     }

@@ -66,6 +66,9 @@ public sealed class CentralStockState
 public sealed class CentralStockService
 {
     private static readonly HashSet<string> NotSold = new(StringComparer.OrdinalIgnoreCase) { "Cancelled", "UnSupplied", "Returned", "UnDelivered", "İptal" };
+    // Only Trendyol's order stream filters by last update. Other adapters filter by order date, so a rolling two-day
+    // window keeps cancellations of recent orders visible after the incremental scan has moved past them.
+    private static readonly HashSet<string> LastModifiedScans = new(StringComparer.OrdinalIgnoreCase) { "trendyol" };
     private readonly object gate = new();
     private readonly SemaphoreSlim run = new(1, 1);
     private readonly string file;
@@ -88,6 +91,36 @@ public sealed class CentralStockService
         if (state.DemoSource.Count == 0) state.DemoSource = DemoSourceSeed();
         if (state.LastRunStatus == "running") { state.LastRunStatus = "blocked"; state.LastError = "Önceki senkronizasyon yarıda kaldı. Yeniden çalıştırılabilir."; }
         persistedSnapshot = JsonSerializer.Serialize(state, json);
+        var legacy = Path.Combine(folder, "central-stock.json");
+        if (sourceMode == "real" && !File.Exists(file) && File.Exists(legacy) && MigrateLegacy(legacy)) Save();
+    }
+
+    // Before real and demo sources had separate files, real-source state lived in central-stock.json. Carry over only what
+    // provably belongs to a real store: no demo sale may reach the real stock application, and no real sale may be lost.
+    private bool MigrateLegacy(string path)
+    {
+        CentralStockState? old;
+        try { old = JsonSerializer.Deserialize<CentralStockState>(File.ReadAllText(path), json); }
+        catch (JsonException) { return false; }
+        if (old is null) return false;
+        // A demo source only ever holds the sample catalogue and reports each sale in the same run.
+        var demoItems = DemoCatalog.Select(x => Key(x.Sku, x.Barcode)).ToHashSet();
+        if (!old.Items.Keys.Any(k => !demoItems.Contains(k)) && !old.Sales.Any(s => !s.Reported && s.ReportError is not null)) return false;
+        var real = services.GetRequiredService<IntegrationRegistry>().Connections.Values.Where(c => c.Settings.Mode == "real").ToDictionary(c => c.Id);
+        // Legacy keys start with the store id; the current ones with the shared account source.
+        string? Translate(string key)
+        {
+            var cut = key.IndexOf('|'); var id = cut < 0 ? key : key[..cut];
+            return real.TryGetValue(id, out var store) ? StoreSource(store) + (cut < 0 ? "" : key[cut..]) : null;
+        }
+        foreach (var id in old.WatchedStores) if (Translate(id) is { } source) state.WatchedStores.Add(source);
+        foreach (var line in old.SeenOrderLines) if (Translate(line) is { } key) state.SeenOrderLines.Add(key);
+        foreach (var (key, quantity) in old.Pushed) if (real.ContainsKey(key.Split('|')[0])) state.Pushed[key] = quantity;
+        var sales = old.Sales.Where(s => !s.Reported && real.ContainsKey(s.StoreId)).ToList();
+        state.Sales.AddRange(sales);
+        state.Settings = old.Settings with { AutoSync = false };
+        Event("warning", $"Önceki stok dosyasından {sales.Count} bildirilmemiş satış ve izlenen sipariş kayıtları taşındı. Otomatik senkronizasyon kapalı; kontrol edip yeniden aç.");
+        return true;
     }
 
     public bool RealSource => sourceMode == "real";
@@ -199,6 +232,7 @@ public sealed class CentralStockService
                 {
                     DateTimeOffset from;
                     lock (gate) from = state.ScannedThrough.TryGetValue(StoreSource(store), out var previousScan) ? previousScan.AddMinutes(-5) : scannedUntil.AddDays(-2);
+                    if (!LastModifiedScans.Contains(store.Settings.Marketplace) && from > scannedUntil.AddDays(-2)) from = scannedUntil.AddDays(-2);
                     orders = await ReadAllOrders(adapter, store.Settings, from, scannedUntil, ct);
                 }
                 finally { gateway.Release(); }
