@@ -104,7 +104,7 @@ public sealed class DemoQueueWorker(DemoWorkspace demo, ReliabilityState state, 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer=new PeriodicTimer(TimeSpan.FromSeconds(1));DateTimeOffset nextLog=DateTimeOffset.MinValue;
-        try { while(await timer.WaitForNextTickAsync(stoppingToken))try{var completed=demo.ProcessPendingJobs();state.LastQueueTick=DateTimeOffset.UtcNow.ToString("O");state.LastQueueError=null;if(completed>0)audit.Add("info","queue",$"{completed} demo işlemi tamamlandı.");}catch(Exception e)when(e is IOException or UnauthorizedAccessException or InvalidOperationException){state.LastQueueError="Demo kuyruğu tamamlanamadı.";if(DateTimeOffset.UtcNow>=nextLog){nextLog=DateTimeOffset.UtcNow.AddMinutes(5);logger.LogWarning("Local demo queue processing failed.");try{audit.Add("error","queue",state.LastQueueError);}catch(Exception auditError)when(auditError is IOException or UnauthorizedAccessException){}}} }catch(OperationCanceledException)when(stoppingToken.IsCancellationRequested){}
+        try { while(await timer.WaitForNextTickAsync(stoppingToken))try{var completed=demo.ProcessPendingJobs();state.LastQueueTick=DateTimeOffset.UtcNow.ToString("O");state.LastQueueError=null;if(completed>0)audit.Add("info","queue",$"{completed} demo işlemi tamamlandı.");}catch(Exception e)when(e is not OperationCanceledException||!stoppingToken.IsCancellationRequested){state.LastQueueError="Demo kuyruğu tamamlanamadı.";if(DateTimeOffset.UtcNow>=nextLog){nextLog=DateTimeOffset.UtcNow.AddMinutes(5);logger.LogWarning("Local demo queue processing failed.");try{audit.Add("error","queue",state.LastQueueError);}catch(Exception auditError)when(auditError is IOException or UnauthorizedAccessException){}}} }catch(OperationCanceledException)when(stoppingToken.IsCancellationRequested){}
     }
 }
 public sealed class LocalBackupWorker(LocalBackups backups,ReliabilityState state,LocalAudit audit,ILogger<LocalBackupWorker> logger):BackgroundService
@@ -112,10 +112,21 @@ public sealed class LocalBackupWorker(LocalBackups backups,ReliabilityState stat
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer=new PeriodicTimer(TimeSpan.FromMinutes(1));
-        try { do{try{var latest=backups.List().FirstOrDefault();if(latest is null||DateTimeOffset.UtcNow-latest.CreatedAt>TimeSpan.FromHours(24)){var backup=backups.Create();state.LastBackupSuccess=backup.CreatedAt.ToString("O");state.LastBackupError=null;audit.Add("info","backup","Şifreli yerel yedek oluşturuldu ve doğrulandı.");}else state.LastBackupSuccess=latest.CreatedAt.ToString("O");}catch(Exception e)when(e is IOException or UnauthorizedAccessException or InvalidOperationException or CryptographicException or JsonException){state.LastBackupError="Otomatik yedek tamamlanamadı.";logger.LogWarning("Local encrypted backup failed.");}}while(await timer.WaitForNextTickAsync(stoppingToken));}catch(OperationCanceledException)when(stoppingToken.IsCancellationRequested){}
+        try { do{try{var latest=backups.List().FirstOrDefault();if(latest is null||DateTimeOffset.UtcNow-latest.CreatedAt>TimeSpan.FromHours(24)){var backup=backups.Create();state.LastBackupSuccess=backup.CreatedAt.ToString("O");state.LastBackupError=null;audit.Add("info","backup","Şifreli yerel yedek oluşturuldu ve doğrulandı.");}else state.LastBackupSuccess=latest.CreatedAt.ToString("O");}catch(Exception e)when(e is not OperationCanceledException||!stoppingToken.IsCancellationRequested){state.LastBackupError="Otomatik yedek tamamlanamadı.";logger.LogWarning("Local encrypted backup failed.");}}while(await timer.WaitForNextTickAsync(stoppingToken));}catch(OperationCanceledException)when(stoppingToken.IsCancellationRequested){}
     }
 }
 public sealed record VerifyBackupRequest(string Name);
+// The JSON stores assume a single process; a second one on the same Data folder would silently overwrite its writes.
+public sealed class DataDirectoryLock(FileStream handle) : IDisposable
+{
+    public static DataDirectoryLock Acquire(string contentRoot)
+    {
+        var folder=Path.Combine(contentRoot,"Data");Directory.CreateDirectory(folder);
+        try{return new(new FileStream(Path.Combine(folder,".instance.lock"),FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None));}
+        catch(IOException){throw new InvalidOperationException("Bu Data klasörünü başka bir MarketPilot süreci kullanıyor. Diğer süreci kapatıp yeniden başlatın.");}
+    }
+    public void Dispose()=>handle.Dispose();
+}
 public static class LocalReliability
 {
     public static void AddLocalReliability(this IServiceCollection services)

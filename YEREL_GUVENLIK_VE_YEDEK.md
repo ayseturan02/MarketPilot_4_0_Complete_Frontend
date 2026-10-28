@@ -30,7 +30,7 @@
 - Şifreli yedekler: `Data/Backups`.
 - Yedek şifreleme anahtarı: `Data/backup.key`. Yedek dosyasına dahil değildir. Değerini sohbete veya kaynak koduna koyma; erişimi kısıtlı, yedekten ayrı kopyasını koru. Anahtar olmadan yedek açılamaz.
 - `Data` Git dışında kalır ve yayın paketine kopyalanmaz. Dosya erişimi bu bilgisayarın kullanıcı/izin yönetimine bağlıdır; oturum koruma anahtarları bu yerel kurulumda ayrıca işletim sistemiyle şifrelenmez.
-- Bu yapı tek sunucu süreci ve yerel çalışma içindir. Birden fazla uygulama örneğini aynı JSON dosyalarıyla çalıştırma. Ayrı dosyalar arasında veritabanı işlemi garantisi yoktur; yedek dosyaları bağımsız tam kopyalardır.
+- Bu yapı tek sunucu süreci ve yerel çalışma içindir. Aynı `Data` klasörüyle ikinci bir uygulama süreci başlatılırsa `Data/.instance.lock` kilidi nedeniyle açılmaz ve nedenini yazar. Ayrı dosyalar arasında veritabanı işlemi garantisi yoktur; yedek dosyaları bağımsız tam kopyalardır.
 - Gerçek mağazaya yönelik kalıcı senkronizasyon/yazma kuyruğu, mağazaya özgü kimlik profilleri, indeksli üretim veritabanı, bağımsız uzak yedek ve gerçek yük testi hâlâ sonraki aşamadır.
 - Sunucu kapalıyken görev çalışmaz. HTTPS ve üretim dosya izinleri hazırlanmadığı için bu yerel sürümü internete açma.
 

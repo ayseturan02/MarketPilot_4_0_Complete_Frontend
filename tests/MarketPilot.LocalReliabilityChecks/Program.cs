@@ -27,7 +27,9 @@ try
  var archive=backups.Download(backup.Name);Check(!System.Text.Encoding.UTF8.GetString(archive).Contains("test-admin"),"Archive not encrypted");
  var envelope=JsonSerializer.Deserialize<BackupEnvelope>(archive)!;var cipher=Convert.FromBase64String(envelope.Cipher);cipher[0]^=1;var altered=envelope with{Cipher=Convert.ToBase64String(cipher)};var archivePath=Path.Combine(folder,"Data","Backups",backup.Name);File.WriteAllText(archivePath,JsonSerializer.Serialize(altered));Reject(()=>backups.Verify(backup.Name));
  File.WriteAllBytes(archivePath,archive);new LocalBackups(env).Verify(backup.Name);Reject(()=>backups.Download("../local-accounts.json"));
- Console.WriteLine("PASS: hashed local accounts, role/session revocation, disabled users, persistence, restart-resumed background jobs, idempotency conflict, encrypted backup roundtrip, tamper rejection and traversal protection. Temporary data only.");
+ // A second process on the same Data folder must be refused; the folder is free again after release.
+ using(DataDirectoryLock.Acquire(folder)){Reject(()=>DataDirectoryLock.Acquire(folder));}using(DataDirectoryLock.Acquire(folder)){}
+ Console.WriteLine("PASS: hashed local accounts, role/session revocation, disabled users, persistence, restart-resumed background jobs, idempotency conflict, encrypted backup roundtrip, tamper rejection, traversal protection and single-process data lock. Temporary data only.");
 }
 finally
 {

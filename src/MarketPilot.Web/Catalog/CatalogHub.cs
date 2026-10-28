@@ -110,5 +110,5 @@ public sealed partial class CatalogHub(DemoStore db,IntegrationRegistry registry
 }
 public sealed class CatalogWorker(CatalogHub hub,ILogger<CatalogWorker> log):BackgroundService
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken){using var timer=new PeriodicTimer(TimeSpan.FromSeconds(1));try{while(await timer.WaitForNextTickAsync(stoppingToken)){try{await hub.Tick(stoppingToken);}catch(Exception e)when(e is not OperationCanceledException){log.LogError("Katalog işlem sırası tamamlanamadı: {Type}",e.GetType().Name);}}}catch(OperationCanceledException)when(stoppingToken.IsCancellationRequested){}}
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken){using var timer=new PeriodicTimer(TimeSpan.FromSeconds(1));try{while(await timer.WaitForNextTickAsync(stoppingToken)){try{await hub.Tick(stoppingToken);}catch(Exception e)when(e is not OperationCanceledException||!stoppingToken.IsCancellationRequested){log.LogError("Katalog işlem sırası tamamlanamadı: {Type}",e.GetType().Name);}}}catch(OperationCanceledException)when(stoppingToken.IsCancellationRequested){}}
 }
