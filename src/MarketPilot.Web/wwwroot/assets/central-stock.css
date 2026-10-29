@@ -25,3 +25,6 @@
 @media (max-width:900px){.cs-columns{grid-template-columns:1fr}}
 .cs-panel .table{font-size:13px}
 .cs-panel .table th{font-size:12px;white-space:nowrap}
+.cs-unmatched{margin:8px 0 12px;padding:10px 12px;border:1px solid #fedf89;background:#fffaeb;border-radius:10px;font-size:13px;color:#93370d}
+.cs-unmatched ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+.cs-unmatched li{display:flex;gap:10px;align-items:center;justify-content:space-between}

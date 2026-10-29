@@ -44,6 +44,18 @@ public static class CredentialProfiles
         try { scoped = For(root, s); } catch (IntegrationException) { return "unavailable:" + s.CredentialProfile; }
         return Fingerprint(scoped,s);
     }
+    // The seller account behind a store, independent of which profile name or key pair reaches it. Two profiles (or a
+    // legacy store and a profile) for the same seller must be read once, or every sale is counted twice.
+    public static string SellerIdentity(IConfiguration root, ConnectionSettings s)
+    {
+        if (s.Mode == "demo") return "demo|" + s.Marketplace + "|" + s.Environment + "|" + s.Name;
+        var key = s.Marketplace switch { "trendyol" or "amazon" => "SellerId", "hepsiburada" => "MerchantId", "n11" => "AppKey", "boyner" => "SupplierId", "ticimax" => "BaseUrl", _ => null };
+        string? seller = null;
+        try { if (key is not null) seller = For(root, s)[$"Marketplaces:{s.Marketplace}:{s.Environment}:{key}"]?.Trim().TrimEnd('/').ToLowerInvariant(); }
+        catch (IntegrationException) { }
+        // Without a readable seller id the store cannot be proven to share an account, so it stays separate.
+        return string.IsNullOrEmpty(seller) ? "profile|" + s.Marketplace + "|" + s.Environment + "|" + s.CredentialProfile : "seller|" + s.Marketplace + "|" + s.Environment + "|" + seller;
+    }
     public static string Fingerprint(IConfiguration scoped,ConnectionSettings s)
     {
         var values = scoped.GetSection($"Marketplaces:{s.Marketplace}:{s.Environment}").AsEnumerable(true)

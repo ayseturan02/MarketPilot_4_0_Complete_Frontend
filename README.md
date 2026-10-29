@@ -116,9 +116,19 @@ Yerel ağdaki bir uygulama HTTPS desteklemiyorsa `AllowHttp=true` verilebilir. B
 - `GET {BaseUrl}{StockPath}[?cursor=…]`: `[...]` ya da `{ "items": [{ "sku", "barcode", "name", "quantity" }], "nextCursor": "…" }`. `stockCode`, `title`, `stock` ve `available` alan adları da kabul edilir.
 - `POST {BaseUrl}{SalesPath}`: `{ requestId, channel, store, orderNumber, sku, barcode, quantity }`. Bu çağrı yalnızca `AllowWrites=true` iken yapılır. Kapalıyken satışlar kaynak güncellenene kadar yerelde düşülmeye devam eder.
 
-Ürünler önce SKU'ya, SKU yoksa barkoda göre eşleşir. Stok/fiyat gönderimi altı kanal için mağaza bazlı kimlik profili ve kalıcı kuyrukla desteklenir. Gerçek gönderimler profil ve sunucu yazma izinleriyle açılır; varsayılan kapalıdır. Amazon FBA ve n11depom stoğunu pazaryeri yönettiği için bu ürünler atlanır. Durum `Data/central-stock.json` dosyasında tutulur ve şifreli yedeğe dahildir.
+Ürünler önce SKU'ya, SKU yoksa barkoda göre eşleşir. Stok/fiyat gönderimi altı kanal için mağaza bazlı kimlik profili ve kalıcı kuyrukla desteklenir. Gerçek gönderimler profil ve sunucu yazma izinleriyle açılır; varsayılan kapalıdır. Amazon FBA ve n11depom stoğunu pazaryeri yönettiği için bu ürünlere stok gönderilmez, satışları da ERP stoğundan düşülmez. Durum `Data/central-stock.json` dosyasında tutulur ve şifreli yedeğe dahildir.
+
+Kanal kendi SKU'sunu kullanıyorsa satış, katalogdaki mağaza eşleştirmesi üzerinden ana ürüne bağlanır. Yine de eşleşmeyen bir satış, hangi ürünü etkilediği bilinmediği için tüm kanallara gönderimi durdurur. Ürün stok uygulamasında takip edilmiyorsa panelde **Yoksay** ile işaretlenir; bu satır bir daha düşülmez. Aynı satıcıya ait iki kimlik profili (ör. anahtar yenileme sonrası) tek hesap olarak okunur.
 
 Kontrol: `node tests/central-stock-http-checks.cjs`.
+
+## Üretim kuralı: polyamid
+
+Üretim hatlarımız polyamid bazlı karışımlarla çalışamadığı için ürün adı, kategori veya kumaş özelliklerinde polyamid (poliamid, polyamide, naylon/nylon, PA6/PA66) geçen ürünler katalogda oluşturulamaz, düzenlenemez, mağazadan içe aktarılamaz ve pazaryerine yayınlanamaz. Trendyol ürün oluşturma/güncelleme isteklerinde ve ürün açıklamalarında yalnızca "polyamid" kelimesi aranır; açıklamadaki "naylon poşet" gibi ambalaj ifadeleri ürünü engellemez. Kullanıcıya gösterilen mesaj:
+
+> Üretim hatlarımız gereği polyamid bazlı karışımlarla üretim gerçekleştiremiyoruz; bu nedenle belirtilen spesifikasyondaki ürünü maalesef mevcut standartlarımızda üretememekteyiz.
+
+Kural ve mesaj `src/MarketPilot.Web/Catalog/ProductionRules.cs` içindedir. Kural yalnızca yeni kayıt ve değişikliklerde uygulanır; katalogda zaten bulunan polyamid ürünler silinmez, yalnızca yayınlanamaz.
 
 ## Doğrulama
 

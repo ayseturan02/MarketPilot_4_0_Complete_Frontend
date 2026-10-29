@@ -54,7 +54,7 @@ public static class TrendyolEndpoints
             {
                 var error = ex as IntegrationException ?? new IntegrationException(ex is OperationCanceledException ? "timeout" : "request_failed",
                     ex is OperationCanceledException ? "API isteği zaman aşımına uğradı veya iptal edildi." : "Trendyol isteği tamamlanamadı; bağlantıyı ve gönderilen alanları kontrol edin.");
-                var updated = error.Status == 400 && error.Code is "invalid_request" or "stage_only" ? state
+                var updated = error.Status == 400 && error.Code is "invalid_request" or "stage_only" or "production_rule" ? state
                     : state with { Status = "error", LastOperation = DateTimeOffset.UtcNow, LastAction = operation.Key, ErrorCode = error.Code, Message = error.Message, LastCount = null };
                 registry.Connections[id] = updated; registry.Save();
                 return Results.Json(new { error = error.Message, code = error.Code, connection = updated }, statusCode: error.Status);

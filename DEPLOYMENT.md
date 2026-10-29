@@ -27,7 +27,19 @@ Bu kurulum tek sunucu ve tek uygulama süreci içindir. Caddy, alan adı için o
 - Uygulama tek süreçtir ve JSON dosyalarını kullanır. Aynı veri hacmiyle ikinci uygulama kopyası veya yatay ölçekleme çalıştırmayın. Yüksek erişilebilirlik/çoklu kullanıcı yükü için veritabanı ve harici yedekleme mimarisi gerekir.
 - Kalıcı uygulama verisi `marketpilot_data` Docker hacmindedir. Yedekleme için uygulamanın şifreli yedek özelliğini kullanın ve veri hacmiyle `Data/backup.key` dosyasını ayrı, erişimi kısıtlı bir yerde koruyun. Hacim kaybı tüm uygulama verisini siler.
 - `Data/keys` içindeki ASP.NET veri koruma anahtarları oturum çerezlerini korur; veri hacmi yedekliliği olmadan kaybolmaları oturumları geçersiz kılar.
-- API anahtarlarını depoya, `.env` dosyasına veya açık metin Compose ayarlarına koymayın. Gerçek mağaza kimlik bilgileri için sunucunun korumalı sır/ortam değişkeni mekanizmasını kullanın; üretim yazma izinleri varsayılan olarak kapalı kalmalıdır.
+- API anahtarlarını depoya, `.env` dosyasına veya açık metin Compose ayarlarına koymayın; üretim yazma izinleri varsayılan olarak kapalı kalmalıdır. Ortam değişkenleri `docker inspect` ile okunabildiği için gerçek mağaza kimlik bilgilerini Compose **secrets** ile verin: uygulama `/run/secrets` altındaki her dosyayı bir ayar olarak okur (dosya adı ayar adıdır, `:` yerine `__`). Örnek `docker-compose.override.yml`:
+
+  ```yaml
+  services:
+    marketpilot:
+      secrets: [Marketplaces__Trendyol__production__ApiKey, Marketplaces__Trendyol__production__ApiSecret]
+  secrets:
+    Marketplaces__Trendyol__production__ApiKey: { file: ./secrets/trendyol-api-key.txt }
+    Marketplaces__Trendyol__production__ApiSecret: { file: ./secrets/trendyol-api-secret.txt }
+  ```
+
+  `secrets/` klasörü Git dışındadır; dosya izinlerini `chmod 600` ile kısıtlayın. Farklı bir klasör için `Secrets__Directory` ayarı kullanılabilir.
+- Giriş denemeleri IP başına ve ayrıca hesap başına sınırlanır. Docker'ın varsayılan *userland proxy*'si IPv6 istemcileri Caddy'ye ağ geçidi IP'siyle iletir; bu durumda tüm IPv6 kullanıcıları tek IP gibi görünür ve IP sınırını paylaşır. Gerçek istemci IP'si için sunucuda `/etc/docker/daemon.json` içine `"userland-proxy": false` ekleyip Docker'ı yeniden başlatın ya da Compose ağında IPv6'yı (`enable_ipv6: true` ve bir IPv6 alt ağı) açın.
 - HTTPS sertifikası alınamazsa önce DNS A/AAAA kayıtlarını, genel TCP 80/443 erişimini ve Caddy kayıtlarını kontrol edin. Sertifika alınmadan uygulama trafiğini internete açmayın.
 - Yükseltme öncesi yedeği doğrulayın. Çalışan sistemi durdurmak için `docker compose down`; veriyi de silen `docker compose down -v` komutunu yedek ve açık onay olmadan kullanmayın.
 
