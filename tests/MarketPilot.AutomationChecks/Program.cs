@@ -133,6 +133,30 @@ try
     Check(uncertain.ConfirmedStock(live.Id, "FIXTURE-BARCODE") is null, "A new account must not inherit previous stock confirmation");
     config["Marketplaces:Trendyol:stage:SellerId"] = "123";
 
+    // Pruning finished history must keep the newest confirmation per product, or unchanged stock is resent on every run.
+    var history = JsonSerializer.Deserialize<List<StockWriteJob>>(File.ReadAllText(outboxFile), new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+    var lastSequence = history.Max(j => j.Sequence);
+    for (var i = 0; i < 2100; i++)
+        history.Add(new StockWriteJob { StoreId = "filler", Source = "filler", Barcode = "FILLER-" + i, State = "superseded", Sequence = lastSequence + i + 1, CreatedAt = clock.GetUtcNow().AddMinutes(1), FinishedAt = clock.GetUtcNow().AddMinutes(1) });
+    File.WriteAllText(outboxFile, JsonSerializer.Serialize(history, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+    var pruned = new StockOutbox(env, registry, demo, services, config, clock);
+    pruned.Enqueue(demoStore, "PRUNE-TRIGGER", 1, null, "prune");
+    Check(pruned.ConfirmedStock(demoStore.Id, product.Barcode) == 81, "Pruning must keep the newest confirmed stock of every product");
+
+    // A failed target must be retried after a cool-down rather than being returned as a dead duplicate forever.
+    var failing = pruned.Enqueue(demoStore, product.Barcode, 90, null, "failure retry");
+    // The worker takes one job per store per tick, so drain the earlier prune trigger first.
+    for (var tick = 0; tick < 5 && pruned.Find(failing.Id)?.State != "waiting"; tick++) { clock.Advance(2); await pruned.ProcessDue(default); }
+    Check(pruned.Find(failing.Id)?.State == "waiting", "Fixture target must reach the demo provider");
+    var failedProvider = demo.Enqueue(demoStore.Settings, new("stock", "outbox-" + failing.Id, product.Barcode, 90, product.SalePrice));
+    failedProvider.State = "failed"; failedProvider.Error = "fixture failure";
+    for (var tick = 0; tick < 5 && pruned.Find(failing.Id)?.State != "failed"; tick++) { clock.Advance(2); await pruned.ProcessDue(default); }
+    Check(pruned.Find(failing.Id)?.State == "failed", "Fixture provider failure must fail the outbox job");
+    Check(pruned.Enqueue(demoStore, product.Barcode, 90, null, "failure retry").Id == failing.Id, "Within the cool-down a failed target must not be resent");
+    clock.Advance(16 * 60);
+    var requeued = pruned.Enqueue(demoStore, product.Barcode, 90, null, "failure retry");
+    Check(requeued.Id != failing.Id && requeued.State == "queued", "After the cool-down a failed target must be queued again");
+
     // Windows can report an open destination as ACCESS_DENIED rather than an IOException.
     if(OperatingSystem.IsWindows())
     {

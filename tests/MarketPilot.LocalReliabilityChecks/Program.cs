@@ -21,6 +21,10 @@ try
  var accountText=File.ReadAllText(Path.Combine(folder,"Data","local-accounts.json"));Check(!accountText.Contains("Test-Only-Password-2026")&&!accountText.Contains("Viewer-Only-Password-2026"),"Password stored in plaintext");
  accounts.Change(user.Id,"operator",true,admin.Id);Check(!accounts.ValidateSession(user.Id,login!.Value.Version.ToString()),"Old role session survived");accounts.Change(user.Id,"operator",false,admin.Id);Check(accounts.Authenticate("test-viewer","Viewer-Only-Password-2026") is null,"Disabled account logged in");
  Reject(()=>accounts.Change(admin.Id,"viewer",true,admin.Id));Check(new LocalAccountStore(env).Authenticate("test-admin","Test-Only-Password-2026") is not null,"Account persistence failed");
+ // Distributed guessing: one account allows ten failures per window regardless of source IP; other accounts are unaffected.
+ accounts.Create("throttle-target","Throttle-Only-Password-2026","viewer");for(var attempt=0;attempt<10;attempt++)Check(accounts.Authenticate("throttle-target","wrong-password-"+attempt) is null,"Wrong password accepted");
+ try{accounts.Authenticate("throttle-target","Throttle-Only-Password-2026");throw new Exception("Account throttle did not engage");}catch(LoginThrottledException){}
+ Check(accounts.Authenticate("test-admin","Test-Only-Password-2026") is not null,"Throttling one account must not lock out another");
  var workspace=new DemoWorkspace(env);var store=new ConnectionSettings("Background test","trendyol","demo","stage");var initial=workspace.Snapshot(store);workspace.Enqueue(store,new("stock","persisted-job",initial.Products[0].Barcode,47,initial.Products[0].SalePrice));
  // Reconstruct the service before the due time; process without calling Snapshot or a browser.
  workspace=new DemoWorkspace(env);await Task.Delay(2200);Check(workspace.ProcessPendingJobs()==1,"Background processor did not complete resumed job");

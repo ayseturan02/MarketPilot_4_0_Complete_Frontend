@@ -102,7 +102,8 @@ public sealed class AmazonSpApiAdapter(AmazonApiClient client) : IMarketplaceAda
     public async Task<MarketplacePage<MarketplaceOrder>> OrdersAsync(ConnectionSettings s,OrderQuery q,CancellationToken ct)
     {
         var result=await SearchOrders(s,new(q.OrderNumber,Status:q.Status,Token:q.NextCursor,StartDate:q.StartDate,EndDate:q.EndDate),ct);
-        return new(result.Items.Select(i=>i.Order).ToArray(),q.Page,20,null,null,result.NextToken);
+        // Without a next token Amazon has no further page; say so, otherwise a full last page of 20 is requested again.
+        return new(result.Items.Select(i=>i.Order with{FulfilledBy=i.FulfilledBy}).ToArray(),q.Page,20,null,null,result.NextToken,HasMore:string.IsNullOrEmpty(result.NextToken)?false:null);
     }
     public async Task<object> Read(ConnectionSettings s,string kind,AmazonQuery q,CancellationToken ct)
     {
