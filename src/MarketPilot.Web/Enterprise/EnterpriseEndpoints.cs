@@ -12,7 +12,7 @@ public static class EnterpriseEndpoints
     public static void AddEnterprise(this IServiceCollection services)
     {
         services.AddHttpClient("EnterpriseBridge",c=>c.Timeout=Timeout.InfiniteTimeSpan).ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
-        services.AddSingleton<EnterpriseBridge>();services.AddSingleton<ErpCatalog>();services.AddSingleton<EnterpriseSync>();services.AddHostedService<EnterpriseSyncWorker>();
+        services.AddSingleton<EnterpriseBridge>();services.AddSingleton<IErpCatalogProvider,NebimBridgeProvider>();services.AddSingleton<IWmsProvider,WmsBridgeProvider>();services.AddSingleton<ICargoProvider,CargoBridgeProvider>();services.AddSingleton<ErpCatalog>();services.AddSingleton<EnterpriseSync>();services.AddHostedService<EnterpriseSyncWorker>();
         services.Configure<RateLimiterOptions>(o=>o.AddPolicy("erp-inbound",c=>RateLimitPartition.GetFixedWindowLimiter(c.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new FixedWindowRateLimiterOptions{PermitLimit=120,Window=TimeSpan.FromMinutes(1),QueueLimit=0})));
     }
     public static void MapEnterprise(this WebApplication app)

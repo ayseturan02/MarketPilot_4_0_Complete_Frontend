@@ -35,7 +35,13 @@ public sealed class EnterpriseSync
     public void Configure(EnterprisePlan input)
     {
         if(input.Schedules?.Any(s=>s==null||string.IsNullOrWhiteSpace(s.Task))==true)throw new ArgumentException("Eşitleme görev adı boş olamaz.");
-        if(input.Schedules==null||input.Targets==null||input.Targets.Length>100||input.Schedules.Length!=EnterprisePlan.Defaults().Length||input.Schedules.Any(s=>s==null||s.IntervalSeconds is <30 or >86400||!state.Tasks.ContainsKey(s.Task))||input.Schedules.Select(s=>s.Task).Distinct().Count()!=input.Schedules.Length||input.Targets.Select(t=>t?.StoreId).Distinct().Count()!=input.Targets.Length||input.StockAuthority is not ("erp" or "wms")||input.SafetyStock is <0 or >1000000||input.WarehouseCode?.Length>100||input.PriceListCode?.Length>100)throw new ArgumentException("Zaman aralıkları 30–86400 saniye olmalı; hedef, kaynak ve depo bilgilerini kontrol edin.");
+        if(input.Schedules==null||input.Targets==null||input.Targets.Length>100||input.Schedules.Length!=EnterprisePlan.Defaults().Length||input.Schedules.Any(s=>s==null||s.IntervalSeconds is <30 or >86400||!state.Tasks.ContainsKey(s.Task))||input.Schedules.Select(s=>s.Task).Distinct().Count()!=input.Schedules.Length||input.Targets.Select(t=>t?.StoreId).Distinct().Count()!=input.Targets.Length||input.StockAuthority is not ("erp" or "wms")||input.FulfillmentMode is not ("disabled" or "nebim-integrated" or "standalone")||input.SafetyStock is <0 or >1000000||input.WarehouseCode?.Length>100||input.PriceListCode?.Length>100)throw new ArgumentException("Zaman aralıkları 30–86400 saniye olmalı; hedef, kaynak ve depo bilgilerini kontrol edin.");
+        var enabledTasks=input.Schedules.Where(s=>s.Enabled).Select(s=>s.Task).ToHashSet(StringComparer.Ordinal);
+        if(input.FulfillmentMode=="disabled"&&(input.StockAuthority=="wms"||enabledTasks.Overlaps(["wms-orders","wms-stock","wms-dispatches","cargo-create","shipments"]))||
+           input.FulfillmentMode=="nebim-integrated"&&enabledTasks.Contains("wms-orders")||
+           input.FulfillmentMode=="standalone"&&enabledTasks.Contains("wms-orders")&&!enabledTasks.Contains("erp-orders")||
+           enabledTasks.Contains("wms-stock")&&input.StockAuthority!="wms")
+            throw new ArgumentException("WMS topolojisi ve görev planı tutarsız; bağımsız WMS siparişleri için önce ERP aktarımı etkin olmalıdır.");
         var registry=services.GetRequiredService<IntegrationRegistry>();
         foreach(var target in input.Targets)if(target==null||!registry.Connections.TryGetValue(target.StoreId,out var store)||target.Source!=CatalogHub.Source(store))throw new ArgumentException("Mağaza kaynağı değişti; sayfayı yenileyin.");
         // A saved plan owns scheduling; the older all-store timer must not bypass selected targets.
@@ -47,7 +53,16 @@ public sealed class EnterpriseSync
     public void Request(string task)
     {
         if(string.IsNullOrWhiteSpace(task))throw new ArgumentException("Eşitleme görev adı boş olamaz.");
-        lock(gate){var selected=task=="all"?state.Plan.Schedules.Where(s=>s.Enabled).Select(s=>s.Task).ToArray():[task];if(selected.Any(t=>!state.Tasks.ContainsKey(t)))throw new ArgumentException("Eşitleme görevi bulunamadı.");foreach(var key in selected){state.Tasks[key].Manual=true;state.Tasks[key].NextRunAt=DateTimeOffset.UtcNow;}Save();}
+        lock(gate)
+        {
+            var selected=task=="all"?state.Plan.Schedules.Where(s=>s.Enabled).Select(s=>s.Task).ToArray():[task];
+            if(selected.Any(t=>!state.Tasks.ContainsKey(t)))throw new ArgumentException("Eşitleme görevi bulunamadı.");
+            if(selected.Any(t=>(t=="wms-orders"&&state.Plan.FulfillmentMode!="standalone")||
+                ((t is "wms-stock" or "wms-dispatches" or "cargo-create" or "shipments")&&state.Plan.FulfillmentMode=="disabled")||
+                (t=="wms-stock"&&state.Plan.StockAuthority!="wms")))
+                throw new IntegrationException("fulfillment_disabled","Seçilen WMS/depo topolojisi bu görev için etkin değil.",409);
+            foreach(var key in selected){state.Tasks[key].Manual=true;state.Tasks[key].NextRunAt=DateTimeOffset.UtcNow;}Save();
+        }
     }
     public object Status()
     {
@@ -94,12 +109,13 @@ public sealed class EnterpriseSync
     {
         var bridge=services.GetRequiredService<EnterpriseBridge>();var db=services.GetRequiredService<DemoStore>();var registry=services.GetRequiredService<IntegrationRegistry>();
         if(task=="catalog"){
-            var items=await bridge.ReadAll<ErpItem>("erp","catalog",plan.WarehouseCode,plan.PriceListCode,ct);
+            var items=await services.GetRequiredService<IErpCatalogProvider>().ReadCatalogAsync(plan.WarehouseCode,plan.PriceListCode,ct);
             services.GetRequiredService<ErpCatalog>().Import(new("pull-"+Guid.NewGuid().ToString("N"),items),plan.StockAuthority=="wms");CatalogReceived();return items.Length;
         }
         if(task=="wms-stock"){
+            if(plan.FulfillmentMode=="disabled")throw new IntegrationException("fulfillment_disabled","WMS topolojisi yapılandırılmadı.",409);
             if(plan.StockAuthority!="wms")throw new ArgumentException("Stok kaynağı olarak WMS seçilmedi.");
-            var items=await bridge.ReadAll<ErpItem>("wms","stock",plan.WarehouseCode,plan.PriceListCode,ct);
+            var items=await services.GetRequiredService<IWmsProvider>().ReadStockAsync(plan.WarehouseCode,plan.PriceListCode,ct);
             if(items.Any(i=>string.IsNullOrWhiteSpace(i.Barcode)||i.Stock is null or <0 or >10000000||i.WarehouseCode!=null&&i.WarehouseCode!=plan.WarehouseCode)||items.GroupBy(i=>i.Barcode).Any(g=>g.Count()>1))throw new ArgumentException("WMS stok/barkod/depo yanıtı geçersiz; stoklar değiştirilmedi.");
             db.Modify(s=>{foreach(var item in items){var rows=s.Products.Where(p=>p.SourceSystem=="nebim-v3"&&p.Barcode==item.Barcode).ToArray();if(rows.Length!=1)throw new ArgumentException("WMS barkodu tek Nebim ürününe eşleşmiyor.");rows[0].Stock=item.Stock!.Value;rows[0].StockKnown=true;rows[0].Version++;}MarketPilot.Web.Workspace.OperationalInventory.Acknowledge(s,items.SelectMany(i=>i.StockAcknowledgements??[]).ToArray(),s.Products.Where(p=>items.Any(i=>i.Barcode==p.Barcode)).Select(p=>p.Id).ToHashSet());db.Event(s,"WMS stokları alındı",items.Length+" barkod güncellendi.");return true;});
             lock(gate){state.LastWmsStockAt=DateTimeOffset.UtcNow;Save();}return items.Length;
@@ -111,13 +127,15 @@ public sealed class EnterpriseSync
         }
         if(task=="wms-dispatches")return await ReadDispatches(plan,ct);
         if(task is "erp-orders" or "wms-orders" or "cargo-create"){
+            if((task is "wms-orders" or "cargo-create")&&plan.FulfillmentMode=="disabled"||task=="wms-orders"&&plan.FulfillmentMode!="standalone")throw new IntegrationException("fulfillment_disabled","WMS ve kargo akışları için topoloji açıkça yapılandırılmalıdır.",409);
             var connector=task=="erp-orders"?"erp":task=="wms-orders"?"wms":"cargo";var kind=task=="cargo-create"?"cargo-order":connector+"-order";
             var ids=Targets(plan,task).Select(t=>t.StoreId).ToHashSet();var count=0;
             foreach(var order in services.GetRequiredService<OperationsHub>().AllOrders().Where(o=>ids.Contains(o.StoreId))){
                 if(order.SourceMode=="demo"&&!config.GetValue<bool>("Enterprise:AllowDemoExchange"))continue;
                 if(task=="cargo-create"&&order.Status is not ("Yeni" or "Hazırlanıyor"))continue;
-                WmsDispatch? dispatch=null;if(task=="cargo-create"){lock(gate)dispatch=state.Dispatches.GetValueOrDefault(order.Id);if(dispatch==null||dispatch.AccountSource!=CatalogHub.Source(registry.Connections[order.StoreId])||dispatch.Status is not ("ready" or "packed"))continue;}
                 var source=CatalogHub.Source(registry.Connections[order.StoreId]);
+                if(task=="wms-orders"){lock(gate)if(!state.Jobs.Any(j=>j.Kind=="erp-order"&&j.Reference==order.Id&&j.StoreId==order.StoreId&&j.Source==source&&j.State=="completed"))continue;}
+                WmsDispatch? dispatch=null;if(task=="cargo-create"){lock(gate)dispatch=state.Dispatches.GetValueOrDefault(order.Id);if(dispatch==null||dispatch.AccountSource!=CatalogHub.Source(registry.Connections[order.StoreId])||dispatch.Status is not ("ready" or "packed"))continue;}
                 if(order.Lines.Length==0||order.Lines.Any(l=>string.IsNullOrWhiteSpace(l.Barcode))){Blocked(kind,registry.Connections[order.StoreId],source,order.Id,"Sipariş satırlarında barkod eksik; kaynak eşleştirmesi bekleniyor.",connector);continue;}
                 Queue(kind,connector,order.StoreId,source,order.Id,new {externalOrderId=order.Id,accountSource=source,storeId=order.StoreId,order,warehouseCode=plan.WarehouseCode,package=dispatch});count++;
             }return count;
@@ -190,7 +208,7 @@ public sealed class EnterpriseSync
                 if(job.State is "waiting" or "uncertain")receipt=await bridge.Receipt(job,ct);
                 else{UpdateJob(job.Id,j=>{j.State="sending";j.Attempts++;});receipt=await bridge.Submit(job,ct);}
                 UpdateJob(job.Id,j=>{j.State=receipt.State switch{"completed"=>"completed","failed"=>"failed","not-found" when receipt.SafeToRetry=>"queued",_=>"waiting"};j.ExternalReference=receipt.Reference;j.Error=null;j.NextAttemptAt=DateTimeOffset.UtcNow.AddSeconds(5);if(j.State=="completed")j.FinishedAt=DateTimeOffset.UtcNow;});
-                if(receipt.State=="completed"&&job.Kind is "erp-order" or "wms-order")Request(Plan.StockAuthority=="wms"?"wms-stock":"catalog");
+                if(receipt.State=="completed"&&(job.Kind=="erp-order"||job.Kind=="wms-order"&&Plan.FulfillmentMode!="disabled"))Request(Plan.StockAuthority=="wms"?"wms-stock":"catalog");
             }catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
             catch(IntegrationException error){UpdateJob(job.Id,j=>{j.State=error.Status==429?job.State=="queued"?"queued":job.State:error.Status is 400 or 401 or 403 or 404 or 409?"blocked":"uncertain";j.Error=error.Message;j.NextAttemptAt=DateTimeOffset.UtcNow.AddSeconds(60);});}
             catch(Exception){UpdateJob(job.Id,j=>{j.State="uncertain";j.Error="Aktarım sonucu doğrulanamadı; kör tekrar yerine işlem makbuzu kontrol edilecek.";j.NextAttemptAt=DateTimeOffset.UtcNow.AddSeconds(30);});}
@@ -199,7 +217,8 @@ public sealed class EnterpriseSync
     private void UpdateJob(string id,Action<EnterpriseJob> update){lock(gate){var job=state.Jobs.First(j=>j.Id==id);update(job);if(job.State=="completed"&&job.Key.Length>0)state.Delivered[Entity(job)]=job.Key;Save();}}
     private async Task<int> ReadDispatches(EnterprisePlan plan,CancellationToken ct)
     {
-        var rows=await services.GetRequiredService<EnterpriseBridge>().ReadAll<WmsDispatch>("wms","dispatches",plan.WarehouseCode,plan.PriceListCode,ct);
+        if(plan.FulfillmentMode=="disabled")throw new IntegrationException("fulfillment_disabled","WMS topolojisi yapılandırılmadı.",409);
+        var rows=await services.GetRequiredService<IWmsProvider>().ReadDispatchesAsync(plan.WarehouseCode,plan.PriceListCode,ct);
         var orders=services.GetRequiredService<OperationsHub>().AllOrders().ToDictionary(o=>o.Id);var targets=Targets(plan,"wms-dispatches").ToDictionary(t=>t.StoreId);
         foreach(var row in rows){
             if(!orders.TryGetValue(row.ExternalOrderId,out var order)||!targets.TryGetValue(row.StoreId,out var target)||order.StoreId!=row.StoreId||target.Source!=row.AccountSource||row.Lines==null||row.Lines.Length>1000||string.IsNullOrWhiteSpace(row.PackageId)||row.PackageId.Length>150||row.Status is not ("ready" or "packed" or "cancelled")||order.SourceMode=="demo"&&!config.GetValue<bool>("Enterprise:AllowDemoExchange"))throw new ArgumentException("WMS paket kaydı mağaza veya sipariş doğrulamasından geçmedi.");
@@ -210,7 +229,8 @@ public sealed class EnterpriseSync
     }
     private async Task<int> ReadShipments(EnterprisePlan plan,CancellationToken ct)
     {
-        var rows=await services.GetRequiredService<EnterpriseBridge>().ReadAll<BridgeShipment>("cargo","shipments",plan.WarehouseCode,plan.PriceListCode,ct);
+        if(plan.FulfillmentMode=="disabled")throw new IntegrationException("fulfillment_disabled","WMS/kargo topolojisi yapılandırılmadı.",409);
+        var rows=await services.GetRequiredService<ICargoProvider>().ReadShipmentsAsync(plan.WarehouseCode,plan.PriceListCode,ct);
         var orders=services.GetRequiredService<OperationsHub>().AllOrders().ToDictionary(o=>o.Id);var targets=Targets(plan,"shipments").ToDictionary(t=>t.StoreId);var db=services.GetRequiredService<DemoStore>();
         var valid=rows.Select(r=>{
             if(!orders.TryGetValue(r.ExternalOrderId,out var order)||!targets.TryGetValue(r.StoreId,out var target)||order.StoreId!=r.StoreId||target.Source!=r.AccountSource||string.IsNullOrWhiteSpace(r.TrackingNumber)||r.TrackingNumber.Length>150||r.LabelUrl!=null&&!EnterpriseBridge.SafeLink(r.LabelUrl)||!new[]{"preparing","shipped","delivered","cancelled","returned"}.Contains(r.Status))throw new ArgumentException("Kargo kaydı sipariş, mağaza veya bağlantı doğrulamasından geçemedi.");return (Row:r,Order:order);

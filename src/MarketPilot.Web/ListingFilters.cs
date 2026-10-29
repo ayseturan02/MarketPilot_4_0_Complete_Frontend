@@ -55,7 +55,8 @@ public partial class DemoStore
     {
         lock (_gate)
         {
-            var rows = _data.Products.Where(p => string.IsNullOrWhiteSpace(q.Search) || ListingFilters.Text(p.Name, q.Search) || ListingFilters.Text(p.Sku, q.Search) || ListingFilters.Text(p.Barcode, q.Search))
+            var rows = _data.Products.Where(p => p.SourceSystem == MarketPilot.Web.Catalog.ProductOwnershipPolicy.ErpSource)
+                .Where(p => string.IsNullOrWhiteSpace(q.Search) || ListingFilters.Text(p.Name, q.Search) || ListingFilters.Text(p.Sku, q.Search) || ListingFilters.Text(p.Barcode, q.Search))
                 .Where(p => ListingFilters.Exact(p.Barcode, q.Barcode) && ListingFilters.Exact(p.Sku, q.Sku) && ListingFilters.Exact(p.Status, q.Status) && ListingFilters.Text(p.Category, q.Category))
                 .Where(p => string.IsNullOrWhiteSpace(q.Channel) || p.Channels.Contains(q.Channel))
                 .Where(p => ListingFilters.Range(p.Stock, q.MinStock, q.MaxStock) && ListingFilters.Range(p.Price, q.MinPrice, q.MaxPrice));

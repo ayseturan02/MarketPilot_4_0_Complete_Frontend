@@ -40,7 +40,7 @@ public static class CatalogEndpoints
             if(input.Keys==null)return Results.BadRequest(new{error="Ürün seçimi gerekli."});
             var batch=source.Get(input.Token);
             var mode=registry.Connections[batch.StoreId].Settings.Mode;
-            var known=db.CatalogRead(s=>batch.Rows.Where(r=>input.Keys.Contains(r.Key)).All(r=>s.Catalog.Listings.ContainsKey(r.Key)||s.Products.Any(p=>p.SourceMode==mode&&(r.Barcode.Length>0?p.Barcode==r.Barcode:p.Sku==r.Sku))));
+            var known=db.CatalogRead(s=>batch.Rows.Where(r=>input.Keys.Contains(r.Key)).All(r=>s.Catalog.Listings.ContainsKey(r.Key)||s.Products.Any(p=>p.SourceSystem==ProductOwnershipPolicy.ErpSource&&p.SourceMode==mode&&(r.Barcode.Length>0?p.Barcode==r.Barcode:p.Sku==r.Sku))));
             return known?Results.Ok(hub.Import(batch,input.Keys)):Results.Conflict(new{error="Yeni ürünler önce Nebim V3 kaynağından alınmalıdır. Mağaza işlemi yalnızca mevcut ürünleri eşleştirir."});
         });
         group.MapPut("/mapping", (CatalogRemap input, CatalogHub hub) => Results.Ok(hub.Remap(input)));
@@ -52,4 +52,3 @@ public static class CatalogEndpoints
     }
 }
 public record CatalogSelection(string[] Keys);
-public record CatalogCreate(CatalogEdit Product, string Mode = "local");

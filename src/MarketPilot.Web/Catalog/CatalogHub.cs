@@ -33,7 +33,7 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
                     foreach (var seed in seeds)
                         ImportRows(s, seed.Store, seed.Rows, DateTimeOffset.UtcNow);
                     s.Catalog.Version = 1;
-                    db.Event(s, "Katalog bağlandı", "Mevcut demo mağazalar ortak ürün kimlikleriyle kataloğa bağlandı; yerel ürünler korundu.");
+                    db.Event(s, "Katalog bağlandı", "ERP sahibi demo ürünler mağaza kayıtlarıyla eşleştirildi; sahipsiz eski kayıtlar korundu ve salt okunur bırakıldı.");
                     return true;
                 });
             }
@@ -91,7 +91,7 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
         return db.CatalogRead<ListingPage<CatalogProductRow>>(s =>
         {
             var byProduct = s.Catalog.Listings.Values.GroupBy(l => l.ProductId).ToDictionary(g => g.Key, g => g.ToArray());
-            var rows = s.Products.Where(p => string.IsNullOrWhiteSpace(p.Category) || IsClothingCategory(p.Category)).Where(p => string.IsNullOrWhiteSpace(q.Search) || ListingFilters.Text(p.Name, q.Search) || ListingFilters.Text(p.Sku, q.Search) || ListingFilters.Text(p.Barcode, q.Search)).Where(p => ListingFilters.Exact(p.Status, q.Status) && ListingFilters.Text(p.Category, q.Category) && ListingFilters.Exact(p.SourceMode, q.Mode)).Where(p => string.IsNullOrWhiteSpace(q.StoreId) || byProduct.GetValueOrDefault(p.Id, []).Any(l => l.StoreId == q.StoreId)).Where(p => q.Mapped != "yes" || byProduct.ContainsKey(p.Id)).Where(p => q.Mapped != "no" || !byProduct.ContainsKey(p.Id)).OrderByDescending(p => p.CreatedAt).ThenBy(p => p.Id);
+            var rows = s.Products.Where(p=>p.SourceSystem==ProductOwnershipPolicy.ErpSource).Where(p => string.IsNullOrWhiteSpace(p.Category) || IsClothingCategory(p.Category)).Where(p => string.IsNullOrWhiteSpace(q.Search) || ListingFilters.Text(p.Name, q.Search) || ListingFilters.Text(p.Sku, q.Search) || ListingFilters.Text(p.Barcode, q.Search)).Where(p => ListingFilters.Exact(p.Status, q.Status) && ListingFilters.Text(p.Category, q.Category) && ListingFilters.Exact(p.SourceMode, q.Mode)).Where(p => string.IsNullOrWhiteSpace(q.StoreId) || byProduct.GetValueOrDefault(p.Id, []).Any(l => l.StoreId == q.StoreId)).Where(p => q.Mapped != "yes" || byProduct.ContainsKey(p.Id)).Where(p => q.Mapped != "no" || !byProduct.ContainsKey(p.Id)).OrderByDescending(p => p.CreatedAt).ThenBy(p => p.Id);
             var total = rows.Count();
             var items = rows.Skip(q.Page * q.Size).Take(q.Size).Select(p => new CatalogProductRow(Clone(p), byProduct.GetValueOrDefault(p.Id, []).Take(8).Select(fresh).ToArray(), byProduct.GetValueOrDefault(p.Id, []).Length)).ToArray();
             return new(items, q.Page, q.Size, total, (int)Math.Ceiling(total / (double)q.Size));
@@ -104,7 +104,7 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
         var fresh = Fresh();
         return db.CatalogRead(s =>
         {
-            var product = s.Products.FirstOrDefault(p => p.Id == id) ?? throw new IntegrationException("not_found", "Ürün bulunamadı.", 404);
+            var product = s.Products.FirstOrDefault(p => p.Id == id && p.SourceSystem==ProductOwnershipPolicy.ErpSource) ?? throw new IntegrationException("not_found", "ERP ana ürünü bulunamadı.", 404);
             var links = s.Catalog.Listings.Values.Where(l => l.ProductId == id && (string.IsNullOrWhiteSpace(q.StoreId) || l.StoreId == q.StoreId)).OrderBy(l => l.StoreId).ToArray();
             return (object)new
             {
@@ -119,35 +119,9 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
     {
         Ensure();
         ValidateEdit(edit);
-        return db.Modify(s =>
-        {
-            var p = s.Products.FirstOrDefault(p => p.Id == id) ?? throw new IntegrationException("not_found", "Ürün bulunamadı.", 404);
-            if(p.SourceSystem=="nebim-v3") throw new IntegrationException("erp_managed","Bu ürün Nebim V3 kaynağından yönetilir; değişiklik kaynaktan alınmalıdır.",409);
-            if (p.Version != edit.Version)
-                throw new IntegrationException("version_conflict", "Ürün başka bir işlemde değişti. Güncel kaydı açıp tekrar dene.", 409);
-            if (s.Products.Any(x => x.Id != id && x.SourceMode == p.SourceMode && (x.Sku.Equals(edit.Sku.Trim(), StringComparison.OrdinalIgnoreCase) || edit.Barcode.Trim().Length > 0 && x.Barcode == edit.Barcode.Trim())))
-                throw new IntegrationException("duplicate_identity", "Aynı SKU veya barkod başka bir üründe var.", 409);
-            var priorStock = p.Stock;
-            var priorKnown = p.StockKnown;
-            p.Name = edit.Name.Trim();
-            p.Sku = edit.Sku.Trim();
-            p.Barcode = edit.Barcode.Trim();
-            p.Category = edit.Category.Trim();
-            p.Brand = edit.Brand.Trim();
-            p.Description = edit.Description;
-            p.Stock = edit.Stock ?? 0;
-            p.StockKnown = edit.Stock.HasValue;
-            p.Price = edit.Price ?? 0;
-            p.PriceKnown = edit.Price.HasValue;
-            p.Currency = edit.Currency;
-            p.VatIncluded = edit.VatIncluded;
-            p.Status = edit.Status;
-            p.Version++;
-            if (priorKnown && p.StockKnown && priorStock != p.Stock)
-                s.StockMovements.Insert(0, new StockMovement { Id = Guid.NewGuid().ToString("N"), ProductId = p.Id, ProductName = p.Name, Delta = p.Stock - priorStock, Balance = p.Stock, Reason = "Merkezi katalog düzenlemesi" });
-            db.Event(s, "Merkezi ürün güncellendi", p.Sku + " · Mağaza değerleri değiştirilmedi.");
-            return Clone(p);
-        });
+        if (!db.CatalogRead(s => s.Products.Any(p => p.Id == id)))
+            throw new IntegrationException("not_found", "Ürün bulunamadı.", 404);
+        throw ProductOwnershipPolicy.ManualWriteDenied();
     }
 
     public object Import(CandidateBatch batch, string[] keys)
@@ -184,6 +158,8 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
                 if (matches.Length > 1)
                     throw new IntegrationException("ambiguous_identity", "Birden fazla ürün eşleşiyor; kimlikleri düzelt.", 409);
                 p = matches.SingleOrDefault();
+                if (p != null && p.SourceSystem != ProductOwnershipPolicy.ErpSource)
+                    throw new IntegrationException("master_missing", "ERP ana ürün kaydı yok; mağaza verisi yalnızca eşleştirme için kullanılabilir.", 409);
                 if (p == null && r.Sku.Length > 0)
                 {
                     var skuMatch = s.Products.Where(p => p.SourceMode == store.Settings.Mode && p.Sku.Equals(r.Sku, StringComparison.OrdinalIgnoreCase)).ToArray();
@@ -194,32 +170,14 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
                         p = skuMatch[0];
                     }
                 }
+                if (p != null && p.SourceSystem != ProductOwnershipPolicy.ErpSource)
+                    throw new IntegrationException("master_missing", "ERP ana ürün kaydı yok; mağaza verisi yalnızca eşleştirme için kullanılabilir.", 409);
 
                 if (p == null)
-                {
-                    p = new Product
-                    {
-                        Id = Guid.NewGuid().ToString("N"),
-                        Name = r.Name,
-                        Sku = r.Sku.Length > 0 ? r.Sku : "KANAL-" + Guid.NewGuid().ToString("N")[..10],
-                        Barcode = r.Barcode,
-                        Category = r.Category,
-                        Brand = r.Brand,
-                        Description = r.Description ?? "",
-                        Images = (r.Images ?? []).Where(v => Uri.TryCreate(v, UriKind.Absolute, out var uri) && uri.Scheme == "https").ToList(),
-                        Attributes = r.Attributes ?? new(),
-                        Stock = r.Stock ?? 0,
-                        StockKnown = r.Stock.HasValue,
-                        Price = r.Price ?? 0,
-                        PriceKnown = r.Price.HasValue,
-                        Currency = r.Currency,
-                        VatIncluded = r.VatIncluded,
-                        SourceMode = store.Settings.Mode,
-                        Image = "👕"
-                    };
-                    s.Products.Insert(0, p);
-                }
+                    throw new IntegrationException("master_missing", "Mağaza ürünü ERP ana verisi olmadan merkezi ürün oluşturamaz.", 409);
             }
+            if (p.SourceSystem != ProductOwnershipPolicy.ErpSource)
+                throw new IntegrationException("master_missing", "ERP ana ürün kaydı yok; mağaza verisi yalnızca eşleştirme için kullanılabilir.", 409);
 
             if (r.Name.Length == 0)
                 throw new IntegrationException("invalid_product", "Ürün adı bildirilmedi.", 409);
@@ -251,9 +209,7 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
         return db.Modify(s =>
         {
             var link = s.Catalog.Listings.GetValueOrDefault(input.ListingKey) ?? throw new IntegrationException("not_found", "Mağaza eşleştirmesi bulunamadı.", 404);
-            var p = s.Products.FirstOrDefault(p => p.Id == input.ProductId) ?? throw new IntegrationException("not_found", "Merkezi ürün bulunamadı.", 404);
-            if (p.SourceMode == "local" && !s.Catalog.Listings.Values.Any(l => l.ProductId == p.Id))
-                p.SourceMode = link.Source.Split('|')[0];
+            var p = s.Products.FirstOrDefault(p => p.Id == input.ProductId && p.SourceSystem==ProductOwnershipPolicy.ErpSource) ?? throw new IntegrationException("not_found", "ERP ana ürünü bulunamadı.", 404);
             if (p.SourceMode != link.Source.Split('|')[0])
                 throw new IntegrationException("mode_mismatch", "Demo ve gerçek ürünler aynı kayıtta birleştirilemez.", 409);
             s.Catalog.Listings[link.Key] = link with
@@ -275,7 +231,7 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
         Ensure();
         return db.CatalogRead(s =>
         {
-            var rows = s.Products.GroupBy(p => p.Category).Where(g => IsClothingCategory(g.Key) && ListingFilters.Text(g.Key, q.Search)).OrderBy(g => g.Key).Select(g => new { category = g.Key, products = g.Count(), brands = g.Select(p => p.Brand).Where(b => b.Length > 0).Distinct().Take(10), bindings = s.Catalog.Categories.Values.Where(b => b.Category == g.Key).ToArray() }).ToArray();
+            var rows = s.Products.Where(p=>p.SourceSystem==ProductOwnershipPolicy.ErpSource).GroupBy(p => p.Category).Where(g => IsClothingCategory(g.Key) && ListingFilters.Text(g.Key, q.Search)).OrderBy(g => g.Key).Select(g => new { category = g.Key, products = g.Count(), brands = g.Select(p => p.Brand).Where(b => b.Length > 0).Distinct().Take(10), bindings = s.Catalog.Categories.Values.Where(b => b.Category == g.Key).ToArray() }).ToArray();
             return ListingFilters.Page(rows, new ListingQuery(Page: q.Page, Size: q.Size));
         });
     }
@@ -322,7 +278,7 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
             var p = s.Products.First(x => x.Id == l.ProductId);
             var c = registry.Connections.GetValueOrDefault(l.StoreId);
             var current = fresh(l);
-            string? reason = c == null || Source(c) != l.Source ? "Mağaza bağlantısı değişmiş." : c.Settings.Mode == "real" && !RealWrites(c) ? "Bu mağazada gerçek stok/fiyat gönderimi açılmamış." : p.Status != "Aktif" ? "Ürün aktif değil." : current.Status is "missing" or "source_changed" ? "Mağaza kaydı bulunamadı." : !p.StockKnown || !p.PriceKnown ? "Merkezi stok veya fiyat bilinmiyor." : p.Stock != decimal.Truncate(p.Stock) || p.Stock > 1000000 || p.Price is <= 0 or > 10000000 ? "Gönderim için tam sayı stok ve pozitif fiyat gerekli." : p.Currency != current.Currency || p.VatIncluded != true ? "Para birimi ve KDV dahil fiyatı kontrol et." : l.Barcode.Length == 0 && l.Sku.Length == 0 ? "Mağaza barkodu veya SKU gerekli." : c.Settings.Marketplace == "amazon" && MarketPilot.Web.Integrations.Amazon.AmazonDemo.IsAmazonFulfilled(l.Barcode) ? "Amazon deposu stoğu bu işlemle değiştirilemez." : c.Settings.Marketplace == "n11" && MarketPilot.Web.Integrations.N11.N11Demo.Depot(l.Barcode) ? "n11depom stoğu bu işlemle değiştirilemez." : null;
+            string? reason = p.SourceSystem!=ProductOwnershipPolicy.ErpSource ? "ERP ana ürün kaydı yok." : c == null || Source(c) != l.Source ? "Mağaza bağlantısı değişmiş." : c.Settings.Mode == "real" && !RealWrites(c) ? "Bu mağazada gerçek stok/fiyat gönderimi açılmamış." : p.Status != "Aktif" ? "Ürün aktif değil." : current.Status is "missing" or "source_changed" ? "Mağaza kaydı bulunamadı." : !p.StockKnown || !p.PriceKnown ? "Merkezi stok veya fiyat bilinmiyor." : p.Stock != decimal.Truncate(p.Stock) || p.Stock > 1000000 || p.Price is <= 0 or > 10000000 ? "Gönderim için tam sayı stok ve pozitif fiyat gerekli." : p.Currency != current.Currency || p.VatIncluded != true ? "Para birimi ve KDV dahil fiyatı kontrol et." : l.Barcode.Length == 0 && l.Sku.Length == 0 ? "Mağaza barkodu veya SKU gerekli." : c.Settings.Marketplace == "amazon" && MarketPilot.Web.Integrations.Amazon.AmazonDemo.IsAmazonFulfilled(l.Barcode) ? "Amazon deposu stoğu bu işlemle değiştirilemez." : c.Settings.Marketplace == "n11" && MarketPilot.Web.Integrations.N11.N11Demo.Depot(l.Barcode) ? "n11depom stoğu bu işlemle değiştirilemez." : null;
             return new PublishLine(k, p.Id, p.Version, l.StoreId, p.Name, current.Stock, current.Price, p.StockKnown ? MarketPilot.Web.Workspace.OperationalInventory.Available(s,p) : null, p.PriceKnown ? p.Price : null, reason == null, reason);
         }).ToArray());
     }

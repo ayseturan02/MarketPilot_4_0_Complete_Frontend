@@ -26,7 +26,7 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   assert.equal((await api('workspace/orders',{body:{...draft,customer:'Different'}})).status,409);
   assert.equal((await api('workspace/orders',{body:{...draft,requestId:randomUUID(),lines:[{productId:product.id,quantity:1000}]}})).status,400);
   const master=()=>api('products/search?sku='+product.sku);
-  assert.equal((await master()).body.items[0].stock,37);
+  assert.equal((await master()).body.items[0].stock,40,'local orders must not mutate ERP-owned stock');
   assert.equal((await api('overview')).body.orders,initialOverview.orders+1);
   assert((await view('picking',order.id)).items.some(o=>o.orderId===order.id));
   assert.equal((await api('analytics/reports?channel='+encodeURIComponent('Yerel satış'))).body.revenue,600);
@@ -50,9 +50,9 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   assert.equal((await api('shipments/'+shipment.id+'/status',{method:'PUT',body:{status:'Teslim edildi'}})).status,200);
   assert.equal((await api('workspace/orders/'+order.id)).body.order.status,'Tamamlandı');
   for(let i=0;i<2;i++)assert.equal((await api('orders/'+order.id+'/status',{method:'PUT',body:{status:'İptal'}})).status,200);
-  assert.equal((await master()).body.items[0].stock,40,'cancellation restores stock once');
-  assert.equal((await api('stock/movements')).body.filter(m=>m.productId===product.id).length,2);
-  assert.equal((await api('orders/'+order.id+'/status',{method:'PUT',body:{status:'Yeni'}})).status,200);assert.equal((await master()).body.items[0].stock,37);
+  assert.equal((await master()).body.items[0].stock,40,'cancellation must not write ERP-owned stock');
+  assert.equal((await api('stock/movements')).body.filter(m=>m.productId===product.id).length,0);
+  assert.equal((await api('orders/'+order.id+'/status',{method:'PUT',body:{status:'Yeni'}})).status,200);assert.equal((await master()).body.items[0].stock,40);
   await api('orders/'+order.id+'/status',{method:'PUT',body:{status:'İade'}});assert.equal((await master()).body.items[0].stock,40);
 
   const question=(await view('messages')).items.find(r=>r.storeId==='trendyol'&&r.action==='answer');assert(question);
@@ -117,6 +117,6 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   assert.equal((await api('workspace/views/invoices',{cookie:viewer.cookie})).status,200);
   assert.equal((await api('workspace/records',{cookie:viewer.cookie,body:localRecord})).status,403);
   assert.equal((await api('workspace/orders',{cookie:viewer.cookie,body:draft})).status,403);
-  console.log('PASS shared application: 15 connected workflows, cross-screen order/document/shipment identities, atomic stock and cancellation/return recovery, idempotency, native questions/claims/finance, source isolation, restart persistence, global store revision, live refresh, preserved forms/filters, mobile and viewer guards.');
+  console.log('PASS shared application: 15 connected workflows, cross-screen order/document/shipment identities, ERP stock isolation across local order/status flows, idempotency, native questions/claims/finance, source isolation, restart persistence, global store revision, live refresh, preserved forms/filters, mobile and viewer guards.');
  }finally{if(browser)await browser.close();await stop();const absolute=path.resolve(temp);if(!absolute.startsWith(path.resolve(os.tmpdir())+path.sep)||!path.basename(absolute).startsWith('marketpilot-whole-workspace-'))throw Error('Unsafe cleanup');fs.rmSync(absolute,{recursive:true,force:true});}
 })().catch(error=>{console.error(error);process.exitCode=1});

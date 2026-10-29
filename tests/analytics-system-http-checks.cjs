@@ -2,6 +2,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),net=require('node:net');
 const {spawn}=require('node:child_process');
 const {chromium}=require('./browser-test-runtime.cjs');
+const {sourceProduct,key}=require('./erp-source-fixtures.cjs');
 const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const dll=process.env.MARKETPILOT_WEB_DLL||path.join(root,'src/MarketPilot.Web/bin/Debug/net8.0/MarketPilot.Web.dll');
 
@@ -9,7 +10,7 @@ const dll=process.env.MARKETPILOT_WEB_DLL||path.join(root,'src/MarketPilot.Web/b
   const probe=net.createServer();await new Promise(r=>probe.listen(0,'127.0.0.1',r));const port=probe.address().port;await new Promise(r=>probe.close(r));
   const base='http://127.0.0.1:'+port,temp=fs.mkdtempSync(path.join(os.tmpdir(),'marketpilot-analytics-'));
   let child,browser;
-  const env={...process.env,ASPNETCORE_ENVIRONMENT:'Production',DOTNET_ENVIRONMENT:'Production',Deployment__Mode:'local',Logging__LogLevel__Default:'Critical',Synchronization__IncludeRealStores:'false',Synchronization__AllowRealWrites:'false'};
+  const env={...process.env,ASPNETCORE_ENVIRONMENT:'Production',DOTNET_ENVIRONMENT:'Production',Deployment__Mode:'local',Logging__LogLevel__Default:'Critical',Synchronization__IncludeRealStores:'false',Synchronization__AllowRealWrites:'false',Enterprise__Erp__InboundKey:key,Enterprise__Erp__DataMode:'demo'};
   for(const key of Object.keys(env))if(/^(MarketplaceAccounts__|Marketplaces__)/i.test(key))delete env[key];
   env.Marketplaces__StockSource__BaseUrl='';
   async function start(){
@@ -26,8 +27,9 @@ const dll=process.env.MARKETPILOT_WEB_DLL||path.join(root,'src/MarketPilot.Web/b
     const file=path.join(temp,'Data/demo-store.json'),db=JSON.parse(fs.readFileSync(file,'utf8'));
     db.orders=Array.from({length:80},(_,i)=>({id:'ANALYTICS-'+i,customer:'Test customer',channel:'Analytics test',sourceMode:'local',product:'Fixture',quantity:1,total:100+i,totalKnown:i!==1,currency:'TRY',status:i%10===0?'İptal':'Tamamlandı',date:'2026-10-15T12:00:00Z',lines:[]}));
     db.orders.push({...db.orders[2],id:'ANALYTICS-USD',total:9999,currency:'USD'});
-    const product=db.products.find(p=>p.id==='p001');assert(product);product.price=200;product.stock=4;
+    let product=db.products.find(p=>p.id==='p001');assert(product);product.price=200;product.stock=4;product.sourceSystem='nebim-v3';product.sourceMode='demo';product.barcode='ANALYTICS-P001';
     fs.writeFileSync(file,JSON.stringify(db));await start();
+    const sourceUpdate=await sourceProduct(base,product);assert.equal(sourceUpdate.status,200);product=sourceUpdate.body;
     const filtered=(await api('analytics/reports?mode=local&currency=TRY')).body;
     const eligible=db.orders.filter(o=>o.currency==='TRY'&&o.status!=='İptal'&&o.totalKnown),total=eligible.reduce((sum,o)=>sum+o.total,0);
     assert.equal(filtered.orderCount,80,'reports must include orders beyond the 50-item list');
@@ -48,7 +50,8 @@ const dll=process.env.MARKETPILOT_WEB_DLL||path.join(root,'src/MarketPilot.Web/b
     assert.equal((await api('analytics/costs/missing',{method:'PUT',body:cost})).status,404);
     assert.equal((await api('analytics/costs/'+product.id,{method:'PUT',body:cost})).status,200);
     profit=(await api('analytics/profit')).body.products.find(p=>p.id===product.id);assert.equal(profit.margin,70);assert.equal(profit.marginRate,35);
-    await api('products/'+product.id,{method:'PUT',body:{price:250}});
+    assert.equal((await api('products/'+product.id,{method:'PUT',body:{price:250}})).status,409,'manual product price edits must be rejected');
+    assert.equal((await sourceProduct(base,{...product,price:250})).status,200,'ERP source updates must remain available');
     assert.equal((await api('analytics/profit')).body.products.find(p=>p.id===product.id).margin,115,'profit follows catalogue price changes');
     await stop();await start();assert.equal((await api('analytics/profit')).body.products.find(p=>p.id===product.id).margin,115,'costs persist across restart');
     assert((await api('analytics/workspace')).body.alerts.some(a=>a.id==='stock:'+product.id));

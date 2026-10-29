@@ -51,7 +51,7 @@ public static class AnalyticsEndpoints
 
         app.MapGet("/api/analytics/profit", (DemoStore db) => Results.Ok(db.CatalogRead(s => new {
             generatedAt = DateTimeOffset.UtcNow,
-            products = s.Products.OrderBy(p => p.Name).Select(p => {
+            products = s.Products.Where(p=>p.SourceSystem==ProductOwnershipPolicy.ErpSource).OrderBy(p => p.Name).Select(p => {
                 var cost = s.ProductCosts.GetValueOrDefault(p.Id);
                 var ready = p.PriceKnown && cost is not null && cost.Currency == p.Currency;
                 decimal? expenses = ready ? cost!.UnitCost + p.Price * cost.CommissionRate / 100 + cost.ShippingCost + cost.OtherCost : null;
@@ -73,6 +73,7 @@ public static class AnalyticsEndpoints
             return db.Modify<IResult>(s => {
                 var product = s.Products.FirstOrDefault(p => p.Id == id);
                 if (product is null) return Results.NotFound(new { error = "Ürün bulunamadı." });
+                if (product.SourceSystem != ProductOwnershipPolicy.ErpSource) return Results.Conflict(new { error = "Ürün ana verisi ERP kaynağından alınmalıdır." });
                 if (product.Currency != cost.Currency) return Results.Conflict(new { error = "Maliyet para birimi ürünün para birimiyle aynı olmalı. Ürünü yenileyip tekrar deneyin." });
                 s.ProductCosts[id] = cost;
                 db.Event(s, "Ürün maliyeti güncellendi", product.Sku);
@@ -87,8 +88,8 @@ public static class AnalyticsEndpoints
             var snapshot = db.CatalogRead(s => new {
                 threshold = s.Settings.LowStockThreshold,
                 settings = new { s.Settings.BusinessName, s.Settings.Currency, s.Settings.LowStockThreshold, s.Settings.SyncNotifications },
-                products = s.Products.Count,
-                alerts = s.Products.Where(p => p.Status == "Aktif" && p.StockKnown && p.Stock <= s.Settings.LowStockThreshold)
+                products = s.Products.Count(p=>p.SourceSystem==ProductOwnershipPolicy.ErpSource),
+                alerts = s.Products.Where(p => p.SourceSystem==ProductOwnershipPolicy.ErpSource&&p.Status == "Aktif" && p.StockKnown && p.Stock <= s.Settings.LowStockThreshold)
                     .Select(p => new WorkspaceAlert("stock:" + p.Id, p.Stock <= 0 ? "critical" : "warning", "stock", p.Stock <= 0 ? "Stok tükendi" : "Kritik stok", $"{p.Name} · {p.Sku} · {p.Stock} adet / eşik {s.Settings.LowStockThreshold}", "inventory")).ToArray(),
                 activity = s.Activity.Select(a => new { date = a.At, level = "info", category = "operation", title = a.Title, detail = a.Detail }).ToArray(),
                 catalogFailed = s.Catalog.Jobs.Count(j => j.State == "failed")

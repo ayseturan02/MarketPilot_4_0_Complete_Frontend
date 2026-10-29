@@ -1,13 +1,13 @@
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),net=require('node:net'),assert=require('node:assert/strict'),{spawn}=require('node:child_process');
 const {chromium}=require('./browser-test-runtime.cjs');
-const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms)),dll=process.env.MARKETPILOT_WEB_DLL||path.join(root,'src/MarketPilot.Web/bin/Debug/net8.0/MarketPilot.Web.dll');
 (async()=>{
  const probe=net.createServer();await new Promise((resolve,reject)=>probe.once('error',reject).listen(0,'127.0.0.1',resolve));
  const port=probe.address().port;await new Promise(r=>probe.close(r));
  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'marketpilot-sync-http-')),base='http://127.0.0.1:'+port;
  let child,browser;
  async function start(){
-  child=spawn('dotnet',[path.join(root,'src/MarketPilot.Web/bin/Debug/net8.0/MarketPilot.Web.dll'),'--contentRoot',temp,'--webroot',path.join(root,'src/MarketPilot.Web/wwwroot'),'--urls',base],{windowsHide:true,stdio:'ignore',env:{...process.env,ASPNETCORE_ENVIRONMENT:'Production',Logging__LogLevel__Default:'Critical',Marketplaces__StockSource__BaseUrl:'',Marketplaces__StockSource__AllowWrites:'false'}});
+  child=spawn('dotnet',[dll,'--contentRoot',temp,'--webroot',path.join(root,'src/MarketPilot.Web/wwwroot'),'--urls',base],{windowsHide:true,stdio:'ignore',env:{...process.env,ASPNETCORE_ENVIRONMENT:'Production',Logging__LogLevel__Default:'Critical',Marketplaces__StockSource__BaseUrl:'',Marketplaces__StockSource__AllowWrites:'false'}});
   for(let i=0;i<100;i++){try{if((await fetch(base+'/api/health')).ok)return;}catch{}await sleep(100);}throw Error('Server did not start');
  }
  async function stop(){if(!child)return;const running=child;child=null;running.kill();await new Promise(resolve=>{if(running.exitCode!==null)return resolve();running.once('exit',resolve);setTimeout(resolve,4000);});}

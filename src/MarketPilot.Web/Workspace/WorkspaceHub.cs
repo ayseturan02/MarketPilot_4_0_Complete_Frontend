@@ -153,15 +153,16 @@ public sealed class WorkspaceHub(DemoStore db, OperationsHub operations, Integra
             if(input.ReservationId!=null){reservation=s.Operations.Holds.FirstOrDefault(h=>h.Id==input.ReservationId&&h.StoreId.Length==0)??throw Error("Rezervasyon bulunamadı.",404);if(!OperationalInventory.Active(reservation)||groups.Length!=1||groups[0].Id!=reservation.ProductId||groups[0].Quantity!=reservation.Quantity)throw Error("Sipariş, etkin rezervasyonun ürün ve miktarıyla aynı olmalı.",409);}
             var lines = groups.Select(g => {
                 var product = s.Products.FirstOrDefault(p => p.Id == g.Id) ?? throw Error("Sipariş ürünü bulunamadı.", 404);
+                if(product.SourceSystem!=ProductOwnershipPolicy.ErpSource)throw Error("Sipariş yalnızca ERP ana verisiyle eşleştirilmiş ürünleri kullanabilir.",409);
                 if (product.Status != "Aktif" || !product.StockKnown || !product.PriceKnown || OperationalInventory.Available(s,product,reservation?.Id) < g.Quantity || product.Price <= 0) throw Error("Ürünün aktif, fiyatlı ve yeterli kullanılabilir stoğu olmalı.");
                 return (Product:product, g.Quantity);
             }).ToArray();
             if (lines.Select(l => l.Product.Currency).Distinct().Count() != 1) throw Error("Aynı siparişte farklı para birimleri kullanılamaz.");
             var order = new Order { Id = "YEREL-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(), Customer = input.Customer.Trim(), Channel = string.IsNullOrWhiteSpace(input.Channel) ? "Yerel satış" : input.Channel.Trim(), SourceMode = "local", Currency = lines[0].Product.Currency,
-                Product = string.Join(" · ", lines.Select(l => l.Product.Name)), Quantity = lines.Sum(l => l.Quantity), Total = lines.Sum(l => l.Product.Price * l.Quantity), StockManaged = true, RequestId = input.RequestId, RequestFingerprint = fingerprint,
+                Product = string.Join(" · ", lines.Select(l => l.Product.Name)), Quantity = lines.Sum(l => l.Quantity), Total = lines.Sum(l => l.Product.Price * l.Quantity), StockManaged = false, RequestId = input.RequestId, RequestFingerprint = fingerprint,
                 Lines = lines.Select(l => new OperationLine(l.Product.Name, l.Product.Sku, l.Product.Barcode, l.Quantity, l.Product.Price * l.Quantity, l.Product.Id)).ToArray() };
             if(reservation!=null){reservation.State="consumed";OperationalInventory.Touch(s,reservation.ProductId);}
-            LocalOrderStock.ChangeStatus(s, order, "Yeni"); s.Orders.Insert(0, order); db.Event(s, "Yerel sipariş oluşturuldu", order.Id + " · stok çıkışı kaydedildi"); return order;
+            s.Orders.Insert(0, order); db.Event(s, "Yerel sipariş oluşturuldu", order.Id + " · stok kaynağı değiştirilmedi"); return order;
         });
     }
 }
@@ -172,17 +173,7 @@ public static class LocalOrderStock
     {
         var consume = status is not ("İptal" or "İade");
         if (order.StockManaged && consume != order.StockApplied)
-        {
-            var lines = order.Lines.GroupBy(l => l.ProductId).Select(g => (Product:data.Products.FirstOrDefault(p => p.Id == g.Key) ?? throw new ArgumentException("Siparişin merkezi ürünü bulunamadı."), Quantity:g.Sum(l => l.Quantity))).ToArray();
-            if (consume && lines.Any(l => !l.Product.StockKnown || OperationalInventory.Available(data,l.Product) < l.Quantity)) throw new ArgumentException("Siparişi yeniden açmak için yeterli kullanılabilir stok yok.");
-            foreach (var line in lines)
-            {
-                var delta = consume ? -line.Quantity : line.Quantity;
-                line.Product.Stock += delta; line.Product.Version++;
-                data.StockMovements.Insert(0, new StockMovement { Id = Guid.NewGuid().ToString("N"), ProductId = line.Product.Id, ProductName = line.Product.Name, Delta = delta, Balance = line.Product.Stock, Reason = order.Id + (consume ? " · sipariş çıkışı" : " · sipariş iadesi") });
-            }
-            order.StockApplied = consume;
-        }
+            throw new ArgumentException("Sipariş durumu stok bakiyesini değiştiremez; stok ve rezervasyon WMS/depo kaynağından alınmalıdır.");
         order.Status = status; order.Version++;
     }
 }

@@ -16,11 +16,12 @@ public sealed class EnterprisePlan
     public string WarehouseCode { get; set; } = "";
     public string PriceListCode { get; set; } = "";
     public string StockAuthority { get; set; } = "erp";
+    public string FulfillmentMode { get; set; } = "disabled";
     public int SafetyStock { get; set; }
     public int LookbackDays { get; set; } = 2;
     public SyncTarget[] Targets { get; set; } = [];
     public SyncSchedule[] Schedules { get; set; } = Defaults();
-    public static SyncSchedule[] Defaults() => [new("catalog",true,900),new("listings",true,900),new("stock",true,60),new("price",true,300),new("images",true,3600),new("orders",true,60),new("erp-orders",true,60),new("wms-orders",true,60),new("wms-stock",false,60),new("wms-dispatches",true,60),new("cargo-create",false,60),new("shipments",true,60)];
+    public static SyncSchedule[] Defaults() => [new("catalog",false,900),new("listings",false,900),new("stock",false,60),new("price",false,300),new("images",false,3600),new("orders",false,60),new("erp-orders",false,60),new("wms-orders",false,60),new("wms-stock",false,60),new("wms-dispatches",false,60),new("cargo-create",false,60),new("shipments",false,60)];
 }
 public sealed class EnterpriseTask
 {

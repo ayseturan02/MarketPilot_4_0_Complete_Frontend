@@ -1,10 +1,12 @@
 # MarketPilot 5.1 — Giyim ve pazaryeri operasyonları
 
-MarketPilot, giyim ürünlerinin ortak kataloğunu ve pazaryeri operasyonlarını yönetmek için hazırlanmış bir .NET 8 uygulamasıdır. Kategori eşleştirme ekranı giyim kategorilerine odaklanır. Ürünler Nebim kaynağından alınır; manuel ürün oluşturma kapalıdır. Uygulama şu anda yerel deneme aşamasındadır.
+MarketPilot, Nebim V3 ERP, WMS/depo ve pazaryerleri arasında veri alışverişi yapan bir entegrasyon ve orkestrasyon platformudur. Giyim ürün kataloğu Nebim V3’ten salt okunur alınır; ürün, fiyat ve barkod ana verisi uygulamadan oluşturulamaz veya değiştirilemez. Demo akışları JSON fixture’ları kullanır; gerçek ERP/WMS bağlantıları bu sürümde yoktur.
 
 İşletme bazında kullanıcı/veri ayrımı desteklenir. Mevcut veriler `default` işletmesinde korunur.
 
 .NET 8 uygulaması. Mevcut 39 ekran, beyaz tema ve yerel demo işlemleri korunur. Satış Kanalları ile Trendyol Merkezi gerçek Trendyol verilerini salt okunur görüntüleyebilir.
+
+Güncel veri sahipliği, provider katmanları, WMS topolojileri, akış diyagramları ve gerçek bağlantılar için backlog [mimari belgesinde](docs/architecture/README.md) açıklanmıştır.
 
 ## Başlatma
 
