@@ -13,6 +13,7 @@ public sealed partial class CatalogHub
     {
         if (e == null || string.IsNullOrWhiteSpace(e.Name) || e.Name.Length > 300 || string.IsNullOrWhiteSpace(e.Sku) || e.Sku.Length > 100 || e.Barcode == null || e.Barcode.Length > 100 || e.Category == null || e.Category.Length > 200 || e.Brand == null || e.Brand.Length > 200 || e.Description == null || e.Description.Length > 20000 || e.Stock is < 0 or > 10000000 || e.Price is < 0 or > 10000000 || e.Currency == null || e.Currency.Length > 3 || e.Currency.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(e.Currency, "^[A-Z]{3}$") || e.Status is not ("Aktif" or "Pasif" or "Arşiv"))
             throw new IntegrationException("invalid_product", "Ürün alanlarını kontrol et.", 400);
+        ProductionRules.EnsureProducible([e.Name, e.Category], [e.Description]);
     }
     public object Listings(CatalogQuery q)
     {

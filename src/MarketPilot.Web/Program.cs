@@ -16,6 +16,9 @@ using MarketPilot.Web.Synchronization;
 using MarketPilot.Web.Wms;
 
 var builder = WebApplication.CreateBuilder(args);
+// Docker/compose secrets: one file per key under /run/secrets (e.g. Marketplaces__Trendyol__production__ApiKey), so API keys
+// need not be container environment variables that docker inspect would reveal.
+builder.Configuration.AddKeyPerFile(builder.Configuration["Secrets:Directory"] ?? "/run/secrets", optional: true);
 var configuredDeploymentMode = builder.Configuration["Deployment:Mode"];
 if (configuredDeploymentMode is not null &&
     configuredDeploymentMode is not ("local" or "public"))

@@ -163,6 +163,8 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
         {
             if (r.Name.Length > 300 || r.Sku.Length > 100 || r.Barcode.Length > 100 || r.Description?.Length > 20000 || r.Images?.Count > 100 || r.Attributes?.Count > 100)
                 throw new IntegrationException("invalid_product", "Mağaza ürün alanları izin verilen sınırı aşıyor.", 409);
+            if (ProductionRules.CompositionHasPolyamide([r.Name, r.Category, .. (IEnumerable<string>?)r.Attributes?.Values ?? []]) || ProductionRules.TextHasPolyamide(r.Description))
+                throw new IntegrationException("production_rule", $"{r.Name}: {ProductionRules.PolyamideMessage}", 422);
             var old = s.Catalog.Listings.GetValueOrDefault(r.Key);
             Product? p = old == null ? null : s.Products.FirstOrDefault(p => p.Id == old.ProductId);
             if (old != null && old.Source != Source(store))
@@ -293,7 +295,12 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
             var p = s.Products.First(x => x.Id == l.ProductId);
             var c = registry.Connections.GetValueOrDefault(l.StoreId);
             var current = fresh(l);
-            return new PublishLine(k,p.Id,p.Version,l.StoreId,p.Name,current.Stock,current.Price,null,null,false,"Use ERP pricing preview and approval; combined stock/price publishing is disabled.");
+            var reason = ProductionRules.CompositionHasPolyamide(p.Name, p.Category) ||
+                ProductionRules.TextHasPolyamide(p.Description)
+                ? ProductionRules.PolyamideMessage
+                : "Use ERP pricing preview and approval; combined stock/price publishing is disabled.";
+            return new PublishLine(k, p.Id, p.Version, l.StoreId, p.Name, current.Stock, current.Price,
+                null, null, false, reason);
         }).ToArray());
     }
 

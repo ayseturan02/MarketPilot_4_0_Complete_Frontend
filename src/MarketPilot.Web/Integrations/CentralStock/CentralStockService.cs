@@ -39,6 +39,7 @@ public sealed record CentralStockSettings(bool AutoSync = false, int IntervalSec
 public sealed record CentralStockEvent(DateTimeOffset Date, string Level, string Message);
 public sealed record CentralStoreStatus(string Status, string Message, DateTimeOffset At);
 public sealed record DemoSaleRequest(string ConnectionId, string Barcode, int Quantity);
+public sealed record UnmatchedIgnore(string Key);
 public sealed class CentralStockState
 {
     public CentralStockSettings Settings { get; set; } = new();
@@ -52,6 +53,8 @@ public sealed class CentralStockState
     public Dictionary<string, int> AdjustmentVersions { get; set; } = new();
     public HashSet<string> ApprovedReturns { get; set; } = new();
     public Dictionary<string, string> UnmatchedSales { get; set; } = new();
+    /// <summary>Unmatched sale lines an operator marked as not tracked by the stock application.</summary>
+    public HashSet<string> IgnoredSales { get; set; } = new();
     public Dictionary<string, DateTimeOffset> ScannedThrough { get; set; } = new();
     /// <summary>When each source was first watched; orders placed before it are already in the stock application's numbers.</summary>
     public Dictionary<string, DateTimeOffset> WatchedSince { get; set; } = new();
@@ -203,6 +206,19 @@ public sealed class CentralStockService
         }
     }
 
+    // An unmatched sale blocks distribution to every channel, because its product is unknown. Only a person can decide that
+    // it belongs to no tracked product; the line is then recorded as seen and never deducted.
+    public void IgnoreUnmatched(string key)
+    {
+        lock (gate)
+        {
+            if (string.IsNullOrEmpty(key) || !state.UnmatchedSales.Remove(key, out var item)) throw new ArgumentException("Eşleşmeyen satış bulunamadı.");
+            state.IgnoredSales.Add(key);
+            Event("warning", $"Eşleşmeyen satış stok uygulamasında takip edilmiyor olarak işaretlendi: {item}.");
+            Save();
+        }
+    }
+
     public void UpdateSettings(CentralStockSettings settings)
     {
         if (settings.IntervalSeconds is < 30 or > 3600 || settings.SafetyStock is < 0 or > 100000)
@@ -231,8 +247,12 @@ public sealed class CentralStockService
             using var scope = services.CreateScope();
             var registry = scope.ServiceProvider.GetRequiredService<IntegrationRegistry>();
             var demo = scope.ServiceProvider.GetRequiredService<DemoWorkspace>();
-            // A demo sale can never reach the real ERP; aliases of one real account are counted once.
-            var stores = registry.Connections.Values.Where(s => s.Settings.Mode == sourceMode).OrderBy(s => s.Id).GroupBy(StoreSource).Select(g => g.First()).ToArray();
+            // A demo sale can never reach the real ERP; aliases of one real account are counted once, also when they use
+            // different profile names. The store already being watched keeps the account, so no sales fall between scans.
+            HashSet<string> watched;
+            lock (gate) watched = state.WatchedStores.ToHashSet();
+            var stores = registry.Connections.Values.Where(s => s.Settings.Mode == sourceMode).OrderBy(s => s.Id).GroupBy(StoreSource).Select(g => g.First())
+                .GroupBy(s => CredentialProfiles.SellerIdentity(configuration, s.Settings)).Select(g => g.OrderBy(s => watched.Contains(StoreSource(s)) ? 0 : 1).ThenBy(s => s.Id).First()).ToArray();
             if (!await PullSourceAsync(scope.ServiceProvider, ct))
             {
                 Finish(false);
@@ -296,6 +316,7 @@ public sealed class CentralStockService
                 state.LastError,
                 pendingSales = state.Sales.Count(s => !s.Reported),
                 unmatchedSales = state.UnmatchedSales.Count,
+                unmatched = state.UnmatchedSales.Take(50).Select(x => new { key = x.Key, item = x.Value }).ToArray(),
                 pendingPushes = state.PendingPushes.Count + services.GetRequiredService<StockOutbox>().PendingCount(sourceMode),
                 autoSync = state.Settings.AutoSync,
                 running = run.CurrentCount == 0
@@ -411,6 +432,17 @@ public sealed class CentralStockService
             return false;
         }
 
+        // A channel may sell a product under its own SKU; the catalogue mapping to a master product resolves it.
+        var mappings = sp.GetService<DemoStore>()?.CatalogRead(db => db.Catalog.Listings.Values.Where(l => l.StoreId == store.Id && l.Source == MarketPilot.Web.Catalog.CatalogHub.Source(store))
+            .Select(l => (Listing: l, Master: db.Products.FirstOrDefault(p => p.Id == l.ProductId))).Where(x => x.Master != null)
+            .Select(x => (x.Listing.Sku, x.Listing.Barcode, MasterSku: x.Master!.Sku, MasterBarcode: x.Master!.Barcode)).ToArray()) ?? [];
+        CentralStockItem? FindMapped(MarketplaceOrderLine line)
+        {
+            var items = mappings.Where(m => line.Sku.Length > 0 && m.Sku.Equals(line.Sku, StringComparison.OrdinalIgnoreCase) || line.Barcode.Length > 0 && m.Barcode == line.Barcode)
+                .Select(m => Find(m.MasterSku, m.MasterBarcode)).OfType<CentralStockItem>().Distinct().ToArray();
+            return items.Length == 1 ? items[0] : null; // an ambiguous mapping stays unmatched
+        }
+
         lock (gate)
         {
             var lines = orders.SelectMany(o => o.Lines.Where(l => !ChannelFulfilled(store, o, l)).Select(l => (Order: o, Line: l, Key: $"{StoreSource(store)}|{(o.PackageId.Length > 0 ? o.PackageId : o.OrderNumber)}|{l.Id}|{l.Barcode}"))).ToArray();
@@ -462,7 +494,16 @@ public sealed class CentralStockService
                     continue;
                 }
 
-                var item = Find(line.Sku, line.Barcode);
+                // An operator confirmed this sale is not tracked by the stock application (e.g. a product outside the ERP).
+                if (state.IgnoredSales.Contains(key))
+                {
+                    state.SeenOrderLines.Add(key);
+                    state.AppliedQuantities[key] = desired;
+                    state.UnmatchedSales.Remove(key);
+                    continue;
+                }
+
+                var item = Find(line.Sku, line.Barcode) ?? FindMapped(line);
                 if (item is null)
                 {
                     complete = false;
@@ -489,6 +530,12 @@ public sealed class CentralStockService
                     var key = store.Id + "|" + claim.Id;
                     if (state.ApprovedReturns.Contains(key))
                         continue;
+                    if (state.IgnoredSales.Contains(key))
+                    {
+                        state.ApprovedReturns.Add(key);
+                        state.UnmatchedSales.Remove(key);
+                        continue;
+                    }
                     var item = Find("", claim.Barcode);
                     if (item is null)
                     {
@@ -718,6 +765,7 @@ public sealed class CentralStockService
                 state.LastRunStatus,
                 state.LastError,
                 unmatchedSales = state.UnmatchedSales.Count,
+                unmatched = state.UnmatchedSales.Take(50).Select(x => new { key = x.Key, item = x.Value }).ToArray(),
                 pendingPushes = state.PendingPushes.Count + services.GetRequiredService<StockOutbox>().PendingCount(sourceMode),
                 pendingJobs = services.GetRequiredService<StockOutbox>().PendingCount(sourceMode) + (demoProducts.Count > 0 ? stores.Sum(s => demo.Snapshot(s.Settings).Jobs.Count(j => j.State == "pending")) : 0),
                 excludedStores = registry.Connections.Count - stores.Length,
@@ -867,6 +915,18 @@ public static class CentralStockEndpoints
             try
             {
                 service.UpdateSettings(settings);
+                return Results.Ok(service.View());
+            }
+            catch (ArgumentException e)
+            {
+                return Results.BadRequest(new { error = e.Message });
+            }
+        });
+        group.MapPost("/unmatched/ignore", (UnmatchedIgnore input, CentralStockService service) =>
+        {
+            try
+            {
+                service.IgnoreUnmatched(input.Key);
                 return Results.Ok(service.View());
             }
             catch (ArgumentException e)

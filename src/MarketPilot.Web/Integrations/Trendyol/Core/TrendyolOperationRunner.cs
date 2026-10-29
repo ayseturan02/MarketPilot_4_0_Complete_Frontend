@@ -95,6 +95,9 @@ public sealed partial class TrendyolOperationRunner(TrendyolApiClient client, IC
         {
             var raw = request.Body!.Value.GetRawText();
             if (raw.Length > MaxJsonChars) throw Invalid("JSON gövdesi 5 MB sınırını aşıyor.");
+            // Product content sent to Trendyol follows the same production rule as the catalogue.
+            if (op.Write && op.Panel == TrendyolProductsPanel.Key && MarketPilot.Web.Catalog.ProductionRules.TextHasPolyamide(raw))
+                throw Invalid(MarketPilot.Web.Catalog.ProductionRules.PolyamideMessage, "production_rule");
             return (new StringContent(raw, Encoding.UTF8, "application/json"), request.Body.Value);
         }
         if (op.Body != TrendyolBodyKind.Multipart || !hasForm) return (null, null);

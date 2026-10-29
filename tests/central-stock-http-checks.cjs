@@ -26,6 +26,14 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
     r=await call('/demo-sale',{connectionId:'trendyol',barcode:'8691000000003',quantity:5});assert.equal(r.status,400,'cannot sell more than the channel shows');
     r=await call('/settings',{autoSync:true,intervalSeconds:5,safetyStock:0});assert.equal(r.status,400,'interval lower bound');
     const cross=await fetch(base+'/api/integrations/central-stock/run',{method:'POST',headers:{'Content-Type':'application/json',Origin:'http://evil.example'},body:'{}'});assert.equal(cross.status,403,'cross-origin run rejected');
-    console.log('PASS central stock: baseline without deduction, cross-channel deduction, source report without double count, safety stock, oversell refusal, settings bounds and cross-origin rejection. Isolated temp data.');
+    // Production rule over HTTP: polyamide products are refused before the catalogue and before a Trendyol product request is built.
+    const post=(url,body)=>fetch(base+url,{method:'POST',headers:{'Content-Type':'application/json',Origin:base},body:JSON.stringify(body)});
+    const legacy=await post('/api/products',{name:'Naylon tayt',sku:'PA-HTTP-1',category:'Giyim',price:100,stock:1});
+    assert.equal(legacy.status,405,'legacy product creation remains disabled because ERP owns product master data');
+    const trendyol=await post('/api/integrations/trendyol/connections/trendyol/operations/products.createV2',{body:{items:[{barcode:'PA-HTTP-2',title:'Tayt',description:'%78 Poliamid %22 Elastan'}]}});
+    assert.equal(trendyol.status,405,'Trendyol product creation remains disabled because ERP owns product master data');
+    const cotton=await post('/api/integrations/trendyol/connections/trendyol/operations/products.createV2',{body:{items:[{barcode:'CT-HTTP-1',title:'Tişört',description:'%100 pamuk, naylon poşette gönderilir'}]}});
+    assert.equal(cotton.status,405,'all Trendyol product creation stays disabled, including producible products');
+    console.log('PASS central stock: baseline without deduction, cross-channel deduction, source report without double count, safety stock, oversell refusal, settings bounds, cross-origin rejection and polyamide production rule. Isolated temp data.');
   }finally{child.kill();await sleep(500);fs.rmSync(temp,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1;});
