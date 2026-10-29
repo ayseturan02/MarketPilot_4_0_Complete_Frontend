@@ -82,7 +82,7 @@ public static class AnalyticsEndpoints
 
         app.MapGet("/api/analytics/workspace", (DemoStore db, IntegrationRegistry registry, ReliabilityState reliability,
             LocalBackups backups, LocalAudit audit, HttpContext context, LocalAccountStore accounts,
-            IConfiguration configuration, OrderSynchronization automation, StockOutbox outbox) =>
+            IConfiguration configuration, OrderSynchronization automation, StockOutbox outbox, OperationsHub operations) =>
         {
             var snapshot = db.CatalogRead(s => new {
                 threshold = s.Settings.LowStockThreshold,
@@ -103,7 +103,7 @@ public static class AnalyticsEndpoints
             var canReadAudit = context.User.IsInRole("admin");
             return Results.Ok(new {
                 generatedAt = DateTimeOffset.UtcNow, snapshot.settings, snapshot.products,
-                alerts, activity = snapshot.activity,
+                alerts, activity = operations.Activities().Select(a => new {date=a.At,level="info",category="operation",title=a.Title,detail=a.Detail}),
                 events = canReadAudit ? audit.Recent() : Array.Empty<LocalAuditEvent>(), canReadAudit,
                 connections = new { total = stores.Length, demo = stores.Count(c => c.Settings.Mode == "demo"), real = stores.Count(c => c.Settings.Mode == "real"), connected = stores.Count(c => c.Settings.Mode == "real" && c.Status == "connected") },
                 system = new { mode = LocalAccess.IsPublicDeployment(configuration) ? "public" : "local", accountsConfigured = accounts.Configured,

@@ -49,6 +49,7 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
         var cache = new Dictionary<string, Dictionary<string, MarketplaceProduct>>();
         return link => Current(link, cache);
     }
+    public CatalogListing[] ReconciliationSnapshot(){Ensure();var fresh=Fresh();return db.CatalogRead(s=>s.Catalog.Listings.Values.Select(fresh).ToArray());}
 
     private CatalogListing Current(CatalogListing link, Dictionary<string, Dictionary<string, MarketplaceProduct>> cache)
     {
@@ -121,6 +122,7 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
         return db.Modify(s =>
         {
             var p = s.Products.FirstOrDefault(p => p.Id == id) ?? throw new IntegrationException("not_found", "Ürün bulunamadı.", 404);
+            if(p.SourceSystem=="nebim-v3") throw new IntegrationException("erp_managed","Bu ürün Nebim V3 kaynağından yönetilir; değişiklik kaynaktan alınmalıdır.",409);
             if (p.Version != edit.Version)
                 throw new IntegrationException("version_conflict", "Ürün başka bir işlemde değişti. Güncel kaydı açıp tekrar dene.", 409);
             if (s.Products.Any(x => x.Id != id && x.SourceMode == p.SourceMode && (x.Sku.Equals(edit.Sku.Trim(), StringComparison.OrdinalIgnoreCase) || edit.Barcode.Trim().Length > 0 && x.Barcode == edit.Barcode.Trim())))
@@ -316,7 +318,7 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
             var c = registry.Connections.GetValueOrDefault(l.StoreId);
             var current = fresh(l);
             string? reason = c == null || Source(c) != l.Source ? "Mağaza bağlantısı değişmiş." : c.Settings.Mode == "real" && !RealWrites(c) ? "Bu mağazada gerçek stok/fiyat gönderimi açılmamış." : p.Status != "Aktif" ? "Ürün aktif değil." : current.Status is "missing" or "source_changed" ? "Mağaza kaydı bulunamadı." : !p.StockKnown || !p.PriceKnown ? "Merkezi stok veya fiyat bilinmiyor." : p.Stock != decimal.Truncate(p.Stock) || p.Stock > 1000000 || p.Price is <= 0 or > 10000000 ? "Gönderim için tam sayı stok ve pozitif fiyat gerekli." : p.Currency != current.Currency || p.VatIncluded != true ? "Para birimi ve KDV dahil fiyatı kontrol et." : l.Barcode.Length == 0 && l.Sku.Length == 0 ? "Mağaza barkodu veya SKU gerekli." : c.Settings.Marketplace == "amazon" && MarketPilot.Web.Integrations.Amazon.AmazonDemo.IsAmazonFulfilled(l.Barcode) ? "Amazon deposu stoğu bu işlemle değiştirilemez." : c.Settings.Marketplace == "n11" && MarketPilot.Web.Integrations.N11.N11Demo.Depot(l.Barcode) ? "n11depom stoğu bu işlemle değiştirilemez." : null;
-            return new PublishLine(k, p.Id, p.Version, l.StoreId, p.Name, current.Stock, current.Price, p.StockKnown ? p.Stock : null, p.PriceKnown ? p.Price : null, reason == null, reason);
+            return new PublishLine(k, p.Id, p.Version, l.StoreId, p.Name, current.Stock, current.Price, p.StockKnown ? MarketPilot.Web.Workspace.OperationalInventory.Available(s,p) : null, p.PriceKnown ? p.Price : null, reason == null, reason);
         }).ToArray());
     }
 
@@ -358,7 +360,7 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
                 var p = s.Products.First(p => p.Id == l.ProductId);
                 if (!input.Versions.TryGetValue(p.Id, out var version) || version != p.Version || line.Version != p.Version)
                     throw new IntegrationException("version_conflict", "Önizlemeden sonra ürün değişti. Yeniden önizle.", 409);
-                job.Targets.Add(new() { Key = l.Key, StoreId = l.StoreId, Source = l.Source, ProductId = p.Id, Version = p.Version, Barcode = l.Barcode, NativeSku = l.Sku, Stock = p.Stock, Price = p.Price });
+                job.Targets.Add(new() { Key = l.Key, StoreId = l.StoreId, Source = l.Source, ProductId = p.Id, Version = p.Version, Barcode = l.Barcode, NativeSku = l.Sku, Stock = MarketPilot.Web.Workspace.OperationalInventory.Available(s,p), Price = p.Price });
             }
 
             s.Catalog.Jobs.Insert(0, job);

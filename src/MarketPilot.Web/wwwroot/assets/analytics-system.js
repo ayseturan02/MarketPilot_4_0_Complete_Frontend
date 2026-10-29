@@ -30,7 +30,7 @@ async function axLoad(kind) {
   } catch (error) { axState.errors[kind] = error.message; }
   finally {
     axState.loading.delete(kind);
-    if (axViews.includes(view) && !modal && !axEditing() && !axFocused()) render();
+    if (axViews.includes(view) && !modal && !axEditing() && !axFocused() && !(typeof orderRevisionBusy!=='undefined'&&orderRevisionBusy)) render();
   }
 }
 async function axRefresh() {
@@ -141,9 +141,10 @@ localRefreshSystem=async function(){
     const [status,backups,events,users]=await Promise.all([api('system/status'),...(localAccess.role==='admin'?[api('system/backups'),api('system/events'),api('access/users')]:[])]);
     localSystem=status;localBackupRows=backups||[];localEventRows=events||[];if(users)localUserRows=users;localSystemError='';localAccessError='';
   }catch(error){localSystemError=error.message;}
-  finally{localSystemLoading=false;if(view==='users'&&!modal&&!axFocused())render();}
+  finally{localSystemLoading=false;if(view==='users'&&!modal&&!axFocused()&&!(typeof workspaceEditing==='function'&&workspaceEditing()))render();}
 };
 setInterval(()=>{
+  if(typeof refreshOrderRevision==='function'){if(view==='users'&&!document.hidden&&!modal&&!workspaceEditing())void localRefreshSystem();return;}
   if(document.hidden||modal||axEditing()||localAccess.configured&&!localAccess.authenticated||!data.overview||axFocused())return;
   if(view==='users')void localRefreshSystem();else void axRefresh();
 },5000);

@@ -31,12 +31,18 @@ public static class CatalogEndpoints
         group.MapGet("/lookup", (string storeId, string? externalId, string? sku, string? barcode, CatalogHub hub) => Results.Ok(hub.Lookup(storeId, externalId, sku, barcode)));
         group.MapGet("/products", ([AsParameters] CatalogQuery query, CatalogHub hub) => query.Error() is { } error ? Results.BadRequest(new { error }) : Results.Ok(hub.Search(query)));
         group.MapGet("/products/{id}", (string id, [AsParameters] CatalogQuery query, CatalogHub hub) => query.Error() is { } error ? Results.BadRequest(new { error }) : Results.Ok(hub.Detail(id, query)));
-        group.MapPost("/products", (CatalogCreate input, CatalogHub hub) => Results.Ok(hub.Create(input)));
+        group.MapPost("/products", () => Results.Json(new { error = "Yeni ürün oluşturma kapalı. Ürünler Nebim V3 kaynağından alınır." }, statusCode: 405));
         group.MapPut("/products/{id}", (string id, CatalogEdit input, CatalogHub hub) => Results.Ok(hub.Edit(id, input)));
         group.MapGet("/listings", ([AsParameters] CatalogQuery query, CatalogHub hub) => query.Error() is { } error ? Results.BadRequest(new { error }) : Results.Ok(hub.Listings(query)));
         group.MapGet("/stores/{id}/candidates", async (string id, [AsParameters] SourceQuery query, CatalogSource source, CancellationToken ct) => Results.Ok(await source.Read(id, query, ct)));
         group.MapGet("/candidates/{token}", (string token, int? page, CatalogSource source) => Results.Ok(source.Page(token, page ?? 0)));
-        group.MapPost("/import", (CatalogImport input, CatalogSource source, CatalogHub hub) => Results.Ok(hub.Import(source.Get(input.Token), input.Keys)));
+        group.MapPost("/import", (CatalogImport input, CatalogSource source, CatalogHub hub, DemoStore db, IntegrationRegistry registry) => {
+            if(input.Keys==null)return Results.BadRequest(new{error="Ürün seçimi gerekli."});
+            var batch=source.Get(input.Token);
+            var mode=registry.Connections[batch.StoreId].Settings.Mode;
+            var known=db.CatalogRead(s=>batch.Rows.Where(r=>input.Keys.Contains(r.Key)).All(r=>s.Catalog.Listings.ContainsKey(r.Key)||s.Products.Any(p=>p.SourceMode==mode&&(r.Barcode.Length>0?p.Barcode==r.Barcode:p.Sku==r.Sku))));
+            return known?Results.Ok(hub.Import(batch,input.Keys)):Results.Conflict(new{error="Yeni ürünler önce Nebim V3 kaynağından alınmalıdır. Mağaza işlemi yalnızca mevcut ürünleri eşleştirir."});
+        });
         group.MapPut("/mapping", (CatalogRemap input, CatalogHub hub) => Results.Ok(hub.Remap(input)));
         group.MapGet("/categories", ([AsParameters] CatalogQuery query, CatalogHub hub) => query.Error() is { } error ? Results.BadRequest(new { error }) : Results.Ok(hub.Categories(query)));
         group.MapPut("/categories", (CategoryBinding input, CatalogHub hub) => Results.Ok(hub.Bind(input)));

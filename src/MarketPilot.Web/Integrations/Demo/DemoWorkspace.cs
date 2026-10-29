@@ -100,10 +100,11 @@ public sealed partial class DemoWorkspace
         lock(gate)
         {
             var count=0;
-            foreach(var state in states.Values)
+            foreach(var pair in states.ToArray())
             {
+                var state=pair.Value;
                 var due=state.Jobs.Where(j=>j.State=="pending"&&j.DueAt<=DateTimeOffset.UtcNow).OrderBy(j=>j.CreatedAt).ToList();
-                foreach(var job in due){Apply(state,job);count++;}
+                foreach(var job in due){state=ApplyIsolated(pair.Key,state,job.Id);count++;}
                 if(due.Count>0)state.LastSyncAt=DateTimeOffset.UtcNow;
             }
             if(count>0)Save();return count;
@@ -121,7 +122,7 @@ public sealed partial class DemoWorkspace
             if (changed) Save();
         }
         var due = state.Jobs.Where(j => j.State == "pending" && j.DueAt <= DateTimeOffset.UtcNow).OrderBy(j => j.CreatedAt).ToList();
-        foreach (var job in due) Apply(state, job);
+        foreach (var job in due) state=ApplyIsolated(Key(settings),state,job.Id);
         if (due.Count > 0) { state.LastSyncAt = DateTimeOffset.UtcNow; Save(); }
         return state;
     }
@@ -220,6 +221,18 @@ public sealed partial class DemoWorkspace
             job.State = "completed"; state.Events.Insert(0, new(job.Title, DateTimeOffset.UtcNow, job.Reference));
         }
         catch (Exception e) when (e is ArgumentException or InvalidOperationException) { job.State = "failed"; job.Error = e.Message; }
+    }
+    private DemoWorkspaceState ApplyIsolated(string key,DemoWorkspaceState state,string jobId)
+    {
+        var before=JsonSerializer.Serialize(state,json);
+        try {Apply(state,state.Jobs.Single(j=>j.Id==jobId));return state;}
+        catch(Exception error) when(error is not OperationCanceledException && error is not OutOfMemoryException)
+        {
+            // Roll back partial mutations from this job, quarantine it, and continue other workspaces.
+            var restored=JsonSerializer.Deserialize<DemoWorkspaceState>(before,json)!;
+            var failed=restored.Jobs.Single(j=>j.Id==jobId);failed.State="failed";failed.Error="İşlem beklenmeyen veri hatası nedeniyle durduruldu; diğer işler devam ediyor.";
+            states[key]=restored;return restored;
+        }
     }
     private static DemoWorkspaceState Seed(ConnectionSettings settings)
     {

@@ -83,11 +83,14 @@ const dll=process.env.MARKETPILOT_WEB_DLL||path.join(root,'src/MarketPilot.Web/b
     await page.waitForFunction(()=>document.querySelector('.user-block')?.textContent.includes('Connected workspace'));
     assert((await page.locator('.user-block').innerText()).includes('Connected workspace'));
     await page.evaluate(()=>nav('activity'));assert((await page.locator('[data-analysis=activity]').innerText()).includes('Ayarlar güncellendi'));
-    await page.evaluate(()=>nav('automation'));await page.locator('[data-automation] form').waitFor();
-    await page.locator('[data-automation] input[name=intervalSeconds]').fill('45');
-    await page.getByRole('button',{name:'Otomasyonu kaydet',exact:true}).click();
-    await page.waitForFunction(()=>auData?.automation.settings.intervalSeconds===45&&!auSaving);
-    assert.equal((await api('sync/automation')).body.automation.settings.intervalSeconds,45);
+    await page.evaluate(()=>nav('automation'));
+    await page.getByRole('button',{name:'Eşitleme planını aç',exact:true}).click();
+    await page.locator('[data-enterprise-sync] form').waitFor();
+    await page.locator('input[aria-label="orders aralık"]').fill('45');
+    await page.locator('input[aria-label="orders aralık"]').blur();
+    await page.getByRole('button',{name:'Eşitleme planını kaydet',exact:true}).click();
+    await page.waitForFunction(()=>epData?.plan.schedules.find(s=>s.task==='orders').intervalSeconds===45&&!epSaving);
+    assert.equal((await api('sync/enterprise')).body.plan.schedules.find(s=>s.task==='orders').intervalSeconds,45);
     for(const view of ['reports','profit','alerts','activity','automation','settings','users']){
       await page.evaluate(view=>nav(view),view);await page.setViewportSize({width:390,height:844});
       assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),view+' must fit mobile');

@@ -145,7 +145,17 @@ public sealed class OrderWebhookInbox
                             state = "ignored";
                     }
                 }
-                catch (Exception e) when (e is not OperationCanceledException) { state = "pending"; error = "Sipariş kaydedilemedi; otomatik tekrar denenecek."; }
+                catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
+                catch(Exception e)
+                {
+                    state="pending";
+                    error=e switch {
+                        TimeoutException or OperationCanceledException=>"Sipariş işleme zaman aşımına uğradı; otomatik tekrar denenecek.",
+                        IOException or UnauthorizedAccessException=>"Sipariş kalıcı depoya yazılamadı; depolama erişimini kontrol edin. Otomatik tekrar denenecek.",
+                        IntegrationException integration=>integration.Message,
+                        _=>"Sipariş kaydedilemedi; otomatik tekrar denenecek."
+                    };
+                }
                 lock (gate)
                 {
                     var stored = events[item.Id];

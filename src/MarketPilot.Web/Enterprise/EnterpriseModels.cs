@@ -1,0 +1,72 @@
+namespace MarketPilot.Web.Enterprise;
+
+public sealed record ErpItem(string Sku, string Barcode, string Name, decimal? Stock, decimal? Price, string Currency,
+    string[]? Images = null, string? Category = null, string? Brand = null, string? Description = null, string? WarehouseCode = null, bool? VatIncluded = true,[property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] MarketPilot.Web.Workspace.StockAcknowledgement[]? StockAcknowledgements=null);
+public sealed record ErpCatalogBatch(string RequestId, ErpItem[] Items,[property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] MarketPilot.Web.Workspace.StockAcknowledgement[]? StockAcknowledgements=null);
+public sealed class ErpReceipt
+{
+    public string Hash { get; set; } = "";
+    public string[] ProductIds { get; set; } = [];
+}
+public sealed record SyncTarget(string StoreId, string Source, bool Enabled = false, bool Stock = true, bool Price = true, bool Images = false, bool Orders = true, bool Products = false);
+public sealed record SyncSchedule(string Task, bool Enabled = true, int IntervalSeconds = 60);
+public sealed class EnterprisePlan
+{
+    public bool Enabled { get; set; }
+    public string WarehouseCode { get; set; } = "";
+    public string PriceListCode { get; set; } = "";
+    public string StockAuthority { get; set; } = "erp";
+    public int SafetyStock { get; set; }
+    public int LookbackDays { get; set; } = 2;
+    public SyncTarget[] Targets { get; set; } = [];
+    public SyncSchedule[] Schedules { get; set; } = Defaults();
+    public static SyncSchedule[] Defaults() => [new("catalog",true,900),new("listings",true,900),new("stock",true,60),new("price",true,300),new("images",true,3600),new("orders",true,60),new("erp-orders",true,60),new("wms-orders",true,60),new("wms-stock",false,60),new("wms-dispatches",true,60),new("cargo-create",false,60),new("shipments",true,60)];
+}
+public sealed class EnterpriseTask
+{
+    public string Task { get; set; } = "";
+    public string State { get; set; } = "idle";
+    public DateTimeOffset NextRunAt { get; set; }
+    public DateTimeOffset? LastRunAt { get; set; }
+    public DateTimeOffset? LastSuccessAt { get; set; }
+    public string? Error { get; set; }
+    public int Count { get; set; }
+    public bool Manual { get; set; }
+}
+public sealed class EnterpriseJob
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Key { get; set; } = "";
+    public string Kind { get; set; } = "";
+    public string Connector { get; set; } = "";
+    public string ConnectorIdentity { get; set; } = "";
+    public string StoreId { get; set; } = "";
+    public string Source { get; set; } = "";
+    public string AccountIdentity { get; set; } = "";
+    public string Reference { get; set; } = "";
+    public string Payload { get; set; } = "{}";
+    public string State { get; set; } = "queued";
+    public string? Error { get; set; }
+    public string? NativeJobId { get; set; }
+    public string? ExternalReference { get; set; }
+    public int Attempts { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset NextAttemptAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? FinishedAt { get; set; }
+}
+public sealed class EnterpriseState
+{
+    public EnterprisePlan Plan { get; set; } = new();
+    public bool Managed { get; set; }
+    public Dictionary<string,EnterpriseTask> Tasks { get; set; } = new();
+    public List<EnterpriseJob> Jobs { get; set; } = [];
+    public DateTimeOffset? LastCatalogAt { get; set; }
+    public DateTimeOffset? LastWmsStockAt { get; set; }
+    public Dictionary<string,string> Delivered { get; set; } = new();
+    public Dictionary<string,WmsDispatch> Dispatches { get; set; } = new();
+}
+public sealed record BridgeReceipt(string IdempotencyKey, string State, string? Reference = null, bool SafeToRetry = false);
+public sealed record BridgeShipment(string ExternalOrderId, string StoreId, string AccountSource, string ShipmentId,
+    string Carrier, string TrackingNumber, string Status, string? LabelUrl, DateTimeOffset UpdatedAt);
+public sealed record WmsPackingLine(string Barcode,int Quantity);
+public sealed record WmsDispatch(string ExternalOrderId,string StoreId,string AccountSource,string PackageId,string Status,WmsPackingLine[] Lines,DateTimeOffset UpdatedAt);

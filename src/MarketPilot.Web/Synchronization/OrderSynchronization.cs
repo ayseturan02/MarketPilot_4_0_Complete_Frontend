@@ -75,17 +75,27 @@ public sealed class OrderSynchronization
             realStoresEnabled = config.GetValue<bool>("Synchronization:IncludeRealStores"),
             stores = state.Stores.Values.Select(s => new { s.StoreId, s.StoreName, s.State, s.NextRunAt, s.LastAttemptAt, s.LastSuccessAt, s.LastCount, s.ConsecutiveFailures, s.Error }).ToArray() };
     }
-    public async Task Tick(CancellationToken ct)
+    public Task Tick(CancellationToken ct) => TickCore(null,false,true,ct);
+    public async Task TickSelected(IReadOnlySet<string> storeIds,CancellationToken ct)
+    {
+        var registry=services.GetRequiredService<IntegrationRegistry>();
+        var selected=registry.Connections.Values.Where(s=>storeIds.Contains(s.Id)).ToArray();
+        if(selected.Any(s=>s.Settings.Mode=="real")&&!config.GetValue<bool>("Synchronization:IncludeRealStores"))throw new IntegrationException("reads_disabled","Gerçek mağaza sipariş okuma izni sunucuda kapalı.",409);
+        await TickCore(storeIds,true,false,ct);
+        var sources=selected.Select(CatalogHub.Source).ToHashSet();
+        lock(gate)if(state.Stores.Where(p=>sources.Contains(p.Key)).Any(p=>p.Value.Error!=null||p.Value.LastSuccessAt==null))throw new IntegrationException("order_pull_incomplete","Seçili mağazaların siparişleri tamamen okunamadı; önceki kayıtlar korundu.",409);
+    }
+    private async Task TickCore(IReadOnlySet<string>? storeIds,bool force,bool includeStock,CancellationToken ct)
     {
         if (!await running.WaitAsync(0, ct)) return;
         try
         {
             var settings = Settings;
-            if (!settings.Enabled) return;
+            if (!settings.Enabled && !force) return;
             using var scope = services.CreateScope();
             var registry = scope.ServiceProvider.GetRequiredService<IntegrationRegistry>();
             var realEnabled = config.GetValue<bool>("Synchronization:IncludeRealStores");
-            var stores = registry.Connections.Values.Where(s => s.Settings.Mode == "demo" || realEnabled)
+            var stores = registry.Connections.Values.Where(s => (s.Settings.Mode == "demo" || realEnabled) && (storeIds==null || storeIds.Contains(s.Id)))
                 .OrderBy(s => s.Id).GroupBy(CatalogHub.Source).Select(g => g.First()).ToArray();
             foreach (var store in stores)
             {
@@ -96,7 +106,7 @@ public sealed class OrderSynchronization
                 {
                     if (!state.Stores.TryGetValue(source, out pull!))
                         state.Stores[source] = pull = new() { StoreId = store.Id, StoreName = store.Settings.Name, Source = source, NextRunAt = clock.GetUtcNow() };
-                    if (pull.NextRunAt > clock.GetUtcNow()) continue;
+                    if (!force && pull.NextRunAt > clock.GetUtcNow()) continue;
                 }
                 var storeGate = registry.Gates.GetOrAdd(store.Id, _ => new(1, 1));
                 if (!await storeGate.WaitAsync(0, ct)) continue;
@@ -127,7 +137,7 @@ public sealed class OrderSynchronization
                 finally { storeGate.Release(); }
             }
             bool stockDue;
-            lock (gate) { state.LastWorkerTick = clock.GetUtcNow(); stockDue = settings.StockEnabled && state.NextStockRunAt <= clock.GetUtcNow(); if (stockDue) { state.NextStockRunAt = clock.GetUtcNow().AddSeconds(settings.IntervalSeconds); Save(); } }
+            lock (gate) { state.LastWorkerTick = clock.GetUtcNow(); stockDue = includeStock && settings.StockEnabled && state.NextStockRunAt <= clock.GetUtcNow(); if (stockDue) { state.NextStockRunAt = clock.GetUtcNow().AddSeconds(settings.IntervalSeconds); Save(); } }
             if (stockDue)
             {
                 var stock = scope.ServiceProvider.GetRequiredService<CentralStockService>();

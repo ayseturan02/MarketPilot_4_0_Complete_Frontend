@@ -22,7 +22,8 @@ public static class OrderWebhookEndpoints
             return Results.Json(new { error = "Sipariş bildirimleri bu adrese JSON POST isteğiyle gönderilir." }, statusCode: 405);
         });
         app.MapPost("/hooks/orders/{endpointId}", (string endpointId, HttpContext context, OrderWebhookReceiver receiver, CancellationToken ct) => receiver.Receive(endpointId, context, ct));
-        app.MapGet("/api/operations/revision", (DemoStore db, DemoWorkspace demo, CentralStockService stock, StockOutbox outbox, OrderSynchronization automation) => Results.Ok(new { revision = db.Revision + ":" + demo.Revision + ":" + stock.Revision + ":" + outbox.Revision + ":" + automation.Revision }));
+        app.MapPost("/hooks/businesses/{businessId}/orders/{endpointId}", (string endpointId, HttpContext context, OrderWebhookReceiver receiver, CancellationToken ct) => receiver.Receive(endpointId, context, ct));
+        app.MapGet("/api/operations/revision", (DemoStore db, DemoWorkspace demo, CentralStockService stock, StockOutbox outbox, OrderSynchronization automation, MarketPilot.Web.Integrations.IntegrationRegistry registry, LocalAccountStore accounts, MarketPilot.Web.Enterprise.EnterpriseSync enterprise) => Results.Ok(new { revision = db.Revision + ":" + demo.Revision + ":" + stock.Revision + ":" + outbox.Revision + ":" + automation.Revision + ":" + registry.Revision + ":" + accounts.Revision + ":" + enterprise.Revision }));
         app.MapGet("/api/system/webhooks", (HttpContext c, LocalAccountStore accounts, OrderWebhookReceiver receiver) => accounts.Configured && !c.User.IsInRole("admin") ? Results.StatusCode(403) : Results.Ok(receiver.Status()));
         app.MapPost("/api/system/webhooks/{id}/retry", (string id, HttpContext c, LocalAccountStore accounts, OrderWebhookInbox inbox) =>
         {

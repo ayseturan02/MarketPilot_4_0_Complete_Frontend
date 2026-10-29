@@ -36,6 +36,7 @@ public static class TrendyolEndpoints
                 return Results.NotFound(new { error = "Trendyol mağazası bulunamadı." });
             if (!TrendyolCatalog.Operations.TryGetValue(key, out var operation))
                 return Results.NotFound(new { error = "Trendyol servisi bulunamadı." });
+            if(key is "products.createV1" or "products.createV2") return Results.Json(new {error="Yeni ürün oluşturma kapalı; ürünler Nebim V3 kaynağından yönetilir."},statusCode:405);
             var gate = registry.Gates.GetOrAdd(id, _ => new(1, 1));
             if (!await gate.WaitAsync(0, ct)) return Results.Json(new { error = "Bu mağazada bir işlem zaten sürüyor." }, statusCode: 409);
             try

@@ -19,15 +19,18 @@ public sealed class LocalUser
     public string Role { get; set; } = "viewer";
     public bool Enabled { get; set; } = true;
     public int Version { get; set; }
+    public string BusinessId { get; set; } = "default";
 }
-public sealed record UserSummary(string Id, string Name, string Role, bool Enabled);
+public sealed record UserSummary(string Id, string Name, string Role, bool Enabled, string BusinessId = "default");
 public sealed record LocalCredentials(string Name, string Password);
-public sealed record NewLocalUser(string Name, string Password, string Role);
+public sealed record NewLocalUser(string Name, string Password, string Role, string? BusinessId = null);
 public sealed record ChangeLocalUser(string Role, bool Enabled);
 public sealed record ChangePasswordInput(string CurrentPassword,string NewPassword);
 
 public sealed class LocalAccountStore
 {
+    private long revision;
+    public long Revision => Interlocked.Read(ref revision);
     private readonly object gate = new();
     private readonly string file;
     private readonly JsonSerializerOptions json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
@@ -40,12 +43,12 @@ public sealed class LocalAccountStore
     public bool Configured { get { lock (gate) return users.Count > 0; } }
     private void Save(string previous)
     {
-        try { var tmp = file + ".tmp"; File.WriteAllText(tmp, JsonSerializer.Serialize(users, json)); File.Move(tmp, file, true); }
+        try { var tmp = file + ".tmp"; File.WriteAllText(tmp, JsonSerializer.Serialize(users, json)); File.Move(tmp, file, true); Interlocked.Increment(ref revision); }
         catch { users = JsonSerializer.Deserialize<List<LocalUser>>(previous, json)!; throw; }
     }
     private static byte[] Hash(string password, byte[] salt) => Rfc2898DeriveBytes.Pbkdf2(password, salt, 210000, HashAlgorithmName.SHA256, 32);
-    private static UserSummary Summary(LocalUser user) => new(user.Id, user.Name, user.Role, user.Enabled);
-    public UserSummary Create(string name, string password, string role, bool initial = false)
+    private static UserSummary Summary(LocalUser user) => new(user.Id, user.Name, user.Role, user.Enabled,user.BusinessId);
+    public UserSummary Create(string name, string password, string role, bool initial = false,string businessId="default")
     {
         lock (gate)
         {
@@ -54,9 +57,11 @@ public sealed class LocalAccountStore
             if (!Regex.IsMatch(name, @"^[a-z0-9][a-z0-9._@-]{2,79}$")) throw new ArgumentException("Hesap adı 3–80 karakter olmalı; harf, rakam, nokta, tire veya @ kullanılabilir.");
             if (password is null || password.Length is < 12 or > 128) throw new ArgumentException("Parola 12–128 karakter olmalı.");
             if (!new[] { "admin", "operator", "viewer" }.Contains(role)) throw new ArgumentException("Geçersiz yetki.");
+            if(!BusinessWorkspaces.ValidId(businessId))throw new ArgumentException("İşletme kodu 1–64 küçük harf, rakam veya tire olmalı.");
+            if(!users.Any(u=>u.BusinessId==businessId)&&users.Select(u=>u.BusinessId).Distinct().Count()>=100)throw new ArgumentException("En fazla 100 işletme tanımlanabilir.");
             if (users.Any(u => u.Name == name)) throw new ArgumentException("Bu hesap adı zaten kullanılıyor.");
             var before = JsonSerializer.Serialize(users, json); var salt = RandomNumberGenerator.GetBytes(16);
-            var user = new LocalUser { Name = name, Salt = Convert.ToBase64String(salt), PasswordHash = Convert.ToBase64String(Hash(password, salt)), Role = initial ? "admin" : role };
+            var user = new LocalUser { Name = name, Salt = Convert.ToBase64String(salt), PasswordHash = Convert.ToBase64String(Hash(password, salt)), Role = initial ? "admin" : role,BusinessId=initial?"default":businessId };
             users.Add(user); Save(before); return Summary(user);
         }
     }
@@ -92,6 +97,8 @@ public sealed class LocalAccountStore
         {
             if (!new[] { "admin", "operator", "viewer" }.Contains(role)) throw new ArgumentException("Geçersiz yetki.");
             var user = users.FirstOrDefault(u => u.Id == id) ?? throw new ArgumentException("Kullanıcı bulunamadı.");
+            var acting=users.FirstOrDefault(u=>u.Id==actor);
+            if(acting==null||acting.BusinessId!="default"&&acting.BusinessId!=user.BusinessId)throw new ArgumentException("Bu işletmenin kullanıcısına erişim yok.");
             if (id == actor && (!enabled || role != "admin")) throw new ArgumentException("Kendi yönetici erişimini bu ekrandan kapatamazsın.");
             if (user.Role == "admin" && user.Enabled && (!enabled || role != "admin") && users.Count(u => u.Role == "admin" && u.Enabled) <= 1) throw new ArgumentException("Son yönetici hesabı kapatılamaz.");
             var before = JsonSerializer.Serialize(users, json); user.Role = role; user.Enabled = enabled; user.Version++; Save(before);
@@ -183,7 +190,7 @@ public static class LocalAccess
             }
             context.Response.Headers.CacheControl = "no-store"; await next();
         });
-        app.MapGet("/api/access/status", (HttpContext c, LocalAccountStore store) => Results.Ok(new { configured = store.Configured, authenticated = c.User.Identity?.IsAuthenticated == true, name = c.User.Identity?.Name, role = c.User.FindFirstValue(ClaimTypes.Role) }));
+        app.MapGet("/api/access/status", (HttpContext c, LocalAccountStore store) => Results.Ok(new { configured = store.Configured, authenticated = c.User.Identity?.IsAuthenticated == true, name = c.User.Identity?.Name, role = c.User.FindFirstValue(ClaimTypes.Role),businessId=BusinessWorkspaces.BusinessId(c),canManageBusinesses=c.User.IsInRole("admin")&&BusinessWorkspaces.BusinessId(c)=="default" }));
         app.MapPost("/api/access/setup", async (LocalCredentials credentials, HttpContext c, LocalAccountStore store) =>
         {
             try { var user = store.Create(credentials.Name, credentials.Password, "admin", true); await SignIn(c, user, 0); return Results.Ok(new { ok = true }); }
@@ -201,15 +208,18 @@ public static class LocalAccess
             try{var updated=store.ChangePassword(id,input.CurrentPassword,input.NewPassword);await SignIn(c,updated.User,updated.Version);return Results.Ok(new{ok=true});}catch(ArgumentException e){return Results.BadRequest(new{error=e.Message});}
         }).RequireRateLimiting("local-login");
         app.MapPost("/api/access/logout", async (HttpContext c) => { await c.SignOutAsync(); return Results.Ok(new { ok = true }); });
-        app.MapGet("/api/access/users", (HttpContext c, LocalAccountStore store) => c.User.IsInRole("admin") ? Results.Ok(store.Users()) : Results.StatusCode(403));
+        app.MapGet("/api/access/users", (HttpContext c, LocalAccountStore store) => c.User.IsInRole("admin") ? Results.Ok(store.Users().Where(u=>BusinessWorkspaces.BusinessId(c)=="default"||u.BusinessId==BusinessWorkspaces.BusinessId(c))) : Results.StatusCode(403));
         app.MapPost("/api/access/users", (NewLocalUser input, HttpContext c, LocalAccountStore store) =>
         {
             if (!c.User.IsInRole("admin")) return Results.StatusCode(403);
-            try { return Results.Ok(store.Create(input.Name, input.Password, input.Role)); } catch (ArgumentException e) { return Results.BadRequest(new { error = e.Message }); }
+            var business=input.BusinessId??BusinessWorkspaces.BusinessId(c);
+            if(BusinessWorkspaces.BusinessId(c)!="default"&&business!=BusinessWorkspaces.BusinessId(c))return Results.StatusCode(403);
+            try { return Results.Ok(store.Create(input.Name, input.Password, input.Role,businessId:business)); } catch (ArgumentException e) { return Results.BadRequest(new { error = e.Message }); }
         });
         app.MapPost("/api/access/users/{id}", (string id, ChangeLocalUser input, HttpContext c, LocalAccountStore store) =>
         {
             if (!c.User.IsInRole("admin")) return Results.StatusCode(403);
+            if(BusinessWorkspaces.BusinessId(c)!="default"&&!store.Users().Any(u=>u.Id==id&&u.BusinessId==BusinessWorkspaces.BusinessId(c)))return Results.StatusCode(403);
             try { store.Change(id, input.Role, input.Enabled, c.User.FindFirstValue(ClaimTypes.NameIdentifier)!); return Results.Ok(new { ok = true }); } catch (ArgumentException e) { return Results.BadRequest(new { error = e.Message }); }
         });
     }
@@ -224,7 +234,7 @@ public static class LocalAccess
     }
     private static Task SignIn(HttpContext c, UserSummary user, int version)
     {
-        var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, user.Id), new Claim(ClaimTypes.Name, user.Name), new Claim(ClaimTypes.Role, user.Role), new Claim("version", version.ToString())], CookieAuthenticationDefaults.AuthenticationScheme);
+        var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, user.Id), new Claim(ClaimTypes.Name, user.Name), new Claim(ClaimTypes.Role, user.Role), new Claim("version", version.ToString()),new Claim("business_id",user.BusinessId)], CookieAuthenticationDefaults.AuthenticationScheme);
         return c.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity), new AuthenticationProperties { IsPersistent = false });
     }
 }

@@ -246,6 +246,17 @@ public sealed class StockOutbox
             catch(IntegrationException e)when(e.Status is 400 or 401 or 403 or 404 or 409){Finish(job.Id,"blocked",e.Message);return;}
             catch{Set(job.Id,j=>{j.Error="Gönderim öncesi mağaza kaydı okunamadı; veri değiştirilmedi.";j.NextAttemptAt=clock.GetUtcNow().AddSeconds(30);});return;}
         }
+        var inventory=services.GetService<DemoStore>();
+        if(inventory?.CatalogRead(s=>s.Operations.Policy.ReservationsEnabled)==true)
+        {
+            try
+            {
+                var protectedBarcode=job.ResolvedBarcode??(job.Barcode.StartsWith("sku:",StringComparison.Ordinal)?liveProduct?.Barcode??(store.Settings.Mode=="demo"?DemoProduct(demo.Snapshot(store.Settings).Products,job)?.Barcode:null):job.Barcode);
+                if(inventory.CatalogRead(s=>s.Products.Any(p=>p.SourceSystem=="nebim-v3"&&p.SourceMode==store.Settings.Mode&&p.Barcode==protectedBarcode&&p.StockKnown&&MarketPilot.Web.Workspace.OperationalInventory.Available(s,p)<job.Quantity)))
+                {Finish(job.Id,"blocked","Rezervasyon sonrası kullanılabilir stok değişmiş; güncel stokla yeniden eşitleyin.");return;}
+            }
+            catch(Exception error)when(error is not OperationCanceledException){Finish(job.Id,"blocked","Rezervasyon / barkod doğrulaması tamamlanamadı; kayıtları kontrol edin.");return;}
+        }
         if (!Claim(job.Id)) return;
         try
         {

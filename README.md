@@ -1,5 +1,11 @@
 # MarketPilot 5.1 — Gerçek Trendyol entegrasyonu
 
+Güncel proje kapsamı, tamamlanan kontroller ve kalan işler: [Genel kontrol](GENEL_KONTROL.md). Nebim V3, WMS ve kargo bağlantı sözleşmesi: [ERP / depo / kargo](NEBIM_WMS_KARGO.md). Ürünler Nebim kaynağından alınır; manuel ürün oluşturma kapalıdır. Uygulama şu anda yerel deneme aşamasındadır.
+
+İşletme bazında kullanıcı/veri ayrımı ve worker hata yalıtımı: [kurulum ve kullanım](ISLETME_AYRIMI.md). Mevcut veriler `default` işletmesinde korunur.
+
+Rezervasyon, kısmi sipariş işlemleri, paketler, veri/hakediş mutabakatı, bildirim ve izole geri yükleme provası: [veritabanı bağlanmadan operasyon hazırlığı](VERITABANSIZ_OPERASYON_HAZIRLIGI.md).
+
 .NET 8 uygulaması. Mevcut 39 ekran, beyaz tema ve yerel demo işlemleri korunur. Satış Kanalları ile Trendyol Merkezi gerçek Trendyol verilerini salt okunur görüntüleyebilir.
 
 Güncel ön yüz/arka uç senkronizasyon akışları ve testler: [SENKRONIZASYON_DOGRULAMA.md](SENKRONIZASYON_DOGRULAMA.md).
@@ -173,3 +179,6 @@ Kârlılık ekranındaki ürün maliyetlerini yönetici kaydeder. Alış, komisy
 Bildirimler stok eşiği ve servis/kuyruk durumlarından üretilir. İşlem kayıtlarında operasyon geçmişi, yöneticiler için ayrıca sistem olayları bulunur. Otomasyon ekranı Senkronizasyon ekranıyla aynı zamanlayıcı ve gönderim kuyruğunu yönetir. Genel ayarlardaki stok eşiği ve senkronizasyon bildirim tercihi ilgili ekranlara yansır; e-posta gönderim servisi yapılandırılmış değildir.
 
 Uçlar: `/api/analytics/reports`, `/api/analytics/profit`, `/api/analytics/workspace`, yönetici yazması için `PUT /api/analytics/costs/{id}`. `node tests/analytics-system-http-checks.cjs` geçici verilerle hesap tutarlılığını, yeniden başlatmada kalıcılığı, ekranların birlikte güncellenmesini, mobil görünümü ve rol sınırlarını sınar.
+
+
+[29 Ekim 2026 entegrasyon incelemesi: düzeltmeler ve kalan kapsam](ENTEGRASYON_INCELEMESI.md)

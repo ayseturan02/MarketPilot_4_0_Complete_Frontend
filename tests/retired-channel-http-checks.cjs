@@ -33,7 +33,7 @@ const retired=/woo[\s_-]*commerce/i;
       const response=await fetch(base+'/api/'+route);assert(response.ok,route);assert(!retired.test(await response.text()),route+' must not expose the retired channel');
     }
     const rejected=await fetch(base+'/api/products',{method:'POST',headers:{'Content-Type':'application/json',Origin:base},body:JSON.stringify({name:'Retired fixture',sku:'RETIRED-REJECT',price:1,stock:1,channels:['WooCommerce']})});
-    assert.equal(rejected.status,400,'a retired channel cannot be reintroduced through product creation');
+    assert.equal(rejected.status,405,'manual product creation is disabled, including retired channels');
     await stop();await start();assert.equal(read().orders.length,counts.orders,'cleanup must be idempotent');
 
     browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];

@@ -43,7 +43,7 @@ public sealed partial class OrderWebhookReceiver
             if (!ValidSecret(settings["Password"])) issues.Add("Basic kimlik doğrulaması parolası eksik veya geçersiz.");
         }
         if (type is not ("API_KEY" or "BASIC_AUTHENTICATION")) issues.Add("Kimlik doğrulama yöntemi geçersiz.");
-        var path = "/hooks/orders/" + id;
+        var path = CallbackPath(id);
         string? publicUrl = null;
         var baseUrl = configuration[Root + ":PublicBaseUrl"];
         if (Uri.TryCreate(baseUrl, UriKind.Absolute, out var origin) && origin.Scheme == "https" &&

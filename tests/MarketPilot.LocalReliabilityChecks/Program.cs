@@ -70,8 +70,9 @@ try
  await queueWorker.StartAsync(default);
  try
  {
-     for(var attempt=0;attempt<100&&queueState.LastQueueError is null;attempt++)await Task.Delay(25);
-     Check(queueState.LastQueueError is not null&&queueLog.Messages.Any(m=>m.Contains("NullReferenceException")),"Unexpected queue error was not recorded");
+     for(var attempt=0;attempt<100&&queueState.LastQueueTick is null;attempt++)await Task.Delay(25);
+     var failedQueue=JsonSerializer.Deserialize<Dictionary<string,DemoWorkspaceState>>(File.ReadAllText(Path.Combine(workerEnv.ContentRootPath,"Data","integration-demo.json")),new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+     Check(failedQueue.Values.Single().Jobs[0].State=="failed"&&!string.IsNullOrWhiteSpace(failedQueue.Values.Single().Jobs[0].Error),"Unexpected job error was not quarantined and recorded");
      Check(backupState.LastBackupError is not null&&backupLog.Messages.Any(m=>m.Contains("XmlException")),"Unexpected backup XML error was not recorded");
      Check(queueWorker.ExecuteTask is{IsCompleted:false}&&backupWorker.ExecuteTask is{IsCompleted:false},"Unexpected fault stopped a worker");
      Check(backupState.LastBackupSuccess is null,"A failed backup was reported as successful");
