@@ -5,13 +5,14 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
 (async()=>{
  const probe=net.createServer();await new Promise(r=>probe.listen(0,'127.0.0.1',r));const port=probe.address().port;await new Promise(r=>probe.close(r));
  const base='http://127.0.0.1:'+port,temp=fs.mkdtempSync(path.join(os.tmpdir(),'marketpilot-enterprise-'));let child,browser;
- const received=[],receipts=new Map();let catalogCalls=0,uncertain=true,dispatches=[],shipments=[];
- const item={sku:'TSH-EKR-S',barcode:'8691000000001',name:'ERP sourced shirt',stock:23,price:510,currency:'TRY',images:['https://images.example.test/erp-shirt.png'],warehouseCode:'MAIN'};
+ const received=[],receipts=new Map();let catalogCalls=0,uncertain=true,dispatches=[],shipments=[],wmsStock=19,wmsVersion=1,wmsUpdatedAt='2026-10-29T00:00:00Z',wmsReservations=[{barcode:'8691000000001',warehouseCode:'MAIN',reservedQuantity:3,sourceVersion:1,sourceUpdatedAt:'2026-10-29T00:00:00Z'}];
+ const item={sku:'TSH-EKR-S',barcode:'8691000000001',name:'ERP sourced shirt',stock:23,price:510,currency:'TRY',vatIncluded:null,images:['https://images.example.test/erp-shirt.png'],warehouseCode:'MAIN',sourceVersion:10,sourceUpdatedAt:'2026-10-29T00:00:00Z'};
  const bridge=http.createServer(async(req,res)=>{
   if(req.headers.authorization!=='Bearer fixture-bridge-key'){res.writeHead(401).end();return;}
   const url=new URL(req.url,'http://fixture');res.setHeader('Content-Type','application/json');
   if(req.method==='GET'&&url.pathname==='/v1/catalog'){catalogCalls++;res.end(JSON.stringify({items:[item],nextCursor:null}));return;}
-  if(req.method==='GET'&&url.pathname==='/v1/stock'){res.end(JSON.stringify({items:[{...item,stock:19}],nextCursor:null}));return;}
+  if(req.method==='GET'&&url.pathname==='/v1/stock'){res.end(JSON.stringify({items:[{...item,stock:wmsStock,sourceVersion:wmsVersion,sourceUpdatedAt:wmsUpdatedAt}],nextCursor:null}));return;}
+  if(req.method==='GET'&&url.pathname==='/v1/reservations'){res.end(JSON.stringify({items:wmsReservations,nextCursor:null}));return;}
   if(req.method==='GET'&&url.pathname==='/v1/dispatches'){res.end(JSON.stringify({items:dispatches,nextCursor:null}));return;}
   if(req.method==='GET'&&url.pathname==='/v1/shipments'){res.end(JSON.stringify({items:shipments,nextCursor:null}));return;}
   if(req.method==='GET'&&url.pathname.startsWith('/v1/receipts/')){const id=url.pathname.split('/').at(-1);res.end(JSON.stringify(receipts.get(id)||{idempotencyKey:id,state:'not-found',safeToRetry:true}));return;}
@@ -43,16 +44,18 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   assert.equal((await api('products/'+product.id+'/barcode',{barcode:'NEW-BARCODE'},'PUT')).status,409);
   assert.equal((await api('stock/movements',{productId:product.id,delta:1,reason:'manual write'})).status,409);
   assert.equal((await api('catalog/products/'+product.id,{...product,price:1},'PUT')).status,409);
-  let state=(await api('sync/enterprise')).body,plan=state.plan;assert.equal(plan.fulfillmentMode,'disabled');assert(plan.schedules.every(s=>!s.enabled),'sync defaults must stay fail-closed');assert.equal((await api('sync/enterprise/run',{task:'wms-orders'})).status,409);const store=state.stores.find(s=>s.id==='trendyol');
+  let state=(await api('sync/enterprise')).body,plan=state.plan;assert.equal(plan.fulfillmentMode,'disabled');assert(plan.schedules.every(s=>!s.enabled),'sync defaults must stay fail-closed');assert.equal(state.ownershipPolicies.length,14);assert.equal(state.ownershipPolicies.find(policy=>policy.field==='PhysicalStock').owner,'NebimV3');assert.equal(state.ownershipPolicies.find(policy=>policy.field==='Price').conflictResolution,'AuthoritativeSourceWins');assert.equal((await api('sync/enterprise/run',{task:'wms-orders'})).status,409);const store=state.stores.find(s=>s.id==='trendyol');
   plan.fulfillmentMode='standalone';
-  plan.targets=[{storeId:store.id,source:store.source,enabled:true,stock:true,price:true,images:true,orders:true}];plan.warehouseCode='MAIN';plan.schedules=plan.schedules.map(s=>({...s,enabled:['catalog','stock','price','images','orders'].includes(s.task)}));
+  plan.targets=[{storeId:store.id,source:store.source,enabled:true,stock:true,price:true,images:true,orders:true}];plan.warehouseCode='MAIN';plan.safetyStock=2;plan.schedules=plan.schedules.map(s=>({...s,enabled:['catalog','stock','price','images','orders','wms-reservations'].includes(s.task)}));
   assert.equal((await api('sync/enterprise/plan',{...plan,fulfillmentMode:'nebim-integrated',schedules:plan.schedules.map(s=>s.task==='wms-orders'?{...s,enabled:true}:s)},'PUT')).status,400);
   assert.equal((await api('sync/enterprise/plan',{...plan,schedules:plan.schedules.map(s=>s.task==='wms-orders'?{...s,enabled:true}:s)},'PUT')).status,400);
   assert.equal((await api('sync/enterprise/plan',{...plan,schedules:plan.schedules.map(s=>({...s,intervalSeconds:1}))},'PUT')).status,400);
   assert.equal((await api('sync/enterprise/plan',{...plan,schedules:plan.schedules.map((s,i)=>i===0?{...s,task:null}:s)},'PUT')).status,400);
+  assert.equal((await api('sync/enterprise/plan',{...plan,schedules:plan.schedules.map(s=>s.task==='wms-reservations'?{...s,enabled:false}:s)},'PUT')).status,400,'active WMS stock publishing must include reservation snapshots');
   assert.equal((await api('sync/enterprise/plan',plan,'PUT')).status,200);
   assert.equal((await api('sync/enterprise/plan',{...plan,fulfillmentMode:'disabled',stockAuthority:'wms'},'PUT')).status,400);
   assert.equal((await api('sync/enterprise/plan',{...plan,stockAuthority:'wms'},'PUT')).status,200);
+  assert.equal((await api('sync/enterprise')).body.ownershipPolicies.find(policy=>policy.field==='PhysicalStock').owner,'Wms','the configured WMS authority must be visible to users');
   await api('sync/enterprise/run',{task:'stock'});
   await until(async()=>(await api('sync/enterprise')).body.tasks.some(t=>t.task==='stock'&&t.state==='blocked'));
   assert.equal((await api('sync/enterprise')).body.jobs.filter(j=>j.kind==='stock').length,0,'WMS stock must not be sent before its first successful source read');
@@ -67,6 +70,50 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   await until(async()=>{const w=(await api('integrations/demo/connections/trendyol/workspace')).body;return w.products.find(p=>p.barcode===item.barcode)?.salePrice===510;});
   const untouched=(await api('integrations/demo/connections/hepsiburada/workspace')).body;assert.equal(untouched.products.find(p=>p.barcode===item.barcode).stock,32,'unselected store must remain untouched');
   assert(received.some(r=>r.path==='/v1/product-images'&&r.payload.images[0]===item.images[0]));
+  const erpPlan=(await api('sync/enterprise')).body.plan,wmsPlan={...erpPlan,stockAuthority:'wms',schedules:erpPlan.schedules.map(schedule=>({...schedule,enabled:['stock','wms-stock','wms-reservations'].includes(schedule.task)}))};
+  assert.equal((await api('sync/enterprise/plan',wmsPlan,'PUT')).status,200);await api('sync/enterprise/run',{task:'wms-stock'});
+  await until(async()=>{const task=(await api('sync/enterprise')).body.tasks.find(row=>row.task==='wms-stock');return task.state==='completed'&&task.lastRunAt;});
+  let stockProduct=(await api('catalog/products?search='+item.sku)).body.items[0].product;
+  assert.equal(stockProduct.stock,19);assert.equal(stockProduct.stockState,'Known');assert(stockProduct.externalReferences.some(reference=>reference.system==='Wms'&&reference.entityType==='physical-stock'));
+  const wmsTask=()=>api('sync/enterprise').then(response=>response.body.tasks.find(row=>row.task==='wms-stock'));
+  const priorWmsRun=(await wmsTask()).lastRunAt;wmsStock=18;await api('sync/enterprise/run',{task:'wms-stock'});
+  await until(async()=>{const task=await wmsTask();return task.lastRunAt!==priorWmsRun&&task.state==='blocked';});
+  stockProduct=(await api('catalog/products?search='+item.sku)).body.items[0].product;assert.equal(stockProduct.stock,19,'same WMS revision with different stock must be blocked');
+  const blockedWmsRun=(await wmsTask()).lastRunAt;wmsVersion=2;wmsUpdatedAt='2026-10-29T00:01:00Z';await api('sync/enterprise/run',{task:'wms-stock'});
+  await until(async()=>{const task=await wmsTask();return task.lastRunAt!==blockedWmsRun&&task.state==='completed';});
+  stockProduct=(await api('catalog/products?search='+item.sku)).body.items[0].product;assert.equal(stockProduct.stock,18,'a newer authoritative WMS revision should apply');
+  const reservationTask=()=>api('sync/enterprise').then(response=>response.body.tasks.find(row=>row.task==='wms-reservations'));
+  async function runReservations(expectedState){const prior=(await reservationTask()).lastRunAt;await api('sync/enterprise/run',{task:'wms-reservations'});await until(async()=>{const task=await reservationTask();return task.lastRunAt!==prior&&task.state===expectedState;});}
+  await runReservations('completed');
+  stockProduct=(await api('catalog/products?search='+item.sku)).body.items[0].product;
+  assert.equal(stockProduct.reservationState,'Known');assert.equal(stockProduct.reservedQuantity,3);
+  assert.equal(stockProduct.sellableStockState,'Known');assert.equal(stockProduct.sellableStock,13,'sellable stock must subtract WMS reservations and configured safety stock from physical stock');
+  const duplicateVersion=stockProduct.version;await runReservations('completed');
+  stockProduct=(await api('catalog/products?search='+item.sku)).body.items[0].product;assert.equal(stockProduct.version,duplicateVersion,'identical reservation replay must be idempotent');
+  wmsReservations=[{...wmsReservations[0],reservedQuantity:99,sourceVersion:0}];await runReservations('blocked');
+  stockProduct=(await api('catalog/products?search='+item.sku)).body.items[0].product;assert.equal(stockProduct.reservedQuantity,3,'stale reservation snapshot must not overwrite the current balance');
+  wmsReservations=[{...wmsReservations[0],reservedQuantity:4}];await runReservations('blocked');
+  stockProduct=(await api('catalog/products?search='+item.sku)).body.items[0].product;assert.equal(stockProduct.reservedQuantity,3,'conflicting content at an equal source revision must be blocked');
+  wmsReservations=[{...wmsReservations[0],reservedQuantity:4,sourceVersion:null,sourceUpdatedAt:null}];await runReservations('blocked');
+  stockProduct=(await api('catalog/products?search='+item.sku)).body.items[0].product;assert.equal(stockProduct.reservedQuantity,3,'unordered reservation change must not overwrite the current balance');
+  wmsReservations=[{...wmsReservations[0],warehouseCode:'SECONDARY',reservedQuantity:0,sourceVersion:2,sourceUpdatedAt:'2026-10-29T00:02:00Z'}];await runReservations('blocked');
+  stockProduct=(await api('catalog/products?search='+item.sku)).body.items[0].product;assert.equal(stockProduct.reservedQuantity,3,'wrong-warehouse reservation must not be applied');
+  wmsReservations=[{...wmsReservations[0],warehouseCode:'MAIN',reservedQuantity:0,sourceVersion:2}];await runReservations('completed');
+  stockProduct=(await api('catalog/products?search='+item.sku)).body.items[0].product;
+  assert.equal(stockProduct.reservationState,'Known');assert.equal(stockProduct.reservedQuantity,0);assert.equal(stockProduct.sellableStock,16,'a known zero reservation is different from missing data');
+  wmsReservations=[];await runReservations('completed');
+  stockProduct=(await api('catalog/products?search='+item.sku)).body.items[0].product;assert.equal(stockProduct.reservedQuantity,0,'an omitted reservation row must preserve the prior balance');
+  wmsReservations=[{...wmsReservations[0],barcode:item.barcode,warehouseCode:'MAIN',reservedQuantity:null,sourceVersion:3,sourceUpdatedAt:'2026-10-29T00:03:00Z'}];await runReservations('completed');
+  stockProduct=(await api('catalog/products?search='+item.sku)).body.items[0].product;
+  assert.equal(stockProduct.reservationState,'Unknown');assert.equal(stockProduct.sellableStockState,'Unknown');assert.equal(stockProduct.sellableStock,null,'unknown reservation must not be exposed as zero sellable stock');
+  wmsReservations=[{barcode:item.barcode,warehouseCode:'MAIN',reservedQuantity:4,sourceVersion:4,sourceUpdatedAt:'2026-10-29T00:04:00Z'}];await runReservations('completed');
+  stockProduct=(await api('catalog/products?search='+item.sku)).body.items[0].product;assert.equal(stockProduct.sellableStock,12);
+  const priorStockRun=(await api('sync/enterprise')).body.tasks.find(row=>row.task==='stock').lastRunAt;
+  await api('sync/enterprise/run',{task:'stock'});
+  await until(async()=>{const task=(await api('sync/enterprise')).body.tasks.find(row=>row.task==='stock');return task.lastRunAt!==priorStockRun&&task.state==='completed';});
+  const publishedJobs=(await api('sync/enterprise')).body.jobs.filter(job=>job.kind==='stock'&&job.reference===stockProduct.id);
+  assert(publishedJobs.some(job=>job.state==='completed'),'known reservation snapshots should allow sellable stock publication');
+  assert.equal((await api('sync/enterprise/plan',erpPlan,'PUT')).status,200);
   await api('sync/enterprise/run',{task:'erp-orders'});
   await until(async()=>received.some(r=>r.path==='/v1/orders'));
   await until(async()=>(await api('sync/enterprise')).body.jobs.some(j=>j.kind==='erp-order'&&j.state==='uncertain'));

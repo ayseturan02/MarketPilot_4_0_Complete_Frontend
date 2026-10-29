@@ -1,7 +1,10 @@
+using MarketPilot.Web.Catalog;
+
 namespace MarketPilot.Web.Workspace;
 
 public sealed class WorkspaceRecord
 {
+    public List<ExternalReference> ExternalReferences { get; set; } = [];
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Kind { get; set; } = "invoice";
     public string OrderId { get; set; } = "";

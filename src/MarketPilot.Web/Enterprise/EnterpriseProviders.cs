@@ -8,6 +8,7 @@ public interface IErpCatalogProvider
 public interface IWmsProvider
 {
     Task<ErpItem[]> ReadStockAsync(string warehouseCode, string priceListCode, CancellationToken cancellationToken);
+    Task<WmsReservationSnapshot[]> ReadReservationsAsync(string warehouseCode, string priceListCode, CancellationToken cancellationToken);
     Task<WmsDispatch[]> ReadDispatchesAsync(string warehouseCode, string priceListCode, CancellationToken cancellationToken);
 }
 
@@ -26,6 +27,9 @@ public sealed class WmsBridgeProvider(EnterpriseBridge bridge) : IWmsProvider
 {
     public Task<ErpItem[]> ReadStockAsync(string warehouseCode, string priceListCode, CancellationToken cancellationToken) =>
         bridge.ReadAll<ErpItem>("wms", "stock", warehouseCode, priceListCode, cancellationToken);
+
+    public Task<WmsReservationSnapshot[]> ReadReservationsAsync(string warehouseCode, string priceListCode, CancellationToken cancellationToken) =>
+        bridge.ReadAll<WmsReservationSnapshot>("wms", "reservations", warehouseCode, priceListCode, cancellationToken);
 
     public Task<WmsDispatch[]> ReadDispatchesAsync(string warehouseCode, string priceListCode, CancellationToken cancellationToken) =>
         bridge.ReadAll<WmsDispatch>("wms", "dispatches", warehouseCode, priceListCode, cancellationToken);

@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.RateLimiting;
+using MarketPilot.Web.Catalog;
 using MarketPilot.Web.Integrations;
 using MarketPilot.Web.Local;
 using Microsoft.AspNetCore.RateLimiting;
@@ -46,7 +47,7 @@ public static class EnterpriseEndpoints
         var body=buffer.ToArray();var signed=Encoding.UTF8.GetBytes(stamp+".").Concat(body).ToArray();var expected=HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret),signed);
         byte[] supplied;try{supplied=Convert.FromHexString(context.Request.Headers["X-ERP-Signature"].ToString());}catch(FormatException){return Results.StatusCode(401);}
         if(!CryptographicOperations.FixedTimeEquals(expected,supplied))return Results.StatusCode(401);
-        try{var batch=JsonSerializer.Deserialize<ErpCatalogBatch>(body,new JsonSerializerOptions(JsonSerializerDefaults.Web));if(batch==null)return Results.BadRequest(new{error="Kaynak bildirimi boş."});var result=catalog.Import(batch,sync.Plan.StockAuthority=="wms");sync.CatalogReceived();return Results.Ok(result);}
+        try{var batch=JsonSerializer.Deserialize<ErpCatalogBatch>(body,new JsonSerializerOptions(JsonSerializerDefaults.Web));if(batch==null)return Results.BadRequest(new{error="Kaynak bildirimi boş."});var plan=sync.Plan;var result=catalog.Import(batch,plan.StockAuthority=="wms"?SourceSystem.Wms:SourceSystem.NebimV3,plan.WarehouseCode);sync.CatalogReceived();return Results.Ok(result);}
         catch(JsonException){return Results.BadRequest(new{error="Kaynak bildirimi biçimi geçersiz."});}
         catch(ArgumentException e){return Results.BadRequest(new{error=e.Message});}
         catch(IntegrationException e){return Results.Json(new{error=e.Message},statusCode:e.Status);}

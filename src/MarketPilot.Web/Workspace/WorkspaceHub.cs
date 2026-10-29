@@ -112,6 +112,8 @@ public sealed class WorkspaceHub(DemoStore db, OperationsHub operations, Integra
             if (input.Kind is "refund" or "credit_note" && s.WorkspaceRecords.Where(r => r.Kind == input.Kind && r.OrderId == order.Id && r.Status != "cancelled").Sum(r => r.Amount ?? 0) + input.Amount > order.Total) throw Error("Toplam iade talebi sipariş tutarını aşamaz.");
             var record = new WorkspaceRecord { Kind = input.Kind, OrderId = order.Id, Source = Source(order), Number = string.IsNullOrWhiteSpace(input.Number) ? "YEREL-" + Guid.NewGuid().ToString("N")[..10].ToUpperInvariant() : input.Number.Trim(),
                 Note = input.Note?.Trim() ?? "", Status = input.Kind is "invoice" or "credit_note" ? "draft" : "open", Amount = input.Kind is "refund" or "credit_note" ? input.Amount : order.TotalKnown ? order.Total : null, Currency = order.Currency, RequestId = input.RequestId, Fingerprint = fingerprint };
+            record.ExternalReferences.Add(new(SourceSystem.MarketPilot, "local-" + (input.Kind == "invoice" ? "invoice-draft" : input.Kind + "-request"),
+                input.RequestId, record.Version, record.CreatedAt, record.CreatedAt, fingerprint));
             s.WorkspaceRecords.Insert(0, record); db.Event(s, "Ortak işlem kaydı oluşturuldu", record.Number + " · " + (order.ChannelOrderNumber.Length > 0 ? order.ChannelOrderNumber : order.Id)); return record;
         });
     }
@@ -129,7 +131,12 @@ public sealed class WorkspaceHub(DemoStore db, OperationsHub operations, Integra
             var record = s.WorkspaceRecords.First(r => r.Id == id);
             if (input.Version != record.Version) throw Error("Kayıt başka bir ekranda değişti; yenileyin.", 409);
             var next = input.Action switch { "archive" when record.Status == "draft" => "archived", "close" when record.Status == "open" => "closed", "cancel" when record.Status is "draft" or "open" => "cancelled", _ => throw Error("Bu durum değişikliği uygulanamaz.") };
-            record.Status = next; record.Version++; s.WorkspaceActions[input.RequestId]=actionKey; db.Event(s, "Ortak işlem kaydı güncellendi", record.Number + " · " + next); return new { ok = true };
+            record.Status = next; record.Version++;
+            var updatedAt = DateTimeOffset.UtcNow;
+            record.ExternalReferences.RemoveAll(reference => reference.System == SourceSystem.MarketPilot);
+            record.ExternalReferences.Add(new(SourceSystem.MarketPilot, "local-" + (record.Kind == "invoice" ? "invoice-draft" : record.Kind + "-request"),
+                record.RequestId, record.Version, updatedAt, updatedAt, Fingerprint(new { record.Status, record.Version, record.Fingerprint })));
+            s.WorkspaceActions[input.RequestId]=actionKey; db.Event(s, "Ortak işlem kaydı güncellendi", record.Number + " · " + next); return new { ok = true };
         });
         if (row.Kind == "order" && row.StoreId.Length == 0 && input.Action == "advance") return db.Modify(s => {
             if(s.WorkspaceActions.TryGetValue(input.RequestId,out var saved)){if(saved!=actionKey)throw Error("İşlem kimliği farklı işlemde kullanılmış.",409);return new {ok=true};}

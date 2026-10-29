@@ -18,7 +18,7 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   const modules=['picking','labels','tracking','returns','refunds','invoices','invoice_drafts','efatura','invoice_archive','invoice_matching','credit_notes','payments','reconciliation','marketplace_rules','messages'];
   for(const module of modules){const data=await view(module);assert(data.items.length<=100);assert(!JSON.stringify(data).includes('Taslak-001'),'static example records must not appear');}
   assert.equal((await api('workspace/views/invalid')).status,404);assert.equal((await api('workspace/views/invoices?size=101')).status,400);
-  const created=await sourceProduct(base,{name:'Shared workflow product',sku:'SHARED-WORKFLOW',category:'Giyim / Tişört',price:200,stock:40,channels:[]});assert.equal(created.status,200);
+  const created=await sourceProduct(base,{name:'Shared workflow product',sku:'SHARED-WORKFLOW',category:'Giyim / Tişört',price:200,stock:40,warehouseCode:'MAIN',currency:'TRY',vatIncluded:true,channels:[]});assert.equal(created.status,200);
   const product=created.body,initialOverview=(await api('overview')).body;
   const draft={customer:'Shared customer',channel:'Yerel satış',requestId:randomUUID(),lines:[{productId:product.id,quantity:3}]};
   const order=(await api('workspace/orders',{body:draft})).body;assert(order.id,JSON.stringify(order));assert.equal(order.total,600);assert.equal(order.lines[0].productId,product.id);
@@ -90,14 +90,14 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   // Another client edits a product while this client views profitability.
   await page.evaluate(()=>nav('profit'));await page.waitForFunction(id=>axState.profit?.products.some(p=>p.id===id),product.id);
   await api('analytics/costs/'+product.id,{method:'PUT',body:{unitCost:100,commissionRate:0,shippingCost:0,otherCost:0,currency:'TRY'}});
-  await sourceProduct(base,{...product,price:250});
+  await sourceProduct(base,{...product,price:250,warehouseCode:'MAIN'});
   await page.waitForFunction(id=>axState.profit?.products.find(p=>p.id===id)?.margin===150,product.id,{timeout:15000});
   await page.evaluate(()=>nav('settings'));await page.locator('[data-analysis=settings] input[name=businessName]').fill('Do not erase my edit');
-  await page.locator('[data-analysis=settings] input[name=businessName]').blur();await sourceProduct(base,{...product,price:251});await page.waitForTimeout(3000);
+  await page.locator('[data-analysis=settings] input[name=businessName]').blur();await sourceProduct(base,{...product,price:251,warehouseCode:'MAIN'});await page.waitForTimeout(3000);
   assert.equal(await page.locator('[data-analysis=settings] input[name=businessName]').inputValue(),'Do not erase my edit');
   await page.getByRole('button',{name:'Ayarları kaydet',exact:true}).click();await page.waitForFunction(()=>data.settings.businessName==='Do not erase my edit');
   await page.evaluate(()=>nav('products'));await page.locator('.ch-body .ty-business-table').waitFor();await page.locator('.content .lf-filter-form input[name=search]').fill('SHARED-WORKFLOW');await page.getByRole('button',{name:'Filtrele',exact:true}).click();await page.locator('.ch-body .ty-business-table').waitFor();assert.equal(await page.locator('.lf-filter-form').getAttribute('data-workspace-dirty'),null,'catalog filters must not block live updates');
-  await sourceProduct(base,{...product,price:251,stock:39});await page.waitForFunction(()=>chState().result?.items.length===1&&chState().result.items[0].product.stock===39,{},{timeout:15000});
+  await sourceProduct(base,{...product,price:251,stock:39,warehouseCode:'MAIN'});await page.waitForFunction(()=>chState().result?.items.length===1&&chState().result.items[0].product.stock===39,{},{timeout:15000});
   assert.equal(await page.locator('.content .lf-filter-form input[name=search]').inputValue(),'SHARED-WORKFLOW','live refresh must preserve filters');
   const newerStore=(await api('integrations/connections',{body:{name:'Second shared outlet',marketplace:'boyner',mode:'demo',environment:'stage'}})).body;
   await page.waitForFunction(id=>data['integrations/connections'].some(c=>c.id===id),newerStore.id,{timeout:15000});
@@ -107,7 +107,7 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   await setupForm.locator('input[name=password]').fill('Draft-password-2026');await setupForm.locator('input[name=confirmation]').fill('Draft-password-2026');
   const rejectedSetup=page.waitForResponse(r=>r.url().endsWith('/api/access/setup')&&r.request().method()==='POST');
   await setupForm.getByRole('button',{name:'Yönetici hesabını oluştur',exact:true}).click();assert.equal((await rejectedSetup).status(),400);
-  await sourceProduct(base,{...product,price:252});await page.waitForTimeout(5500);
+  await sourceProduct(base,{...product,price:252,warehouseCode:'MAIN'});await page.waitForTimeout(5500);
   assert.equal(await setupForm.locator('input[name=name]').inputValue(),'Invalid account name','a rejected form must survive unrelated refreshes');
   assert.deepEqual(errors,[]);
   const admin=await api('access/setup',{body:{name:'whole-admin',password:'Whole-test-password-2026'}});

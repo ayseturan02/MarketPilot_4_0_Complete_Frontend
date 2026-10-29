@@ -1,3 +1,5 @@
+using MarketPilot.Web.Catalog;
+
 namespace MarketPilot.Web.Enterprise;
 
 public static class DemoErpCatalogFixture
@@ -10,14 +12,14 @@ public static class DemoErpCatalogFixture
 
     private static readonly ErpItem[] Items =
     [
-        new("TSH-EKR-S", "8691000000001", "Pamuklu Oversize Tişört · Ekru / S", 36, 449, "TRY", Category: "Giyim / Günlük Koleksiyon", Brand: "İnternet Tekstil", Description: "Demo ERP ürün kaydı."),
-        new("TSH-EKR-M", "8691000000002", "Pamuklu Oversize Tişört · Ekru / M", 18, 449, "TRY", Category: "Giyim / Günlük Koleksiyon", Brand: "İnternet Tekstil", Description: "Demo ERP ürün kaydı."),
-        new("TSH-SYH-M", "8691000000003", "Pamuklu Oversize Tişört · Siyah / M", 0, 449, "TRY", Category: "Giyim / Günlük Koleksiyon", Brand: "İnternet Tekstil", Description: "Demo ERP ürün kaydı."),
-        new("GML-TS-L", "8691000000004", "Keten Gömlek · Taş / L", 12, 899, "TRY", Category: "Giyim / Günlük Koleksiyon", Brand: "İnternet Tekstil", Description: "Demo ERP ürün kaydı."),
-        new("PNT-BEJ-38", "8691000000005", "Dokuma Pantolon · Bej / 38", 7, 1099, "TRY", Category: "Giyim / Günlük Koleksiyon", Brand: "İnternet Tekstil", Description: "Demo ERP ürün kaydı."),
-        new("SWT-GRI-M", "8691000000006", "Fermuarlı Sweatshirt · Gri / M", 24, 799, "TRY", Category: "Giyim / Günlük Koleksiyon", Brand: "İnternet Tekstil", Description: "Demo ERP ürün kaydı."),
-        new("HRK-KHV-ST", "8691000000007", "Triko Hırka · Kahve / Standart", 9, 1199, "TRY", Category: "Giyim / Günlük Koleksiyon", Brand: "İnternet Tekstil", Description: "Demo ERP ürün kaydı."),
-        new("TSH-LCV-L", "8691000000008", "Çizgili Tişört · Lacivert / L", 16, 499, "TRY", Category: "Giyim / Günlük Koleksiyon", Brand: "İnternet Tekstil", Description: "Demo ERP ürün kaydı.")
+        new("TSH-EKR-S", "8691000000001", "Pamuklu Oversize Tişört · Ekru / S", 36, 449, "TRY", Category: "Giyim / Günlük Koleksiyon", Brand: "İnternet Tekstil", Description: "Demo ERP ürün kaydı.", WarehouseCode: "MAIN", VatIncluded: true),
+        new("TSH-EKR-M", "8691000000002", "Pamuklu Oversize Tişört · Ekru / M", 18, 449, "TRY", Category: "Giyim / Günlük Koleksiyon", Brand: "İnternet Tekstil", Description: "Demo ERP ürün kaydı.", WarehouseCode: "MAIN", VatIncluded: true),
+        new("TSH-SYH-M", "8691000000003", "Pamuklu Oversize Tişört · Siyah / M", 0, 449, "TRY", Category: "Giyim / Günlük Koleksiyon", Brand: "İnternet Tekstil", Description: "Demo ERP ürün kaydı.", WarehouseCode: "MAIN", VatIncluded: true),
+        new("GML-TS-L", "8691000000004", "Keten Gömlek · Taş / L", 12, 899, "TRY", Category: "Giyim / Günlük Koleksiyon", Brand: "İnternet Tekstil", Description: "Demo ERP ürün kaydı.", WarehouseCode: "MAIN", VatIncluded: true),
+        new("PNT-BEJ-38", "8691000000005", "Dokuma Pantolon · Bej / 38", 7, 1099, "TRY", Category: "Giyim / Günlük Koleksiyon", Brand: "İnternet Tekstil", Description: "Demo ERP ürün kaydı.", WarehouseCode: "MAIN", VatIncluded: true),
+        new("SWT-GRI-M", "8691000000006", "Fermuarlı Sweatshirt · Gri / M", 24, 799, "TRY", Category: "Giyim / Günlük Koleksiyon", Brand: "İnternet Tekstil", Description: "Demo ERP ürün kaydı.", WarehouseCode: "MAIN", VatIncluded: true),
+        new("HRK-KHV-ST", "8691000000007", "Triko Hırka · Kahve / Standart", 9, 1199, "TRY", Category: "Giyim / Günlük Koleksiyon", Brand: "İnternet Tekstil", Description: "Demo ERP ürün kaydı.", WarehouseCode: "MAIN", VatIncluded: true),
+        new("TSH-LCV-L", "8691000000008", "Çizgili Tişört · Lacivert / L", 16, 499, "TRY", Category: "Giyim / Günlük Koleksiyon", Brand: "İnternet Tekstil", Description: "Demo ERP ürün kaydı.", WarehouseCode: "MAIN", VatIncluded: true)
     ];
 
     public static void Apply(Database database)
@@ -49,7 +51,7 @@ public static class DemoErpCatalogFixture
 
             var changed = product.SourceSystem != "nebim-v3" || product.Name != item.Name || product.Sku != item.Sku ||
                 product.Barcode != item.Barcode || product.Category != item.Category || product.Brand != item.Brand ||
-                product.Description != item.Description || product.Stock != item.Stock || product.StockKnown != item.Stock.HasValue ||
+                product.Description != item.Description || product.Stock != item.Stock || product.StockKnown != item.Stock.HasValue || product.StockState != (item.Stock.HasValue ? StockValueState.Known : StockValueState.Unknown) ||
                 product.Price != item.Price || product.PriceKnown != item.Price.HasValue || product.Currency != item.Currency ||
                 product.VatIncluded != item.VatIncluded || product.SourceMode != "demo";
             product.SourceSystem = "nebim-v3";
@@ -62,6 +64,7 @@ public static class DemoErpCatalogFixture
             product.Description = item.Description ?? "";
             product.Stock = item.Stock ?? 0;
             product.StockKnown = item.Stock.HasValue;
+            product.StockState = item.Stock.HasValue ? StockValueState.Known : StockValueState.Unknown;
             product.Price = item.Price ?? 0;
             product.PriceKnown = item.Price.HasValue;
             product.Currency = item.Currency;

@@ -18,9 +18,11 @@ public static class EnterpriseReadiness
         Add("erp-source",bridge.Configured("erp")||!string.IsNullOrWhiteSpace(config["Enterprise:Erp:InboundKey"]),"ERP okuma bağlantısı veya imzalı katalog bildirimi tanımlanmalı.");
         foreach(var schedule in plan.Schedules.Where(s=>s.Enabled))
         {
-            var connector=schedule.Task switch {"catalog" or "erp-orders"=>"erp","wms-stock" or "wms-orders" or "wms-dispatches"=>"wms","cargo-create" or "shipments"=>"cargo",_=>null};
+            var connector=schedule.Task switch {"catalog" or "erp-orders"=>"erp","wms-stock" or "wms-reservations" or "wms-orders" or "wms-dispatches"=>"wms","cargo-create" or "shipments"=>"cargo",_=>null};
             if(connector!=null)Add("task:"+schedule.Task,schedule.Task is "erp-orders" or "wms-orders" or "cargo-create"?bridge.Writes(connector):bridge.Configured(connector),"Görev için bağlantı ve gerekiyorsa yazma izni: "+schedule.Task);
         }
+        if(plan.FulfillmentMode!="disabled"&&plan.Schedules.Any(s=>s.Task=="stock"&&s.Enabled))
+            Add("reservation-snapshot",plan.Schedules.Any(s=>s.Task=="wms-reservations"&&s.Enabled),"WMS topolojisinde stok yayınlamadan önce rezervasyon snapshot'ı plana eklenmeli.");
         if(plan.StockAuthority=="wms")Add("wms-stock",plan.Schedules.Any(s=>s.Task=="wms-stock"&&s.Enabled),"Stok sahibi WMS ise WMS stok alımı plana dahil edilmeli.");
         if(plan.Schedules.Any(s=>s.Task=="cargo-create"&&s.Enabled))Add("packing",plan.Schedules.Any(s=>s.Task=="wms-dispatches"&&s.Enabled),"Kargo oluşturmadan önce WMS paket onayı alınmalı.");
         foreach(var target in selected)

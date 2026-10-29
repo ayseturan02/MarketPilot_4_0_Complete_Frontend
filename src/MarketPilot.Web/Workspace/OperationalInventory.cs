@@ -8,9 +8,20 @@ public static class OperationalInventory
 {
     public static bool Active(InventoryHold h)=>h.State is "held" or "awaiting-source" or "awaiting-replacement"&&(!h.ExpiresAt.HasValue||h.ExpiresAt>DateTimeOffset.UtcNow);
     private static decimal FamilyQuantity(IEnumerable<InventoryHold> holds)=>Math.Max(holds.Where(h=>h.State=="awaiting-replacement").Sum(h=>(decimal)h.Quantity),holds.Where(h=>h.State!="awaiting-replacement").Sum(h=>(decimal)h.Quantity));
-    public static decimal Reserved(Database s,string productId,string? except=null)=>s.Operations.Holds.Where(h=>h.ProductId==productId&&h.Id!=except&&Active(h)).GroupBy(h=>new{h.StoreId,h.Source,h.AccountIdentity,h.OrderNumber}).Sum(FamilyQuantity);
+    public static decimal Reserved(Database s,string productId,string? except=null)
+    {
+        var operational=s.Operations.Holds.Where(h=>h.ProductId==productId&&h.Id!=except&&Active(h)).GroupBy(h=>new{h.StoreId,h.Source,h.AccountIdentity,h.OrderNumber}).Sum(FamilyQuantity);
+        var product=s.Products.FirstOrDefault(row=>row.Id==productId);
+        return product?.ReservationState==StockValueState.Known?Math.Max(operational,product.ReservedQuantity):operational;
+    }
     public static Dictionary<string,decimal> Totals(Database s)=>s.Operations.Holds.Where(Active).GroupBy(h=>h.ProductId).ToDictionary(g=>g.Key,g=>g.GroupBy(h=>new{h.StoreId,h.Source,h.AccountIdentity,h.OrderNumber}).Sum(FamilyQuantity));
-    public static decimal Available(Database s,Product p,string? except=null)=>Math.Max(0,p.Stock-Reserved(s,p.Id,except));
+    public static decimal? Sellable(Database s,Product p,bool requireReservationSnapshot=false,string? except=null,int safetyStock=0)
+    {
+        if(!p.StockKnown||p.ReservationState==StockValueState.Unknown||
+            requireReservationSnapshot&&p.ReservationState!=StockValueState.Known)return null;
+        return Math.Max(0,p.Stock-Reserved(s,p.Id,except)-safetyStock);
+    }
+    public static decimal Available(Database s,Product p,string? except=null)=>Sellable(s,p)??0;
     public static string LineId(OperationLine l)=>!string.IsNullOrWhiteSpace(l.NativeLineId)?l.NativeLineId:l.ProductId??l.Barcode;
     public static void Observe(Database s,ConnectionState store,IEnumerable<MarketplaceOrder> orders,string accountIdentity="")
     {

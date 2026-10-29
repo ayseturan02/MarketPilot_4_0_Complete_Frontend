@@ -1,8 +1,13 @@
+using MarketPilot.Web.Catalog;
+
 namespace MarketPilot.Web.Enterprise;
 
 public sealed record ErpItem(string Sku, string Barcode, string Name, decimal? Stock, decimal? Price, string Currency,
-    string[]? Images = null, string? Category = null, string? Brand = null, string? Description = null, string? WarehouseCode = null, bool? VatIncluded = true,[property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] MarketPilot.Web.Workspace.StockAcknowledgement[]? StockAcknowledgements=null);
+    string[]? Images = null, string? Category = null, string? Brand = null, string? Description = null, string? WarehouseCode = null, bool? VatIncluded = null,[property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] MarketPilot.Web.Workspace.StockAcknowledgement[]? StockAcknowledgements=null,
+    string? SourceEntityId = null, long? SourceVersion = null, DateTimeOffset? SourceUpdatedAt = null, StockValue? Inventory = null,
+    string? VariantId = null, Dictionary<string, string>? Attributes = null);
 public sealed record ErpCatalogBatch(string RequestId, ErpItem[] Items,[property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] MarketPilot.Web.Workspace.StockAcknowledgement[]? StockAcknowledgements=null);
+public sealed record WmsReservationSnapshot(string Barcode, string WarehouseCode, decimal? ReservedQuantity, long? SourceVersion, DateTimeOffset? SourceUpdatedAt);
 public sealed class ErpReceipt
 {
     public string Hash { get; set; } = "";
@@ -21,7 +26,7 @@ public sealed class EnterprisePlan
     public int LookbackDays { get; set; } = 2;
     public SyncTarget[] Targets { get; set; } = [];
     public SyncSchedule[] Schedules { get; set; } = Defaults();
-    public static SyncSchedule[] Defaults() => [new("catalog",false,900),new("listings",false,900),new("stock",false,60),new("price",false,300),new("images",false,3600),new("orders",false,60),new("erp-orders",false,60),new("wms-orders",false,60),new("wms-stock",false,60),new("wms-dispatches",false,60),new("cargo-create",false,60),new("shipments",false,60)];
+    public static SyncSchedule[] Defaults() => [new("catalog",false,900),new("listings",false,900),new("stock",false,60),new("price",false,300),new("images",false,3600),new("orders",false,60),new("erp-orders",false,60),new("wms-orders",false,60),new("wms-stock",false,60),new("wms-reservations",false,60),new("wms-dispatches",false,60),new("cargo-create",false,60),new("shipments",false,60)];
 }
 public sealed class EnterpriseTask
 {
@@ -63,6 +68,7 @@ public sealed class EnterpriseState
     public List<EnterpriseJob> Jobs { get; set; } = [];
     public DateTimeOffset? LastCatalogAt { get; set; }
     public DateTimeOffset? LastWmsStockAt { get; set; }
+    public DateTimeOffset? LastWmsReservationAt { get; set; }
     public Dictionary<string,string> Delivered { get; set; } = new();
     public Dictionary<string,WmsDispatch> Dispatches { get; set; } = new();
 }

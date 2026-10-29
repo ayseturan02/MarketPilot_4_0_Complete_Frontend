@@ -28,6 +28,33 @@ MarketPilot is an integration and orchestration layer between Nebim V3, a wareho
 | Picking, packing, dispatch and cargo tracking | WMS/depot and configured cargo provider | Validated against the originating order and channel source before status propagation. |
 | Audit, mappings, queue state, idempotency receipts and retry | MarketPilot | Persisted in the existing JSON demo store; no vendor system becomes a second writer. |
 
+### Field-level ownership and synchronization contract
+
+The executable catalogue is `DataOwnershipPolicy.All`; its `OwnershipField`, `SourceSystem`, `SyncDirection`, and `ConflictResolution` values describe the rules below. A source may be a reader without being a writer. `ExternalReference` carries entity identity, source revision/time, observation time, content hash, and optional warehouse. Product imports and WMS stock updates resolve ownership and ordering before mutating the JSON projection.
+
+| Field | Authority | Readers | Writers | Direction | Conflict policy | Version / source time | Duplicate event | Missing data | User-visible state |
+|---|---|---|---|---|---|---|---|---|---|
+| Product card | Nebim V3 | ERP, MarketPilot, WMS, marketplaces | Nebim V3 | ERP → MarketPilot → marketplaces | ERP wins; non-ERP write is rejected | ERP source version, then source time | Same source content is a no-op | Omitted attributes preserve existing values; no marketplace-created master | ERP received / source update pending |
+| Variant | Nebim V3 | ERP, MarketPilot, WMS, marketplaces | Nebim V3 | ERP → MarketPilot → marketplaces | ERP wins; ambiguous identity is blocked | Variant identity + ERP revision/time | Variant external identity and hash | Missing variant does not delete a known variant | ERP variant mapped / mapping pending |
+| Barcode | Nebim V3 | ERP, MarketPilot, WMS, marketplaces | Nebim V3 | ERP → MarketPilot → marketplaces | Duplicate identity blocks the full batch | ERP product/variant identity + revision/time | Same identity/hash is a no-op | Missing/blank barcode is rejected | Validated / collision blocked |
+| SKU | Nebim V3 | ERP, MarketPilot, WMS, marketplaces | Nebim V3 | ERP → MarketPilot → marketplaces | Duplicate identity blocks the full batch | ERP product/variant identity + revision/time | Same identity/hash is a no-op | Missing/blank SKU is rejected | Validated / collision blocked |
+| Category | Nebim V3 | ERP, MarketPilot, WMS, marketplaces | Nebim V3 | ERP → MarketPilot → marketplace category mapping | ERP wins; channel category is a separate mapping | ERP source revision/time | Same source revision/hash is a no-op | Missing category preserves master data | ERP category received / channel mapping pending |
+| Brand | Nebim V3 | ERP, MarketPilot, WMS, marketplaces | Nebim V3 | ERP → MarketPilot → marketplaces | ERP wins | ERP source revision/time | Same source revision/hash is a no-op | Missing brand preserves master data | ERP brand received |
+| Price | Nebim V3 | ERP, MarketPilot, WMS, marketplaces | Nebim V3 | ERP price list → MarketPilot → marketplaces | ERP wins; currency/list mismatch blocks publishing | Price-list identity + ERP revision/time | Same amount, currency, VAT and revision is a no-op | Null price is unknown; invalid/missing currency is rejected; VAT remains nullable and is never inferred | Received / price, currency or VAT unknown |
+| Physical stock | Explicit plan setting: Nebim V3 **or** WMS | ERP, WMS, MarketPilot, marketplaces | Only the configured authority | Configured source → MarketPilot → marketplaces | Configured authority wins, never arrival order; changing authority requires an explicit plan and fresh source snapshot | Authority + warehouse + source revision/time | Same source/hash is a no-op | `NotProvided` preserves; `Unknown` clears knownness; `Known(0)` is zero | Source known / unknown / conflict blocked |
+| Reservation | WMS (including WMS functions integrated with Nebim) | WMS, ERP, MarketPilot | WMS or Nebim-routed integrated WMS | WMS → MarketPilot | WMS reservation identity/status wins; conflicting reservation identity blocks | Warehouse + barcode + source revision/time | Same content replay is idempotent; same revision with changed content blocks | Missing row preserves the previous balance; explicit unknown does not become zero | Known / unknown / conflict blocked |
+| Sellable stock | MarketPilot-derived | MarketPilot, ERP, WMS, marketplaces | MarketPilot only | Physical stock − effective reservations − configured safety stock → marketplace | Recalculate from configured owners; unknown inputs remain unknown | Input stock and reservation revisions + plan safety-stock value | Same inputs/revisions/policy produce no-op | Any required unknown input blocks calculation/publish | Calculated / source incomplete / publish pending |
+| Order | Marketplace owns the incoming order; ERP owns its sales-order document | Marketplace, MarketPilot, ERP, WMS | Marketplace source; ERP accepts sales order; standalone WMS only after ERP acceptance | Marketplace → MarketPilot → ERP → standalone WMS (or ERP-integrated WMS) | Idempotent by account/order/event; conflicting or unmapped lines block | Marketplace external order ID + source revision/time; ERP acceptance receipt | Replayed event is acknowledged once | Missing identity/lines/mapping blocks; does not delete order | Received / ERP pending / WMS ready / blocked |
+| Shipment | WMS owns package and dispatch; cargo provider owns carrier tracking facts | WMS, cargo, MarketPilot, marketplaces | WMS package/dispatch; cargo tracking update | WMS → MarketPilot → cargo → marketplace | Validate package against order; cargo updates require ordered source time; conflict blocks | Order/package ID + WMS/cargo revision/time | Package and shipment IDs are idempotency keys | No valid WMS package means no cargo creation | Packing / tracking pending / blocked |
+| Return | Marketplace owns the return request; ERP owns financial return/credit; WMS owns physical receipt/inspection | Marketplace, ERP, WMS, MarketPilot | Marketplace request, ERP financial document, WMS receipt/inspection | Marketplace → ERP → WMS → MarketPilot | Separate request, financial acceptance, and physical receipt; mismatch blocks | Return ID + each system's revision/time | Return/event ID is idempotent; stock receipt is a separate event | Missing acceptance or inspection never increases stock | Requested / inspection pending / ERP approval pending |
+| Invoice | Nebim V3 owns the official commercial document | ERP, MarketPilot, marketplace | Nebim V3; marketplace only for its external invoice reference | ERP → MarketPilot → marketplace | ERP document identity wins; amount/currency/VAT mismatch blocks | ERP invoice ID/number + revision/time | ERP invoice ID + order/return idempotency key | Missing financial/tax fields remain unknown; no generated defaults | Received / fields incomplete / order match pending |
+
+`StockValue` represents `NotProvided`, `Unknown`, and `Known` independently; `Known(0)` is never treated as missing. Existing `StockKnown` and numeric `Stock` are kept synchronized for legacy readers. For new source messages, an omitted `Inventory` field preserves the legacy interpretation, while callers can explicitly send `NotProvided`, `Unknown`, or `Known(quantity)`.
+
+WMS reservation snapshots are read through `IWmsProvider` and applied only for the configured standalone or Nebim-integrated topology. A snapshot must identify the configured warehouse and an unambiguous ERP barcode; its source revision/time and content hash are retained in `ExternalReference`. Older snapshots, same-revision conflicts, unordered changes, and wrong-warehouse rows block the complete update. Duplicate content is idempotent. A missing barcode row does not clear or zero an existing reservation. An explicit null reservation quantity sets reservation state to `Unknown`, while a known quantity of zero remains a valid balance. Sellable stock is exposed as unknown until physical stock, required WMS reservation inputs, and the plan's safety-stock value are known; stock publishing in an active WMS topology requires a successful reservation snapshot and applies the same shared inventory calculation shown in the catalog.
+
+For the same owner, newer numeric source revisions win; if revisions are absent, source timestamps are used. A stale revision/time is rejected. Equal revision/time with different content, or changed content without any comparable revision/time, is blocked for reconciliation. Same-content replays are no-ops. This rule is applied within a source only; ERP and WMS values are not compared by arrival time. The configured stock authority decides which source may update the physical-stock projection.
+
 The following ownership leaks were present and are now closed:
 
 - The unused `CatalogHub.Create` operation and its request model could create a non-ERP master product.
@@ -113,7 +140,9 @@ flowchart LR
     ERP --> Validate[Validate warehouse, barcode and quantity]
     WMS --> Validate
     Validate --> Projection[Update ERP-owned product stock projection]
-    Projection --> Available[Apply reservations and safety stock]
+    WMS --> Reservations[Versioned reservation snapshot]
+    Projection --> Available[Physical stock − effective reservations − safety stock]
+    Reservations --> Available
     Available --> Outbox[Queue scoped channel stock update]
     Outbox --> Receipt[Persist receipt, retry and audit state]
 ```
@@ -124,6 +153,7 @@ flowchart LR
 - `nebim-integrated` represents WMS functions owned/routed by Nebim; duplicate standalone `wms-orders` is rejected.
 - `standalone` represents a separate WMS. `wms-orders` only queues an order with a completed ERP acceptance job for the same order, store, and source identity.
 - WMS stock is only selectable when the WMS topology is enabled. WMS stock schedules are rejected if ERP owns stock.
+- A selected stock owner is now enforced on every stock projection update. Source references retain the owner, warehouse, source version/time, and content hash; unordered changed snapshots are rejected.
 - New plans start disabled, with no selected stores and all schedules off. Bridge writes and demo exchange remain independently guarded by server-side configuration.
 - Local demo orders remain available as fixtures, but no longer decrement ERP-owned product stock. Marketplace order status and shipment mutations are accepted only from the configured WMS/cargo flow.
 

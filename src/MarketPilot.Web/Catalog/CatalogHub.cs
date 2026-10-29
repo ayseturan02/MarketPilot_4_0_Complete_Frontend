@@ -1,11 +1,12 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using MarketPilot.Web.Enterprise;
 using MarketPilot.Web.Integrations;
 using MarketPilot.Web.Integrations.Demo;
 
 namespace MarketPilot.Web.Catalog;
-public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registry, DemoWorkspace demo, IServiceProvider? services = null, IConfiguration? configuration = null)
+public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registry, DemoWorkspace demo, IServiceProvider? services = null, IConfiguration? configuration = null,EnterpriseSync? enterpriseSync = null)
 {
     private int initialized;
     private readonly object bootstrapGate = new();
@@ -88,12 +89,13 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
     {
         Ensure();
         var fresh = Fresh();
+        var safetyStock=enterpriseSync?.Plan.SafetyStock??0;
         return db.CatalogRead<ListingPage<CatalogProductRow>>(s =>
         {
             var byProduct = s.Catalog.Listings.Values.GroupBy(l => l.ProductId).ToDictionary(g => g.Key, g => g.ToArray());
             var rows = s.Products.Where(p=>p.SourceSystem==ProductOwnershipPolicy.ErpSource).Where(p => string.IsNullOrWhiteSpace(p.Category) || IsClothingCategory(p.Category)).Where(p => string.IsNullOrWhiteSpace(q.Search) || ListingFilters.Text(p.Name, q.Search) || ListingFilters.Text(p.Sku, q.Search) || ListingFilters.Text(p.Barcode, q.Search)).Where(p => ListingFilters.Exact(p.Status, q.Status) && ListingFilters.Text(p.Category, q.Category) && ListingFilters.Exact(p.SourceMode, q.Mode)).Where(p => string.IsNullOrWhiteSpace(q.StoreId) || byProduct.GetValueOrDefault(p.Id, []).Any(l => l.StoreId == q.StoreId)).Where(p => q.Mapped != "yes" || byProduct.ContainsKey(p.Id)).Where(p => q.Mapped != "no" || !byProduct.ContainsKey(p.Id)).OrderByDescending(p => p.CreatedAt).ThenBy(p => p.Id);
             var total = rows.Count();
-            var items = rows.Skip(q.Page * q.Size).Take(q.Size).Select(p => new CatalogProductRow(Clone(p), byProduct.GetValueOrDefault(p.Id, []).Take(8).Select(fresh).ToArray(), byProduct.GetValueOrDefault(p.Id, []).Length)).ToArray();
+            var items = rows.Skip(q.Page * q.Size).Take(q.Size).Select(p => new CatalogProductRow(Project(s,p,safetyStock), byProduct.GetValueOrDefault(p.Id, []).Take(8).Select(fresh).ToArray(), byProduct.GetValueOrDefault(p.Id, []).Length)).ToArray();
             return new(items, q.Page, q.Size, total, (int)Math.Ceiling(total / (double)q.Size));
         });
     }
@@ -102,19 +104,28 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
     {
         Ensure();
         var fresh = Fresh();
+        var safetyStock=enterpriseSync?.Plan.SafetyStock??0;
         return db.CatalogRead(s =>
         {
             var product = s.Products.FirstOrDefault(p => p.Id == id && p.SourceSystem==ProductOwnershipPolicy.ErpSource) ?? throw new IntegrationException("not_found", "ERP ana ürünü bulunamadı.", 404);
             var links = s.Catalog.Listings.Values.Where(l => l.ProductId == id && (string.IsNullOrWhiteSpace(q.StoreId) || l.StoreId == q.StoreId)).OrderBy(l => l.StoreId).ToArray();
             return (object)new
             {
-                product = Clone(product),
+                product = Project(s,product,safetyStock),
                 listings = new ListingPage<CatalogListing>(links.Skip(q.Page * q.Size).Take(q.Size).Select(fresh).ToArray(), q.Page, q.Size, links.Length, (int)Math.Ceiling(links.Length / (double)q.Size))
             };
         });
     }
 
     private static Product Clone(Product p) => JsonSerializer.Deserialize<Product>(JsonSerializer.Serialize(p))!;
+    private static Product Project(Database s,Product product,int safetyStock)
+    {
+        var projected=Clone(product);
+        projected.SellableStock=MarketPilot.Web.Workspace.OperationalInventory.Sellable(s,product,requireReservationSnapshot:true,safetyStock:safetyStock);
+        projected.SellableStockState=projected.SellableStock.HasValue?StockValueState.Known:
+            !product.StockKnown||product.ReservationState==StockValueState.Unknown?StockValueState.Unknown:StockValueState.NotProvided;
+        return projected;
+    }
     public object Edit(string id, CatalogEdit edit)
     {
         Ensure();

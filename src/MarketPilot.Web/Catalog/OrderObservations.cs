@@ -3,6 +3,9 @@ using MarketPilot.Web.Integrations.Amazon;
 using MarketPilot.Web.Integrations.N11;
 using MarketPilot.Web.Integrations.Boyner;
 using MarketPilot.Web.Integrations.Ticimax;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 namespace MarketPilot.Web.Catalog;
 public sealed record ObservedOrder(string StoreId, string Source, MarketplaceOrder Order, DateTimeOffset ObservedAt, long? SourceVersion = null, string? AccountIdentity = null);
 public sealed partial class OperationsHub
@@ -42,7 +45,16 @@ public sealed partial class OperationsHub
                 var key=legacy!=null&&legacy.AccountIdentity==account?legacyKey:CatalogHub.Key("observed",source+"|"+account+"|"+identity);
                 if(legacy!=null&&legacy.AccountIdentity==account)foreach(var hold in s.Operations.Holds.Where(h=>h.StoreId==store.Id&&h.Source==source&&h.PackageId==identity&&h.AccountIdentity.Length==0))hold.AccountIdentity=account??"";
                 var old=s.Catalog.Orders.GetValueOrDefault(key);
-                if(old?.SourceVersion is {} previous&&(order.LastModifiedDate==null||order.LastModifiedDate<previous))continue;
+                if(old is not null)
+                {
+                    var oldReference=MarketplaceOrderReference(old.Order,old.SourceVersion,old.ObservedAt,identity);
+                    var newReference=MarketplaceOrderReference(order,order.LastModifiedDate,DateTimeOffset.UtcNow,identity);
+                    var decision=DataOwnershipPolicy.Resolve(OwnershipField.Order,SourceSystem.Marketplace,SourceSystem.NebimV3,oldReference,newReference);
+                    if(decision==OwnershipDecision.Stale)throw new IntegrationException("order_stale","Eski pazaryeri sipariş sürümü reddedildi; güncel kaynak kaydı korundu.",409);
+                    if(decision==OwnershipDecision.Conflict)throw new IntegrationException("order_conflict","Sipariş değişikliği kaynak sürümü/zamanı ile sıralanamıyor veya aynı sürümde içeriği farklı; uzlaştırma için bloke edildi.",409);
+                    if(decision==OwnershipDecision.NotOwner)throw new IntegrationException("order_not_owner","Sipariş kaynağı pazaryeri değil; güncelleme bloke edildi.",409);
+                    if(decision==OwnershipDecision.Duplicate&&(!order.LastModifiedDate.HasValue||old.SourceVersion==order.LastModifiedDate))continue;
+                }
                 s.Catalog.Orders[key]=new(store.Id,source,order,DateTimeOffset.UtcNow,order.LastModifiedDate,account);
                 appliedOrders.Add(order);
             }
@@ -50,6 +62,10 @@ public sealed partial class OperationsHub
             return appliedOrders.Count;
         });
     }
+    private static ExternalReference MarketplaceOrderReference(MarketplaceOrder order,long? sourceVersion,DateTimeOffset observedAt,string identity)
+    {
+        var hash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(order))));
+        return new(SourceSystem.Marketplace,"marketplace-order",identity,sourceVersion,null,observedAt,hash);
+    }
     private static string TicimaxStatus(int? s) => s switch { 0 or 1 or 2 or 3 => "Created", 4 or 5 => "Picking", 6 => "Shipped", 7 => "Delivered", 8 => "Cancelled", 9 or 11 or 12 or 13 or 16 or 17 => "Returned", _ => "Bildirilmedi" };
-    private Order Project(ConnectionState store, MarketplaceOrder o, Dictionary<string, string?> links) => new() { Id = CatalogHub.Key(store.Id, "order:" + (o.PackageId.Length > 0 ? o.PackageId : o.OrderNumber)), StoreId = store.Id, PackageId = o.PackageId, ChannelOrderNumber = o.OrderNumber, SourceMode = store.Settings.Mode, Customer = o.CustomerName, Channel = Name(store.Settings.Marketplace), Product = string.Join(" · ", o.Lines.Select(l => l.Name)), Total = o.Total ?? 0, TotalKnown = o.Total.HasValue, Currency = o.Currency, Invoice = o.Invoice, Cargo = o.Cargo, ShipmentAddress = o.ShipmentAddress, CustomerEmail = o.CustomerEmail, SourceIdentity = CatalogHub.Source(store), Quantity = o.Lines.Sum(l => l.Quantity), Status = Status(o.Status), Date = o.OrderDate ?? DateTimeOffset.MinValue, Lines = o.Lines.Select(l => new OperationLine(l.Name, l.Sku, l.Barcode, l.Quantity, l.GrossAmount, links.GetValueOrDefault(store.Id + "|" + l.Barcode),l.Id)).ToArray() };
 }
