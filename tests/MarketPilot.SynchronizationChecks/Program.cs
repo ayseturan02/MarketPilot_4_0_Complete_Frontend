@@ -177,6 +177,38 @@ try
     await fba.RunAsync(default);
     Check(fba.LastRunSucceeded && Quantity(fba, "A") == 9 && fbaSource.Reports.Count == 1, "Amazon-fulfilled lines must not reduce central stock");
 
+    // An unmatched sale blocks distribution until a person marks it as outside the stock application.
+    var (ignore, ignoreOrders, ignoreSource) = await Fresh("ignore", "hepsiburada");
+    ignoreOrders.Rows.Add(OrdersFixture.Order("outside-erp", "NOT-IN-ERP", 1));
+    await ignore.RunAsync(default);
+    Check(!ignore.LastRunSucceeded, "An unmatched sale must stop distribution");
+    ignore.IgnoreUnmatched(View(ignore).GetProperty("unmatched")[0].GetProperty("key").GetString()!);
+    await ignore.RunAsync(default);
+    Check(ignore.LastRunSucceeded && Quantity(ignore, "A") == 10 && ignoreSource.Reports.Count == 0 && View(ignore).GetProperty("unmatchedSales").GetInt32() == 0, "An ignored sale must unblock distribution without a deduction");
+
+    // Two credential profiles of one seller (e.g. old and rotated keys) must read that account once.
+    {
+        var root = Path.Combine(folder, "review-seller"); Directory.CreateDirectory(root);
+        var e = new TestEnvironment { ContentRootPath = root };
+        var sellerConfig = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> {
+            ["Marketplaces:StockSource:BaseUrl"] = "https://fixture.invalid", ["Marketplaces:StockSource:ApiKey"] = "fixture-only-key", ["Marketplaces:StockSource:AllowWrites"] = "true",
+            ["MarketplaceAccounts:old-keys:Marketplace"] = "trendyol", ["MarketplaceAccounts:old-keys:Environment"] = "production", ["MarketplaceAccounts:old-keys:Credentials:SellerId"] = "777",
+            ["MarketplaceAccounts:new-keys:Marketplace"] = "trendyol", ["MarketplaceAccounts:new-keys:Environment"] = "production", ["MarketplaceAccounts:new-keys:Credentials:SellerId"] = "777"
+        }).Build();
+        var r = new IntegrationRegistry(e);
+        r.Connections["seller-old"] = new("seller-old", new("Old keys", "trendyol", "real", "production", "old-keys"), "untested", null, null, null, null, null);
+        r.Connections["seller-new"] = new("seller-new", new("New keys", "trendyol", "real", "production", "new-keys"), "untested", null, null, null, null, null);
+        var src = new SourceFixture(); var orders = new OrdersFixture { Market = "trendyol" };
+        var p = new ServiceCollection().AddSingleton<IConfiguration>(sellerConfig).AddSingleton<IWebHostEnvironment>(e).AddSingleton(TimeProvider.System).AddSingleton<StockOutbox>().AddSingleton(r).AddSingleton(new DemoWorkspace(e))
+            .AddSingleton<IHttpClientFactory>(src).AddTransient<CentralStockSource>().AddSingleton<IMarketplaceAdapter>(orders).BuildServiceProvider();
+        var s = new CentralStockService(e, p, sellerConfig);
+        orders.Rows = [OrdersFixture.Order("seller-seed", "A")];
+        await s.RunAsync(default);
+        orders.Rows.Add(OrdersFixture.Order("seller-sale", "A", 2));
+        await s.RunAsync(default);
+        Check(s.LastRunSucceeded && Quantity(s, "A") == 8 && src.Reports.Count == 1, "Two profiles of one seller must count a sale once");
+    }
+
     Console.WriteLine("PASS synchronization regressions: all pages, alias deduplication, demo/real isolation, unmatched retry, cancellation/return idempotency, source failure, repeated pages, duplicate source rows, two-day window, legacy migration, recovery, disk rollback, pre-watch orders, split packages and FBA lines. Mock transports only.");
 }
 finally

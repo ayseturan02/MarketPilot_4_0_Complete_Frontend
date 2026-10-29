@@ -11,6 +11,9 @@ using MarketPilot.Web.Integrations.Demo;
 using MarketPilot.Web.Synchronization;
 
 var builder = WebApplication.CreateBuilder(args);
+// Docker/compose secrets: one file per key under /run/secrets (e.g. Marketplaces__Trendyol__production__ApiKey), so API keys
+// need not be container environment variables that docker inspect would reveal.
+builder.Configuration.AddKeyPerFile(builder.Configuration["Secrets:Directory"] ?? "/run/secrets", optional: true);
 var configuredDeploymentMode = builder.Configuration["Deployment:Mode"];
 if (configuredDeploymentMode is not null &&
     configuredDeploymentMode is not ("local" or "public"))
@@ -99,6 +102,7 @@ app.MapGet("/api/overview", (OperationsHub hub) => Results.Ok(hub.Overview()));
 app.MapGet("/api/products", (DemoStore db) => Results.Ok(db.SearchProducts(new ListingQuery(Size:50)).Items));
 app.MapPost("/api/products", (DemoStore db, ProductDraft draft) => {
     if(string.IsNullOrWhiteSpace(draft.Name) || string.IsNullOrWhiteSpace(draft.Sku) || draft.Name.Length > 300 || draft.Sku.Length > 100 || draft.Price is < 0 or > 10000000 || draft.Stock is < 0 or > 10000000) return Results.BadRequest(new {error="Ürün adı, SKU, pozitif fiyat ve stok gerekli."});
+    if(MarketPilot.Web.Catalog.ProductionRules.CompositionHasPolyamide(draft.Name, draft.Category)) return Results.Json(new {error=MarketPilot.Web.Catalog.ProductionRules.PolyamideMessage}, statusCode:422);
     var p = db.Modify(s => { if(s.Products.Any(x=>x.Sku.Equals(draft.Sku.Trim(),StringComparison.OrdinalIgnoreCase))) return null;
         var item=new Product {Id=Guid.NewGuid().ToString("N")[..8],Name=draft.Name.Trim(),Sku=draft.Sku.Trim(),Category=draft.Category??"Diğer",Price=draft.Price,Stock=draft.Stock,Image=draft.Image??"📦",Channels=draft.Channels??new(),Status="Aktif"}; s.Products.Insert(0,item); db.Event(s,"Ürün eklendi",item.Name); return item; });
     return p is null ? Results.Conflict(new {error="Bu SKU zaten kayıtlı."}) : Results.Ok(p);
