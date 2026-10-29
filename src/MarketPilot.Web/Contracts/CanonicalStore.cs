@@ -23,7 +23,7 @@ public sealed class CanonicalStore(DemoStore db,IConfiguration configuration)
     private static bool Present(string? value,int max=200)=>!string.IsNullOrWhiteSpace(value)&&value.Length<=max&&value==value.Trim();
     private static void Need([System.Diagnostics.CodeAnalysis.DoesNotReturnIf(false)] bool valid,string message){if(!valid)throw Error(message);}
     private static string Key(params string?[] values)=>System.Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(values))));
-    private static string Fingerprint(CanonicalRecord value)
+    internal static string Fingerprint(CanonicalRecord value)
     {
         var node=JsonSerializer.SerializeToNode(value,value.GetType(),Json)!;
         var context=node["context"]!.AsObject();context.Remove("receivedAt");context.Remove("correlationId");context.Remove("idempotencyKey");

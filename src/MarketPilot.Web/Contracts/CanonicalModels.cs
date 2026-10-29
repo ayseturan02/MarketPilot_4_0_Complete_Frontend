@@ -5,7 +5,7 @@ namespace MarketPilot.Web.Contracts;
 public sealed record RecordContext(string TenantId,string SourceSystem,string SourceRecordId,string? ExternalAccountId,
     string CorrelationId,string IdempotencyKey,long SourceVersion,DateTimeOffset OccurredAt,DateTimeOffset ReceivedAt);
 public abstract record CanonicalRecord(string Id,RecordContext Context);
-public sealed record CanonicalProduct(string Id,RecordContext Context,string Name,string Category,string Brand,string Status="active") : CanonicalRecord(Id,Context);
+public sealed record CanonicalProduct(string Id,RecordContext Context,string Name,string Category,string Brand,string Status="active",[property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? Description=null,[property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? ApprovedImages=null) : CanonicalRecord(Id,Context);
 public sealed record ProductVariant(string Id,RecordContext Context,string ProductId,string Sku,string Color,string Size,string BaseUnit,
     bool WholeUnitsOnly,IReadOnlyList<UnitConversion> Conversions,string Status="active") : CanonicalRecord(Id,Context);
 public sealed record UnitConversion(string UnitCode,decimal BaseUnits);

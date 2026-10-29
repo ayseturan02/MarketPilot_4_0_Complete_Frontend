@@ -72,6 +72,18 @@ public sealed class ErpCatalog(DemoStore db, IConfiguration config)
                     database.Products.Add(product);
                 }
 
+                // A projected provider master cannot be rewritten through the legacy bridge.
+                // Stock/price observations with identical master fields remain independent.
+                if (product.ErpProfileId.Length > 0 &&
+                    (product.Name != item.Name || product.Sku != item.Sku || product.Barcode != item.Barcode ||
+                     item.Category is not null && item.Category != product.Category ||
+                     item.Brand is not null && item.Brand != product.Brand ||
+                     item.Description is not null && item.Description != product.Description ||
+                     item.Images is not null && !item.Images.SequenceEqual(product.Images) ||
+                     item.VariantId is not null && item.VariantId != product.VariantId ||
+                     item.Attributes is not null && (item.Attributes.Count != product.Attributes.Count || item.Attributes.Any(a=>product.Attributes.GetValueOrDefault(a.Key)!=a.Value))))
+                    throw ProductOwnershipPolicy.ManualWriteDenied();
+
                 var sourceId = string.IsNullOrWhiteSpace(item.SourceEntityId) ? item.Sku : item.SourceEntityId.Trim();
                 var changed = false;
                 changed |= Apply(product, OwnershipField.ProductCard, "product-card", sourceId,

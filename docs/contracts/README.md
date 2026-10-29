@@ -1,5 +1,23 @@
 # MarketPilot ortak veri sözleşmeleri — v1
 
+## Ortak katalog: mock ERP okuma modeli
+
+`CatalogHub` sorguları ve `CatalogSource` mağaza adayları korunur; `CatalogSource` ana ürün oluşturmaz. Ana kayıt güncellemesi `ErpCatalogReadModel` üzerinden `INebimErpProvider` tam mock görüntüsünden yapılır. `CanonicalProduct` artık isteğe bağlı `Description` ve `ApprovedImages` taşır. Mock görsel uygulamaya ait yerel bir SVG'dir; Nebim görsel endpoint'i değildir.
+
+Ürünler ekranındaki **Mock ERP’den oku / farkları gör** işlemi önizleme açar. **Mock ERP verilerini eşitle** aynı görüntüyü uygular. Liste/detay kaynak ERP kimliğini, son başarılı ana veri okumasını ve mağaza eşleştirmelerini gösterir. Önceki kayıtlar sağlayıcıyla eşitlenmeden eşitlenmiş gibi etiketlenmez.
+
+- `POST /api/catalog/erp/preview`: değişen alanlar, önceki kayıt ve `added/updated/unchanged/review/missing` ayrımı. Ana veri değişmez. Sağlayıcı okuma zamanı gibi işletim metaverisi ilerleyebilir.
+- `POST /api/catalog/erp/apply`: yalnız `{ "token": "..." }`; istemciden serbest ürün alanı kabul etmez. Önizleme 10 dakika geçerlidir, işletme/profil kapsamındadır. Yerel katalog değişmişse yeniden önizleme gerekir. Tekrar uygulama ikinci kez değiştirmez.
+- `GET /api/catalog/erp/status`: son katalog okuması ve inceleme nedenleri. Yazma yolları, hesap kurulmuşsa yönetici gerektirir.
+
+Kararlı kimlik `(işletme, profil, ERP varyant kaynak kimliği)` olur. İlk geçişte yalnız tekil ve birlikte aynı SKU/barkoda sahip demo kayıt benimsenir; ad benzerliği kullanılmaz. Sonraki SKU/barkod değişimleri bu kimliği değiştirmez. Pazaryeri ilan anahtarları ve yerel ürün kimlikleri korunur.
+
+Eksik/çakışan zorunlu alanlarda son geçerli ana veri tutulur ve inceleme nedeni kaydedilir. Başarılı tam mock görüntüsünde kaybolan **o profile ait** kayıt fiziksel silinmez; `İnceleme` durumuna geçer. Yeniden geçerli geldiğinde inceleme kapanır. Kısmi/başarısız okumadan yokluk sonucu çıkarılmaz. Eski veya aynı sürümde çelişen veri ana bilgileri ezmez. Yeni kayıtta kaynak stok/fiyat okunmadıysa bilinmiyor kalır; bu ana veri akışı WMS stok sahipliğini değiştirmez.
+
+Ürün oluşturma/silme/serbest güncelleme ve barkod yazma eski HTTP yollarında da reddedilir. Eski imzalı ERP köprüsü, sağlayıcıya bağlanmış ana bilgileri farklı içerikle üzerine yazamaz; ana bilgileri aynı olan bağımsız stok/fiyat gözlemleri korunur. Katalog düzeltmesi ERP kaynağında yapılmalıdır.
+
+`MarketPilot.ErpReadModelChecks` kimlik/eşleştirme korumasını, değişiklik/yokluk/eksik bilgi/sürüm çatışmasını, yeniden görünmeyi ve JSON kalıcılığını test eder. `erp-read-model-http-checks.cjs` eski yazma yollarını, rol kısıtlarını, önizleme/uygulama ekranını, onaylı görseli ve mobil görünümü doğrular. Gerçek ERP bağlantısı eklenmedi.
+
 Kod: `src/MarketPilot.Web/Contracts`. Bu katman ERP, WMS ve pazaryeri adaptörlerinin ortak dilidir. Yeni veritabanı yoktur: kayıtlar mevcut işletmenin `Data/demo-store.json` dosyasındaki `contracts` alanına yazılır. Kayıt, işlem makbuzu ve manuel eşleştirme kuyruğu aynı dosya kilidi/geri alma işlemiyle korunur. Diğer demo verileri silinmez veya kendiliğinden bu modellere dönüştürülmez.
 
 Bu, adaptörlerin bağlanabileceği çalışan model/doğrulama/kayıt API'sidir. Mevcut sağlayıcı adaptörleri kendiliğinden bu sözleşmelere geçirilmiş değildir. Kaynak sistemin kimlikleri, birimleri ve sürüm sıralaması adaptörde açıkça dönüştürülmelidir. Yeni bir ürün oluşturma arayüzü eklenmedi.

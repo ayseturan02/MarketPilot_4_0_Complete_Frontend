@@ -176,3 +176,6 @@ Uçlar: `/api/analytics/reports`, `/api/analytics/profit`, `/api/analytics/works
 
 
 Ortak ERP/WMS/pazaryeri veri sözleşmeleri, JSON kayıt API’si ve testler: [sözleşme belgesi](docs/contracts/README.md).
+
+
+Nebim V3 mock sağlayıcısı, yetenekler ve gerçek adaptör backlog’u: [Nebim katmanı](docs/contracts/NEBIM_PROVIDER.md). Gerçek Nebim teknik sözleşmesi henüz tanımlı değildir.

@@ -6,6 +6,7 @@ public static class CatalogEndpoints
     public static void AddCatalog(this IServiceCollection s)
     {
         s.AddSingleton<CatalogHub>();
+        s.AddSingleton<ErpCatalogReadModel>();
         s.AddSingleton<OperationsHub>();
         s.AddSingleton<CatalogSource>();
         s.AddHostedService<CatalogWorker>();
@@ -22,12 +23,20 @@ public static class CatalogEndpoints
                 return Results.Json(new {
                     error = "Katalog çalışma alanı yalnızca yerel erişime açıktır."
                 }, statusCode: 403);
+            if(http.Request.Path.StartsWithSegments("/api/catalog/erp")&&http.Request.Method!="GET"&&http.RequestServices.GetRequiredService<LocalAccountStore>().Configured&&!http.User.IsInRole("admin"))return Results.StatusCode(403);
             try
             {
                 return await next(context);
             }
+            catch(MarketPilot.Web.Enterprise.Nebim.ErpProviderException e){return Results.Json(new{error=e.Error.Message,code=e.Error.Code},statusCode:e.Error.Code=="NotSupported"?501:409);}
+            catch(IOException){return Results.Json(new{error="ERP catalog persistence failed; previous records preserved."},statusCode:503);}
             catch (Exception ex) when (ex is IntegrationException or HttpRequestException or OperationCanceledException or System.Text.Json.JsonException or System.Xml.XmlException or ArgumentException or OverflowException or InvalidOperationException) { var e = ex as IntegrationException ?? new IntegrationException("catalog_failed", "Katalog işlemi tamamlanamadı. Seçimi ve mağaza bağlantısını kontrol et.", ex is ArgumentException ? 400 : 502); return Results.Json(new { error = e.Message, code = e.Code }, statusCode: e.Status); }
         });
+        group.MapGet("/erp/status",(ErpCatalogReadModel erp)=>Results.Ok(erp.Status()));
+        group.MapPost("/erp/preview",async(ErpCatalogReadModel erp,CancellationToken ct)=>Results.Ok(await erp.Preview(ct)));
+        group.MapPost("/erp/apply",(ErpPreviewApply input,ErpCatalogReadModel erp)=>Results.Ok(erp.Apply(input.Token)));
+        group.MapDelete("/products/{id}",()=>Results.Json(new{error="ERP product master is read only."},statusCode:405));
+        group.MapPatch("/products/{id}",()=>Results.Json(new{error="ERP product master is read only."},statusCode:405));
         group.MapGet("/lookup", (string storeId, string? externalId, string? sku, string? barcode, CatalogHub hub) => Results.Ok(hub.Lookup(storeId, externalId, sku, barcode)));
         group.MapGet("/products", ([AsParameters] CatalogQuery query, CatalogHub hub) => query.Error() is { } error ? Results.BadRequest(new { error }) : Results.Ok(hub.Search(query)));
         group.MapGet("/products/{id}", (string id, [AsParameters] CatalogQuery query, CatalogHub hub) => query.Error() is { } error ? Results.BadRequest(new { error }) : Results.Ok(hub.Detail(id, query)));
@@ -52,3 +61,5 @@ public static class CatalogEndpoints
     }
 }
 public record CatalogSelection(string[] Keys);
+
+public sealed record ErpPreviewApply(string Token);

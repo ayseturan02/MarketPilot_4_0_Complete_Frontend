@@ -17,7 +17,8 @@ public interface ICargoProvider
     Task<BridgeShipment[]> ReadShipmentsAsync(string warehouseCode, string priceListCode, CancellationToken cancellationToken);
 }
 
-public sealed class NebimBridgeProvider(EnterpriseBridge bridge) : IErpCatalogProvider
+// This is the existing custom MarketPilot bridge, not a native Nebim implementation.
+public sealed class MarketPilotErpBridgeProvider(EnterpriseBridge bridge) : IErpCatalogProvider
 {
     public Task<ErpItem[]> ReadCatalogAsync(string warehouseCode, string priceListCode, CancellationToken cancellationToken) =>
         bridge.ReadAll<ErpItem>("erp", "catalog", warehouseCode, priceListCode, cancellationToken);

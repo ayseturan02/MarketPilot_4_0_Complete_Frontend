@@ -247,7 +247,7 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
         });
     }
 
-    private static bool IsClothingCategory(string category) =>
+    internal static bool IsClothingCategory(string category) =>
         category.StartsWith("Giyim", StringComparison.OrdinalIgnoreCase) ||
         category.Equals("Moda", StringComparison.OrdinalIgnoreCase) ||
         category.StartsWith("Tekstil /", StringComparison.OrdinalIgnoreCase);

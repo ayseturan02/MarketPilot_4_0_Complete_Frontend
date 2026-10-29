@@ -13,411 +13,11 @@ info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
 info: Microsoft.AspNetCore.Http.Result.JsonResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.JsonResult[3]
-      Writing value of type '<>f__AnonymousType100`4' as Json.
+      Writing value of type '<>f__AnonymousType105`4' as Json.
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/health'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/health - 200 - application/json;+charset=utf-8 242.4762ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/ - - -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'Fallback {*path:nonfile}'
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[2]
-      Sending file. Request path: '/index.html'. Physical path: 'C:\Users\ayse0\Desktop\MarketPilot_4_0_Complete_Frontend\src\MarketPilot.Web\wwwroot\index.html'
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'Fallback {*path:nonfile}'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/index.html - 200 3733 text/html 18.2335ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/product-store-stocks.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/trendyol/trendyol-demo-workspace.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/listing-filters.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/trendyol/trendyol-demo-workspace.css was not modified
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/product-store-stocks.css was not modified
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/listing-filters.css was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/listing-filters.css?v=5.22.0 - 304 - text/css 2.6516ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/product-store-stocks.css?v=5.22.0 - 304 - text/css 3.2358ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/trendyol/trendyol-demo-workspace.css?v=5.22.0 - 304 - text/css 2.8163ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/local-access-ui.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/style.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/style.css was not modified
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/local-access-ui.css was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/trendyol/trendyol-api.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/style.css?v=5.22.0 - 304 - text/css 0.4713ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/local-access-ui.css?v=5.22.0 - 304 - text/css 0.5491ms
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/trendyol/trendyol-api.css was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/trendyol/trendyol-api.css?v=5.22.0 - 304 - text/css 0.4813ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/hepsiburada/hepsiburada-center.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/hepsiburada/hepsiburada-center.css was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/hepsiburada/hepsiburada-center.css?v=5.22.0 - 304 - text/css 1.2188ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/hepsiburada/hepsiburada-details.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/amazon/amazon-center.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/boyner/boyner-center.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/hepsiburada/hepsiburada-details.css was not modified
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/amazon/amazon-center.css was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/hepsiburada/hepsiburada-details.css?v=5.22.0 - 304 - text/css 1.1085ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/amazon/amazon-center.css?v=5.22.0 - 304 - text/css 1.1563ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/n11/n11-center.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/boyner/boyner-center.css was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/ticimax/ticimax-center.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/boyner/boyner-center.css?v=5.22.0 - 304 - text/css 0.7877ms
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/ticimax/ticimax-center.css was not modified
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/n11/n11-center.css was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/ticimax/ticimax-center.css?v=5.22.0 - 304 - text/css 0.3963ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/n11/n11-center.css?v=5.22.0 - 304 - text/css 0.5531ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/catalog/catalog.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/central-stock.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/catalog/catalog.css was not modified
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/central-stock.css was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/webhook-receiver.css?v=5.17.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/central-stock.css?v=5.22.0 - 304 - text/css 0.2787ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/catalog/catalog.css?v=5.22.0 - 304 - text/css 0.5615ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/automatic-synchronization.css?v=5.18.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/webhook-receiver.css was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/webhook-receiver.css?v=5.17.0 - 304 - text/css 0.3510ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/marketplace-stock.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/automatic-synchronization.css was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/automatic-synchronization.css?v=5.18.0 - 304 - text/css 0.2757ms
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/marketplace-stock.css was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/marketplace-stock.css?v=5.22.0 - 304 - text/css 0.2471ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/analytics-system.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/analytics-system.css was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/analytics-system.css?v=5.22.0 - 304 - text/css 0.2459ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/workspace-workflows.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/enterprise-sync.css?v=5.22.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/workspace-workflows.css was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/workspace-workflows.css?v=5.22.0 - 304 - text/css 0.2481ms
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/enterprise-sync.css was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/enterprise-sync.css?v=5.22.0 - 304 - text/css 0.2394ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/trendyol/trendyol-api.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/integrations.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/integrations.js was not modified
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/trendyol/trendyol-api.js was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/integrations.js?v=5.22.0 - 304 - text/javascript 0.4088ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/trendyol/trendyol-api.js?v=5.22.0 - 304 - text/javascript 0.4022ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/trendyol/trendyol-workflows.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/product-store-stocks.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/trendyol/trendyol-workflows.js was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/trendyol/trendyol-workflows.js?v=5.22.0 - 304 - text/javascript 0.2273ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/trendyol/trendyol-demo-workspace.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/local-access-ui.js?v=5.23.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/product-store-stocks.js was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/product-store-stocks.js?v=5.22.0 - 304 - text/javascript 0.4034ms
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/trendyol/trendyol-demo-workspace.js was not modified
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/local-access-ui.js was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/local-access-ui.js?v=5.23.0 - 304 - text/javascript 0.4060ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/trendyol/trendyol-demo-workspace.js?v=5.22.0 - 304 - text/javascript 0.4014ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/hepsiburada/hepsiburada-center.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/hepsiburada/hepsiburada-center.js was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/hepsiburada/hepsiburada-details.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/hepsiburada/hepsiburada-center.js?v=5.22.0 - 304 - text/javascript 0.4691ms
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/hepsiburada/hepsiburada-details.js was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/hepsiburada/hepsiburada-details.js?v=5.22.0 - 304 - text/javascript 0.3202ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/amazon/amazon-demo-details.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/amazon/amazon-center.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/amazon/amazon-center.js was not modified
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/amazon/amazon-demo-details.js was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/boyner/boyner-center.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/amazon/amazon-center.js?v=5.22.0 - 304 - text/javascript 0.7052ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/amazon/amazon-demo-details.js?v=5.22.0 - 304 - text/javascript 0.7147ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/n11/n11-center.js?v=5.25.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/boyner/boyner-center.js was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/boyner/boyner-center.js?v=5.22.0 - 304 - text/javascript 0.3413ms
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/n11/n11-center.js was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/n11/n11-center.js?v=5.25.0 - 304 - text/javascript 0.4268ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/app.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/listing-filters.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/ticimax/ticimax-center.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/ticimax/ticimax-center.js was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/ticimax/ticimax-center.js?v=5.22.0 - 304 - text/javascript 0.5609ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/catalog/catalog.js?v=5.26.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/central-stock.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/operations-live.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/central-stock.js was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/central-stock.js?v=5.22.0 - 304 - text/javascript 0.4777ms
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[2]
-      Sending file. Request path: '/assets/operations-live.js'. Physical path: 'C:\Users\ayse0\Desktop\MarketPilot_4_0_Complete_Frontend\src\MarketPilot.Web\wwwroot\assets\operations-live.js'
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[2]
-      Sending file. Request path: '/assets/listing-filters.js'. Physical path: 'C:\Users\ayse0\Desktop\MarketPilot_4_0_Complete_Frontend\src\MarketPilot.Web\wwwroot\assets\listing-filters.js'
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[2]
-      Sending file. Request path: '/assets/app.js'. Physical path: 'C:\Users\ayse0\Desktop\MarketPilot_4_0_Complete_Frontend\src\MarketPilot.Web\wwwroot\assets\app.js'
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[2]
-      Sending file. Request path: '/assets/catalog/catalog.js'. Physical path: 'C:\Users\ayse0\Desktop\MarketPilot_4_0_Complete_Frontend\src\MarketPilot.Web\wwwroot\assets\catalog\catalog.js'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/catalog/catalog.js?v=5.26.0 - 200 33986 text/javascript 4.2984ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/app.js?v=5.22.0 - 200 70905 text/javascript 5.0631ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/operations-live.js?v=5.22.0 - 200 5173 text/javascript 3.4040ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/listing-filters.js?v=5.22.0 - 200 23521 text/javascript 5.0838ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/webhook-receiver.js?v=5.17.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/webhook-receiver.js was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/webhook-receiver.js?v=5.17.0 - 304 - text/javascript 0.5342ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/automatic-synchronization.js?v=5.18.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/marketplace-stock.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/analytics-system.js?v=5.22.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/automatic-synchronization.js was not modified
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/marketplace-stock.js was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/marketplace-stock.js?v=5.22.0 - 304 - text/javascript 0.3089ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/automatic-synchronization.js?v=5.18.0 - 304 - text/javascript 0.4289ms
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/analytics-system.js was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/analytics-system.js?v=5.22.0 - 304 - text/javascript 0.2675ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/workspace-workflows.js?v=5.26.0 - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[2]
-      Sending file. Request path: '/assets/workspace-workflows.js'. Physical path: 'C:\Users\ayse0\Desktop\MarketPilot_4_0_Complete_Frontend\src\MarketPilot.Web\wwwroot\assets\workspace-workflows.js'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/workspace-workflows.js?v=5.26.0 - 200 21198 text/javascript 0.9541ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/operational-preparation.js?v=5.24.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/assets/enterprise-sync.js?v=5.24.0 - - -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/access/status - - -
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[6]
-      The file /assets/operational-preparation.js was not modified
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/operational-preparation.js?v=5.24.0 - 304 - text/javascript 0.5142ms
-info: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[2]
-      Sending file. Request path: '/assets/enterprise-sync.js'. Physical path: 'C:\Users\ayse0\Desktop\MarketPilot_4_0_Complete_Frontend\src\MarketPilot.Web\wwwroot\assets\enterprise-sync.js'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/assets/enterprise-sync.js?v=5.24.0 - 200 13850 text/javascript 0.8447ms
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/access/status'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType96`6' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/access/status'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/access/status - 200 - application/json;+charset=utf-8 4.3609ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/overview - application/json -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/products - application/json -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/orders - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/products'
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/overview'
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/orders'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/activity - application/json -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/connections - application/json -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/settings - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/activity'
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/connections'
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/settings'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'Settings' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/settings'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/settings - 200 - application/json;+charset=utf-8 2.9027ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/shipments - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/shipments'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'List`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/connections'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/connections - 200 - application/json;+charset=utf-8 5.1258ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/stock/movements - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/stock/movements'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'List`1' as Json.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'List`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/stock/movements'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/stock/movements - 200 - application/json;+charset=utf-8 4.4297ms
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/products'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/products - 200 - application/json;+charset=utf-8 11.0460ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/integrations/connections - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/integrations/connections'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'OrderedEnumerable`2' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/integrations/connections'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/integrations/connections - 200 - application/json;+charset=utf-8 3.2604ms
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'List`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/shipments'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/shipments - 200 - application/json;+charset=utf-8 29.8552ms
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'List`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/orders'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/orders - 200 - application/json;+charset=utf-8 37.0169ms
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'Activity[]' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/activity'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/activity - 200 - application/json;+charset=utf-8 37.2335ms
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType24`10' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/overview'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/overview - 200 - application/json;+charset=utf-8 47.5058ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/health - 200 - application/json;+charset=utf-8 265.5802ms
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
       Request starting HTTP/1.1 GET http://localhost:5080/api/operations/revision - application/json -
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
@@ -425,11 +25,11 @@ info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType113`1' as Json.
+      Writing value of type '<>f__AnonymousType118`1' as Json.
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/operations/revision'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/operations/revision - 200 - application/json;+charset=utf-8 2.6591ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/operations/revision - 200 - application/json;+charset=utf-8 7.5580ms
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
       Request starting HTTP/1.1 GET http://localhost:5080/api/access/status - application/json -
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
@@ -437,47 +37,35 @@ info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType96`6' as Json.
+      Writing value of type '<>f__AnonymousType101`6' as Json.
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/access/status'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/access/status - 200 - application/json;+charset=utf-8 1.1919ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/access/status - 200 - application/json;+charset=utf-8 6.0072ms
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
       Request starting HTTP/1.1 GET http://localhost:5080/api/overview - application/json -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/products - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/products'
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
       Executing endpoint 'HTTP: GET /api/overview'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
       Request starting HTTP/1.1 GET http://localhost:5080/api/connections - application/json -
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/orders - application/json -
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'List`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/products'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/products - 200 - application/json;+charset=utf-8 0.9745ms
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/orders'
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
       Executing endpoint 'HTTP: GET /api/connections'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET http://localhost:5080/api/products - application/json -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: GET /api/products'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET http://localhost:5080/api/orders - application/json -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: GET /api/orders'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
       Request starting HTTP/1.1 GET http://localhost:5080/api/activity - application/json -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: GET /api/activity'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
       Request starting HTTP/1.1 GET http://localhost:5080/api/settings - application/json -
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/activity'
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
       Executing endpoint 'HTTP: GET /api/settings'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/shipments - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/shipments'
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
@@ -485,29 +73,55 @@ info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/connections'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/connections - 200 - application/json;+charset=utf-8 4.5038ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/connections - 200 - application/json;+charset=utf-8 6.5474ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET http://localhost:5080/api/shipments - application/json -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: GET /api/shipments'
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
       Writing value of type 'Settings' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/settings'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/settings - 200 - application/json;+charset=utf-8 4.5880ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/stock/movements - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/stock/movements'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/integrations/connections - application/json -
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
       Writing value of type 'List`1' as Json.
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/stock/movements'
+      Executed endpoint 'HTTP: GET /api/settings'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/stock/movements - 200 - application/json;+charset=utf-8 3.4160ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/settings - 200 - application/json;+charset=utf-8 11.6684ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET http://localhost:5080/api/stock/movements - application/json -
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'Activity[]' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: GET /api/stock/movements'
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: GET /api/activity'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 GET http://localhost:5080/api/activity - 200 - application/json;+charset=utf-8 15.7555ms
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: GET /api/products'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET http://localhost:5080/api/integrations/connections - application/json -
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 GET http://localhost:5080/api/products - 200 - application/json;+charset=utf-8 21.0863ms
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: GET /api/integrations/connections'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET http://localhost:5080/api/analytics/workspace - application/json -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: GET /api/analytics/workspace'
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'OrderedEnumerable`2' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: GET /api/integrations/connections'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 GET http://localhost:5080/api/integrations/connections - 200 - application/json;+charset=utf-8 4.7824ms
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
@@ -515,33 +129,15 @@ info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/shipments'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/shipments - 200 - application/json;+charset=utf-8 6.9994ms
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/integrations/connections'
+      Request finished HTTP/1.1 GET http://localhost:5080/api/shipments - 200 - application/json;+charset=utf-8 26.1536ms
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'OrderedEnumerable`2' as Json.
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/analytics/workspace - application/json -
+      Writing value of type 'List`1' as Json.
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/integrations/connections'
+      Executed endpoint 'HTTP: GET /api/stock/movements'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/integrations/connections - 200 - application/json;+charset=utf-8 4.5760ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/analytics/reports - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/analytics/workspace'
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/analytics/reports'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'Activity[]' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/activity'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/activity - 200 - application/json;+charset=utf-8 14.8570ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/stock/movements - 200 - application/json;+charset=utf-8 18.4604ms
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
@@ -549,31 +145,59 @@ info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/orders'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/orders - 200 - application/json;+charset=utf-8 33.0681ms
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType1`17' as Json.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType11`11' as Json.
+      Request finished HTTP/1.1 GET http://localhost:5080/api/orders - 200 - application/json;+charset=utf-8 70.9738ms
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType24`10' as Json.
+      Writing value of type '<>f__AnonymousType27`10' as Json.
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/overview'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/overview - 200 - application/json;+charset=utf-8 49.2028ms
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/analytics/reports'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/analytics/reports - 200 - application/json;+charset=utf-8 41.1837ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/overview - 200 - application/json;+charset=utf-8 87.6788ms
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type '<>f__AnonymousType11`11' as Json.
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/analytics/workspace'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/analytics/workspace - 200 - application/json;+charset=utf-8 42.9927ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/analytics/workspace - 200 - application/json;+charset=utf-8 81.6063ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET http://localhost:5080/api/integrations/demo/connections/ticimax/workspace - application/json -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: GET /api/integrations/demo/connections/{id}/workspace'
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'DemoWorkspaceState' as Json.
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET http://localhost:5080/api/integrations/ticimax/connections/ticimax/search/products?page=0&size=25 - application/json -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: GET /api/integrations/ticimax/connections/{id}/search/{kind}'
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: GET /api/integrations/demo/connections/{id}/workspace'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 GET http://localhost:5080/api/integrations/demo/connections/ticimax/workspace - 200 - application/json;+charset=utf-8 4.9843ms
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'TicimaxPage`1' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: GET /api/integrations/ticimax/connections/{id}/search/{kind}'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 GET http://localhost:5080/api/integrations/ticimax/connections/ticimax/search/products?page=0&size=25 - 200 - application/json;+charset=utf-8 19.8285ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET http://localhost:5080/api/integrations/ticimax/connections/ticimax/search/orders?page=0&size=25 - application/json -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: GET /api/integrations/ticimax/connections/{id}/search/{kind}'
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'TicimaxPage`1' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: GET /api/integrations/ticimax/connections/{id}/search/{kind}'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 GET http://localhost:5080/api/integrations/ticimax/connections/ticimax/search/orders?page=0&size=25 - 200 - application/json;+charset=utf-8 16.6108ms
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
       Request starting HTTP/1.1 GET http://localhost:5080/api/operations/revision - application/json -
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
@@ -581,59 +205,11 @@ info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType113`1' as Json.
+      Writing value of type '<>f__AnonymousType118`1' as Json.
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/operations/revision'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/operations/revision - 200 - application/json;+charset=utf-8 1.9679ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/operations/revision - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/operations/revision'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType113`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/operations/revision'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/operations/revision - 200 - application/json;+charset=utf-8 0.3976ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/operations/revision - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/operations/revision'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType113`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/operations/revision'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/operations/revision - 200 - application/json;+charset=utf-8 0.5259ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/operations/revision - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/operations/revision'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType113`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/operations/revision'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/operations/revision - 200 - application/json;+charset=utf-8 0.2855ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/operations/revision - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/operations/revision'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType113`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/operations/revision'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/operations/revision - 200 - application/json;+charset=utf-8 0.3595ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/operations/revision - 200 - application/json;+charset=utf-8 0.8221ms
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
       Request starting HTTP/1.1 GET http://localhost:5080/api/access/status - application/json -
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
@@ -641,173 +217,17 @@ info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType96`6' as Json.
+      Writing value of type '<>f__AnonymousType101`6' as Json.
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/access/status'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/access/status - 200 - application/json;+charset=utf-8 0.3639ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/access/status - 200 - application/json;+charset=utf-8 0.6710ms
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
       Request starting HTTP/1.1 GET http://localhost:5080/api/overview - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/overview'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
       Request starting HTTP/1.1 GET http://localhost:5080/api/products - application/json -
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/products'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/orders - application/json -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/connections - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/connections'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/settings - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/settings'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/activity - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/orders'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/activity'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'List`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/products'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/products - 200 - application/json;+charset=utf-8 2.1157ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/shipments - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/shipments'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'List`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/connections'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/connections - 200 - application/json;+charset=utf-8 3.5041ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/stock/movements - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/stock/movements'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'Settings' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/settings'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/settings - 200 - application/json;+charset=utf-8 6.2306ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/integrations/connections - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/integrations/connections'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'OrderedEnumerable`2' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/integrations/connections'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/integrations/connections - 200 - application/json;+charset=utf-8 0.5241ms
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'List`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/stock/movements'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/stock/movements - 200 - application/json;+charset=utf-8 4.5876ms
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'Activity[]' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/activity'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/activity - 200 - application/json;+charset=utf-8 10.6932ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/analytics/workspace - application/json -
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/analytics/reports - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/analytics/workspace'
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/analytics/reports'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType1`17' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/analytics/reports'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/analytics/reports - 200 - application/json;+charset=utf-8 13.3184ms
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'List`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/orders'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/orders - 200 - application/json;+charset=utf-8 31.6447ms
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType11`11' as Json.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType24`10' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/analytics/workspace'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/analytics/workspace - 200 - application/json;+charset=utf-8 20.6679ms
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/overview'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/overview - 200 - application/json;+charset=utf-8 34.7270ms
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'List`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/shipments'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/shipments - 200 - application/json;+charset=utf-8 35.2888ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/operations/revision - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/operations/revision'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType113`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/operations/revision'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/operations/revision - 200 - application/json;+charset=utf-8 0.2001ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/access/status - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/access/status'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType96`6' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/access/status'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/access/status - 200 - application/json;+charset=utf-8 0.0846ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/overview - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
       Executing endpoint 'HTTP: GET /api/overview'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/products - application/json -
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
       Executing endpoint 'HTTP: GET /api/products'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
@@ -821,19 +241,19 @@ info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/products'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/products - 200 - application/json;+charset=utf-8 0.2674ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/connections - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/connections'
+      Request finished HTTP/1.1 GET http://localhost:5080/api/products - 200 - application/json;+charset=utf-8 0.4517ms
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
       Request starting HTTP/1.1 GET http://localhost:5080/api/activity - application/json -
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
       Request starting HTTP/1.1 GET http://localhost:5080/api/settings - application/json -
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
       Executing endpoint 'HTTP: GET /api/activity'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET http://localhost:5080/api/connections - application/json -
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
       Executing endpoint 'HTTP: GET /api/settings'
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: GET /api/connections'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
       Request starting HTTP/1.1 GET http://localhost:5080/api/shipments - application/json -
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
@@ -841,23 +261,23 @@ info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'List`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/connections'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/connections - 200 - application/json;+charset=utf-8 0.9340ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/stock/movements - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/stock/movements'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
       Writing value of type 'Settings' as Json.
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/settings'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/settings - 200 - application/json;+charset=utf-8 1.9672ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/settings - 200 - application/json;+charset=utf-8 0.9740ms
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'List`1' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: GET /api/connections'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 GET http://localhost:5080/api/connections - 200 - application/json;+charset=utf-8 3.4888ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET http://localhost:5080/api/stock/movements - application/json -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: GET /api/stock/movements'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
       Request starting HTTP/1.1 GET http://localhost:5080/api/integrations/connections - application/json -
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
@@ -869,7 +289,7 @@ info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/integrations/connections'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/integrations/connections - 200 - application/json;+charset=utf-8 0.1048ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/integrations/connections - 200 - application/json;+charset=utf-8 0.5329ms
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
@@ -877,47 +297,23 @@ info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/stock/movements'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/stock/movements - 200 - application/json;+charset=utf-8 1.4227ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/analytics/workspace - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/analytics/workspace'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/analytics/reports - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/analytics/reports'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type 'List`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/orders'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/orders - 200 - application/json;+charset=utf-8 5.8406ms
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType1`17' as Json.
+      Request finished HTTP/1.1 GET http://localhost:5080/api/stock/movements - 200 - application/json;+charset=utf-8 2.4891ms
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
       Writing value of type 'Activity[]' as Json.
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET http://localhost:5080/api/analytics/workspace - application/json -
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/activity'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/activity - 200 - application/json;+charset=utf-8 8.6208ms
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/analytics/reports'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/analytics/reports - 200 - application/json;+charset=utf-8 4.8487ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/activity - 200 - application/json;+charset=utf-8 6.6449ms
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: GET /api/analytics/workspace'
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType11`11' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/analytics/workspace'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/analytics/workspace - 200 - application/json;+charset=utf-8 6.6437ms
+      Writing value of type 'List`1' as Json.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
@@ -925,72 +321,60 @@ info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/shipments'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/shipments - 200 - application/json;+charset=utf-8 11.2293ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/shipments - 200 - application/json;+charset=utf-8 20.4977ms
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType24`10' as Json.
+      Writing value of type '<>f__AnonymousType11`11' as Json.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type '<>f__AnonymousType27`10' as Json.
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
       Executed endpoint 'HTTP: GET /api/overview'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/overview - 200 - application/json;+charset=utf-8 15.5045ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/overview - 200 - application/json;+charset=utf-8 22.4440ms
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: GET /api/analytics/workspace'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 GET http://localhost:5080/api/analytics/workspace - 200 - application/json;+charset=utf-8 15.8576ms
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: GET /api/orders'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 GET http://localhost:5080/api/orders - 200 - application/json;+charset=utf-8 24.6308ms
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/operations/revision - application/json -
+      Request starting HTTP/1.1 GET http://localhost:5080/api/integrations/demo/connections/ticimax/workspace - application/json -
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/operations/revision'
+      Executing endpoint 'HTTP: GET /api/integrations/demo/connections/{id}/workspace'
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType113`1' as Json.
+      Writing value of type 'DemoWorkspaceState' as Json.
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/operations/revision'
+      Executed endpoint 'HTTP: GET /api/integrations/demo/connections/{id}/workspace'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/operations/revision - 200 - application/json;+charset=utf-8 0.2389ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/integrations/demo/connections/ticimax/workspace - 200 - application/json;+charset=utf-8 1.5130ms
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/operations/revision - application/json -
+      Request starting HTTP/1.1 GET http://localhost:5080/api/integrations/ticimax/connections/ticimax/search/products?page=0&size=25 - application/json -
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/operations/revision'
+      Executing endpoint 'HTTP: GET /api/integrations/ticimax/connections/{id}/search/{kind}'
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType113`1' as Json.
+      Writing value of type 'TicimaxPage`1' as Json.
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/operations/revision'
+      Executed endpoint 'HTTP: GET /api/integrations/ticimax/connections/{id}/search/{kind}'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/operations/revision - 200 - application/json;+charset=utf-8 0.1610ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/integrations/ticimax/connections/ticimax/search/products?page=0&size=25 - 200 - application/json;+charset=utf-8 7.3483ms
 info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/operations/revision - application/json -
+      Request starting HTTP/1.1 GET http://localhost:5080/api/integrations/ticimax/connections/ticimax/search/orders?page=0&size=25 - application/json -
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/operations/revision'
+      Executing endpoint 'HTTP: GET /api/integrations/ticimax/connections/{id}/search/{kind}'
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
       Setting HTTP status code 200.
 info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType113`1' as Json.
+      Writing value of type 'TicimaxPage`1' as Json.
 info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/operations/revision'
+      Executed endpoint 'HTTP: GET /api/integrations/ticimax/connections/{id}/search/{kind}'
 info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/operations/revision - 200 - application/json;+charset=utf-8 0.4280ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/operations/revision - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/operations/revision'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType113`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/operations/revision'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/operations/revision - 200 - application/json;+charset=utf-8 0.6612ms
-info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
-      Request starting HTTP/1.1 GET http://localhost:5080/api/operations/revision - application/json -
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
-      Executing endpoint 'HTTP: GET /api/operations/revision'
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
-      Setting HTTP status code 200.
-info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
-      Writing value of type '<>f__AnonymousType113`1' as Json.
-info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
-      Executed endpoint 'HTTP: GET /api/operations/revision'
-info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
-      Request finished HTTP/1.1 GET http://localhost:5080/api/operations/revision - 200 - application/json;+charset=utf-8 1.1752ms
+      Request finished HTTP/1.1 GET http://localhost:5080/api/integrations/ticimax/connections/ticimax/search/orders?page=0&size=25 - 200 - application/json;+charset=utf-8 7.7823ms
