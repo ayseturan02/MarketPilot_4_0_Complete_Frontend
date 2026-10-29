@@ -67,14 +67,15 @@ public sealed record WmsStockMovement(
     string Reason,
     DateTimeOffset OccurredAt);
 
-public sealed record WmsFulfillmentLine(string Sku, decimal Quantity, string Unit);
+public sealed record WmsFulfillmentLine(string Sku, decimal Quantity, string Unit, string? ExternalLineId = null);
 
 public sealed record WmsFulfillmentOrder(
     string Id,
     string ExternalOrderId,
     string WarehouseId,
     IReadOnlyList<WmsFulfillmentLine> Lines,
-    DateTimeOffset RequestedAt);
+    DateTimeOffset RequestedAt,
+    string? IdempotencyKey = null);
 
 public sealed record WmsFulfillmentAcceptance(string FulfillmentOrderId, string Status, string? Message, DateTimeOffset UpdatedAt);
 
@@ -96,7 +97,16 @@ public sealed record WmsShipmentStatus(
     string? Carrier,
     string? TrackingNumber,
     string? TrackingUrl,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    IReadOnlyList<WmsShipmentPackage>? Packages = null);
+
+public sealed record WmsShipmentPackage(
+    string PackageId,
+    IReadOnlyList<WmsFulfillmentLine> Lines,
+    string? Carrier,
+    string? TrackingNumber,
+    string? TrackingUrl,
+    DateTimeOffset ShippedAt);
 
 public enum WmsRequestType
 {
@@ -128,7 +138,13 @@ public interface IWmsProvider
     Task<WmsResult<WmsRequestEligibility>> CheckCancellationOrReturnEligibilityAsync(string fulfillmentOrderId, WmsRequestType requestType, CancellationToken ct = default);
 }
 
-public sealed record WmsMockBehavior(int DelayMilliseconds = 0, string? FailureOperation = null);
+public sealed record WmsMockBehavior(
+    int DelayMilliseconds = 0,
+    string? FailureOperation = null,
+    bool AmbiguousSubmission = false,
+    string? RejectWarehouseId = null,
+    int PackageCount = 1,
+    decimal? ShipmentQuantityLimit = null);
 
 public static class WmsMockOperations
 {
@@ -143,4 +159,6 @@ public static class WmsMockOperations
     public const string ShipmentStatus = "shipment-status";
     public const string CancellationEligibility = "cancellation-eligibility";
     public const string ReturnEligibility = "return-eligibility";
+    public const string MarketplaceUpdate = "marketplace-update";
+    public const string ErpUpdate = "erp-update";
 }

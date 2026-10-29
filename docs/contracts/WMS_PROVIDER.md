@@ -60,3 +60,16 @@ Uygulama yolları `/api/wms` altındadır: `/warehouses`, `/warehouses/{id}/stoc
 `DelayMilliseconds` 0-30000 aralığında gecikme uygular. `FailureOperation` `warehouses`, `stock`, `stock-movements`, `fulfillment-submission`, `acceptance-status`, `reservations`, `picking-status`, `packing-status`, `shipment-status`, `cancellation-eligibility`, `return-eligibility` veya `*` olabilir; hata `503`/tekrar denenebilir `SimulatedFailure` olarak döner. Konfigürasyon geliştirme/test içindir; gerçek adaptörün capabilities matrisi kendi sağlayıcısı tarafından belirlenmelidir.
 
 `dotnet run --project tests/MarketPilot.WmsChecks` sabit fixture'ları, tüm işlemleri, yetenek reddini, idempotency'yi, gecikme/hata ve cancellation davranışını; çoklu depo ataması/limitini, satılabilir hesabı, sağlayıcı yönetimli stoğu, sürüm gerilemesini, belirsiz/negatif stok engelini, ERP/WMS farklarını ve JSON geçmiş kalıcılığını doğrular. Test gerçek ağa veya veritabanına bağlanmaz.
+
+## Fulfillment orkestrasyonu
+
+`WMS Fulfillment` ekranı normalize edilmiş pazaryeri siparişini doğrulayıp işletmenin onaylı `FulfillmentWorkflowPolicy` sırasına göre ERP sipariş kaydı ve WMS sevk talebini ilerletir. Varsayılan politika onaysızdır; depo önceliği, kısmi tahsis izni ve `ERP → WMS`, `WMS → ERP` veya yalnız WMS sırası açıkça belirlenmeden dış işlem yapılmaz. WMS önce seçilirse ERP kaydı WMS kabulü doğrulandıktan sonra ilerler.
+
+- `GET/PUT /api/wms/fulfillment/policy`: işletme politikasını okur/günceller.
+- `GET /api/wms/fulfillment/workflows` ve `GET /api/wms/fulfillment/workflows/{id}`: sipariş, depo talepleri, paketler, güncellemeler ve geçmişi döndürür.
+- `POST /api/wms/fulfillment/orders`: sipariş alımı. Aynı dış sipariş/idempotency içeriği tekrarlanırsa mevcut workflow döner; farklı içerikle aynı kimlik 409 çatışmasıdır.
+- `POST /api/wms/fulfillment/workflows/{id}/advance`: yalnız bir sonraki güvenli adımı çalıştırır veya harici kabul/rezervasyon/toplama/paketleme/sevk durumunu sorgular. `retry-validation` yalnız dış yazma başlamamış workflow'u yeniden doğrular.
+
+Kabul, rezervasyon, toplama, paketleme ve sevk ayrı durumlar olarak tutulur; `accepted` siparişin işlendiği anlamına gelmez. Satılabilir WMS stokuna göre talepler birden fazla depoya bölünebilir; eksik stok, depo reddi, birden fazla paket, kısmi sevk ve takip bilgileri workflow geçmişinde saklanır. Her workflow ve depo talebi kararlı external request ID/idempotency key taşır. Timeout veya belirsiz yanıt aynı kimlikle durum sorgusu gerektirir; yeni talep otomatik gönderilmez. Pazaryeri/ERP durum güncellemeleri mock publisher üzerinden idempotent izlenir.
+
+Workflow/policy geçmişi işletme içerik kökündeki `Data/wms-fulfillment.json` dosyasına atomik yazılır; bu bir veritabanı değildir. Gerçek WMS, ERP veya pazaryeri bağlantısı kurulmaz. Dış yazmalar ancak WMS ve gerekli ERP mock izinleri etkin olduğunda çalışabilir; stok miktarı değiştiren bir işlem yoktur.

@@ -24,8 +24,9 @@ vm.runInContext(fs.readFileSync(path.join(root,'assets/wms-inventory.js'),'utf8'
 const source = fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
 // Skip network bootstrap; exercise the same page render functions with explicit fixtures.
 vm.runInContext(source.slice(0,source.lastIndexOf('(async()=>')), context);
+vm.runInContext(fs.readFileSync(path.join(root,'assets/wms-fulfillment.js'),'utf8'), context);
 vm.runInContext(`
-  if(Object.keys(names).length !== 41) throw new Error('41 menu entries must remain');
+  if(Object.keys(names).length !== 42) throw new Error('42 menu entries must remain');
   data.connections=[]; data.orders=[];
   data['integrations/readiness']={trendyol:{stage:false,production:false}};
   data['integrations/connections']=Object.keys(marketplaceLabels).map((marketplace,i)=>({
@@ -111,4 +112,28 @@ assert(wmsHtml.includes('Fark inceleme')&&wmsHtml.includes('WMS fiziksel'));
 assert(wmsHtml.includes('Atanmış depolar')&&wmsHtml.includes('Kanal stok üst limiti'));
 assert(wmsHtml.includes('stok göndermez'),'WMS inventory UI must not imply a stock write.');
 assert(html.indexOf('/assets/wms-inventory.js') < html.indexOf('/assets/app.js'));
-console.log('PASS: 41 menu entries, marketplace panels, WMS multi-warehouse inventory, provider-managed stock, discrepancy review and no-write policy.');
+assert(html.includes('/assets/wms-fulfillment.js') && html.indexOf('/assets/app.js') < html.indexOf('/assets/wms-fulfillment.js'));
+const fulfillmentHtml=vm.runInContext(`(()=>{
+  wmsFulfillment={
+    policy:{approved:false,writeSequence:['wms-fulfillment-submission'],warehousePriority:['mock-main','mock-outlet'],allowPartialShipments:true},
+    warehouses:[{id:'mock-main',code:'MAIN',name:'Ana Depo'},{id:'mock-outlet',code:'OUT',name:'Ek Depo'}],
+    workflows:[{
+      id:'wf-1',externalRequestId:'req-1',idempotencyKey:'idem-1',state:'wms-outcome-unknown',
+      order:{externalOrderId:'order-1',marketplace:'trendyol',accountId:'seller-1'},
+      warehouses:[{warehouseId:'mock-main',externalRequestId:'wms-req-1',idempotencyKey:'wms-idem-1',submissionState:'unknown',acceptanceState:'pending',reservationState:'pending',pickingState:'pending',packingState:'pending'}],
+      packages:[{packageId:'pkg-1',lines:[{sku:'SKU-1',quantity:1}],carrier:'Mock Cargo',trackingNumber:'TRK-1',shippedAt:null}],
+      publications:[],history:[{at:'2026-10-29T10:00:00Z',state:'wms-outcome-unknown',message:'Submission timed out',externalRequestId:'wms-req-1'}],
+      updatedAt:'2026-10-29T10:00:00Z',blockReason:'Submission outcome unknown'
+    }],
+    selectedId:'wf-1',error:'',loading:false,busy:false
+  };
+  view='wms-fulfillment';render();return app.innerHTML;
+})()`,context);
+assert(fulfillmentHtml.includes('WMS Fulfillment')&&fulfillmentHtml.includes('İşletme fulfillment politikası'));
+assert(fulfillmentHtml.includes('Pazaryeri siparişini içeri al')&&fulfillmentHtml.includes('Siparişi doğrula ve al'));
+assert(fulfillmentHtml.includes('Sipariş satırı ekle')&&fulfillmentHtml.includes('Sipariş satırı 1'));
+assert(fulfillmentHtml.includes('Sonucu güvenle sorgula')&&fulfillmentHtml.includes('Kabul')&&fulfillmentHtml.includes('Rezervasyon'));
+assert(fulfillmentHtml.includes('TRK-1')&&fulfillmentHtml.includes('Durum geçmişi'));
+assert(fulfillmentHtml.includes('mock-main, mock-outlet')&&fulfillmentHtml.includes('WMS talebi → ERP sipariş kaydı'));
+assert.equal(vm.runInContext("names['wms-fulfillment']",context),'WMS Fulfillment','Fulfillment must be reachable from the application menu.');
+console.log('PASS: 42 menu entries, marketplace panels, WMS multi-warehouse inventory, provider-managed stock, discrepancy review, fulfillment orchestration and no-write policy.');

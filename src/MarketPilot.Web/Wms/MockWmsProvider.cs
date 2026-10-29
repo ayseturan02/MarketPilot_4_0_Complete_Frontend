@@ -8,6 +8,7 @@ public sealed class MockWmsProvider : IWmsProvider
     private readonly Dictionary<string, WmsFulfillmentAcceptance> fulfillments = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> fulfillmentFingerprints = new(StringComparer.Ordinal);
     private readonly Dictionary<string, WmsFulfillmentOrder> orders = new(StringComparer.Ordinal);
+    private readonly HashSet<string> ambiguousSubmissions = new(StringComparer.Ordinal);
 
     private static readonly IReadOnlyList<WmsWarehouse> Warehouses =
     [
@@ -47,6 +48,9 @@ public sealed class MockWmsProvider : IWmsProvider
             operation != "*" &&
             !AllOperations.Contains(operation, StringComparer.Ordinal))
             throw new ArgumentException("Mock hata senaryosu tanınmayan bir WMS işlemi seçiyor.", nameof(behavior));
+        if (this.behavior.PackageCount is < 1 or > 20 ||
+            this.behavior.ShipmentQuantityLimit is <= 0 or > 1000000)
+            throw new ArgumentOutOfRangeException(nameof(behavior), "Mock paket sayısı veya sevk miktarı sınırı geçersiz.");
 
         var supported = profile.Mode == "mock" && profile.Enabled
             ? WmsCapability.All
@@ -95,7 +99,8 @@ public sealed class MockWmsProvider : IWmsProvider
         {
             order.ExternalOrderId,
             order.WarehouseId,
-            order.Lines
+            order.Lines,
+            IdempotencyKey = order.IdempotencyKey ?? order.Id
         });
         lock (gate)
         {
@@ -105,11 +110,15 @@ public sealed class MockWmsProvider : IWmsProvider
 
             if (!fulfillments.TryGetValue(order.Id, out var acceptance))
             {
-                acceptance = new WmsFulfillmentAcceptance(order.Id, "accepted", "Mock WMS talebi kabul edildi.", FixtureTime);
+                var rejected = string.Equals(behavior.RejectWarehouseId, order.WarehouseId, StringComparison.Ordinal);
+                acceptance = new WmsFulfillmentAcceptance(order.Id, rejected ? "rejected" : "accepted",
+                    rejected ? "Mock WMS bu depoyu reddetti." : "Mock WMS talebi kabul edildi.", FixtureTime);
                 fulfillmentFingerprints.Add(order.Id, fingerprint);
                 fulfillments.Add(order.Id, acceptance);
                 orders.Add(order.Id, order);
             }
+            if (behavior.AmbiguousSubmission && ambiguousSubmissions.Add(order.Id))
+                throw new WmsProviderException(new("OutcomeUnknown", "Mock WMS isteği aldı ancak yanıt zaman aşımına uğradı; kabul durumu sorgulanmalı.", true));
             return Result(WmsMockOperations.FulfillmentSubmission, acceptance);
         }
     }
@@ -168,13 +177,20 @@ public sealed class MockWmsProvider : IWmsProvider
     {
         await BeforeAsync(WmsMockOperations.ShipmentStatus, WmsCapability.ShipmentStatus, ct);
         var acceptance = GetKnownFulfillment(fulfillmentOrderId);
+        var order = FindOrder(fulfillmentOrderId);
+        var packages = CreatePackages(order);
+        var shipped = packages.SelectMany(package => package.Lines)
+            .GroupBy(line => line.ExternalLineId ?? line.Sku)
+            .ToDictionary(group => group.Key, group => group.Sum(line => line.Quantity), StringComparer.Ordinal);
+        var fullyShipped = order.Lines.All(line => shipped.GetValueOrDefault(line.ExternalLineId ?? line.Sku) >= line.Quantity);
         return Result(WmsMockOperations.ShipmentStatus, new WmsShipmentStatus(
             fulfillmentOrderId,
-            "label-created",
+            fullyShipped ? "shipped" : "partially-shipped",
             "Mock Kargo",
             "MOCK-" + fulfillmentOrderId,
             null,
-            acceptance.UpdatedAt));
+            acceptance.UpdatedAt,
+            packages));
     }
 
     public async Task<WmsResult<WmsRequestEligibility>> CheckCancellationOrReturnEligibilityAsync(
@@ -211,8 +227,38 @@ public sealed class MockWmsProvider : IWmsProvider
         WmsMockOperations.PackingStatus,
         WmsMockOperations.ShipmentStatus,
         WmsMockOperations.CancellationEligibility,
-        WmsMockOperations.ReturnEligibility
+        WmsMockOperations.ReturnEligibility,
+        WmsMockOperations.MarketplaceUpdate,
+        WmsMockOperations.ErpUpdate
     ];
+
+    private IReadOnlyList<WmsShipmentPackage> CreatePackages(WmsFulfillmentOrder order)
+    {
+        var packages = Enumerable.Range(0, behavior.PackageCount)
+            .Select(index => new List<WmsFulfillmentLine>()).ToArray();
+        foreach (var line in order.Lines)
+        {
+            var quantity = Math.Min(line.Quantity, behavior.ShipmentQuantityLimit ?? line.Quantity);
+            var packageCount = Math.Min(behavior.PackageCount, (int)decimal.Ceiling(quantity));
+            for (var index = 0; index < packageCount; index++)
+            {
+                var remainingPackages = packageCount - index;
+                var part = decimal.Ceiling(quantity / remainingPackages);
+                packages[index].Add(line with { Quantity = part });
+                quantity -= part;
+            }
+        }
+
+        return packages.Select((lines, index) => new WmsShipmentPackage(
+                $"{order.Id}-package-{index + 1}",
+                lines,
+                "Mock Kargo",
+                $"MOCK-{order.Id}-{index + 1}",
+                null,
+                FixtureTime))
+            .Where(package => package.Lines.Count > 0)
+            .ToArray();
+    }
 
     private async Task BeforeAsync(string operation, WmsCapability capability, CancellationToken ct)
     {
@@ -244,6 +290,7 @@ public sealed class MockWmsProvider : IWmsProvider
     {
         if (order is null || string.IsNullOrWhiteSpace(order.Id) || order.Id.Length > 120 ||
             string.IsNullOrWhiteSpace(order.ExternalOrderId) || order.ExternalOrderId.Length > 120 ||
+            order.IdempotencyKey is { Length: > 160 } ||
             order.RequestedAt == default || order.Lines is null || order.Lines.Count is < 1 or > 100 ||
             order.Lines.Any(line => line is null || string.IsNullOrWhiteSpace(line.Sku) ||
                 line.Quantity <= 0 || line.Quantity > 1000000 || decimal.Truncate(line.Quantity) != line.Quantity ||

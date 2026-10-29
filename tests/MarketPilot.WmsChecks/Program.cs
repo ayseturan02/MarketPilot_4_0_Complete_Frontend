@@ -1,6 +1,7 @@
 using MarketPilot.Web.Wms;
 using MarketPilot.Web.Contracts;
 using MarketPilot.Web.Integrations;
+using MarketPilot.Web.Enterprise.Nebim;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -178,6 +179,170 @@ try
     Check(persisted.Stock.Single(row => row.Snapshot.WarehouseId == "mock-main" &&
         row.Snapshot.Sku == "TSH-EKR-S").SellableQuantity is null, "WMS snapshots and policy survive process restart.");
     Check(reopened.ReadMovements("mock-main", null).Count > 0, "WMS movement history is persisted.");
+
+    var fulfillmentRoot = Path.Combine(testFolder, "fulfillment");
+    Directory.CreateDirectory(fulfillmentRoot);
+    var fulfillmentEnvironment = new WmsTestEnvironment(fulfillmentRoot);
+    var fulfillmentDb = new DemoStore(fulfillmentEnvironment);
+    var fulfillmentConfiguration = new ConfigurationBuilder()
+        .AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Workspace:BusinessId"] = "default"
+        })
+        .Build();
+    var fulfillmentCanonical = new CanonicalStore(fulfillmentDb, fulfillmentConfiguration);
+    var fulfillmentRegistry = new IntegrationRegistry(fulfillmentEnvironment);
+    var writableProfile = profile with { TenantId = "default", AllowMockWrites = true };
+    var fulfillmentWms = new MockWmsProvider(writableProfile, new WmsMockBehavior(PackageCount: 2));
+    var fulfillmentErp = new MockNebimProvider(fulfillmentDb,
+        new ErpConnectionProfile("mock-nebim", "default", AllowMockWrites: true));
+    var canonicalSync = new NebimCanonicalSync(fulfillmentErp, fulfillmentCanonical, fulfillmentDb);
+    var canonicalSeed = await canonicalSync.Run(CancellationToken.None);
+    Check((bool)canonicalSeed.GetType().GetProperty("success")!.GetValue(canonicalSeed)!,
+        "Fulfillment ERP fixture canonical identities.");
+    var fulfillmentInventory = new WmsInventoryService(
+        fulfillmentWms, fulfillmentCanonical, fulfillmentRegistry, fulfillmentEnvironment);
+    var statusPublisher = new MockFulfillmentStatusPublisher(
+        writableProfile, new WmsMockBehavior(PackageCount: 2));
+    var fulfillment = new FulfillmentOrchestrationService(
+        fulfillmentWms, fulfillmentInventory, fulfillmentErp, fulfillmentCanonical, statusPublisher, fulfillmentEnvironment);
+
+    var fulfillmentOrder = new FulfillmentWorkflowOrder(
+        "trendyol", "seller-01", "package-fulfillment-1001", "request-fulfillment-1001", "Created",
+        DateTimeOffset.UtcNow, "TRY", [new("line-01", "TSH-EKR-S", 35, "EA", 449, "TRY")]);
+    var blockedBeforeApproval = await fulfillment.ReceiveAsync(fulfillmentOrder);
+    Check(blockedBeforeApproval.State == "blocked-policy", "No unapproved workflow can cause external writes.");
+    var approvedPolicy = new FulfillmentWorkflowPolicy(
+        true,
+        [FulfillmentWriteSteps.ErpOrderRegistration, FulfillmentWriteSteps.WmsFulfillmentSubmission],
+        ["mock-main", "mock-outlet"],
+        false,
+        [FulfillmentUpdateTargets.Marketplace, FulfillmentUpdateTargets.Erp]);
+    fulfillment.UpdatePolicy(approvedPolicy);
+    var prepared = await fulfillment.AdvanceAsync(blockedBeforeApproval.Id);
+    Check(prepared.State == "validated" && prepared.Warehouses.Length == 2 &&
+        prepared.Warehouses[0].Lines[0].Quantity == 30 && prepared.Warehouses[1].Lines[0].Quantity == 5,
+        "Approved policy splits a validated order across prioritized depots without over-allocation.");
+    Check(prepared.Warehouses.Select(task => task.ExternalRequestId).Distinct().Count() == 2 &&
+        prepared.Warehouses.All(task => task.IdempotencyKey.Length > 0),
+        "Each WMS depot request receives a stable external request ID and idempotency key.");
+    Check((await fulfillment.ReceiveAsync(fulfillmentOrder)).Id == prepared.Id,
+        "Repeated marketplace delivery with the same idempotency key does not create a second workflow.");
+    await Reject(async () => await fulfillment.ReceiveAsync(fulfillmentOrder with
+    {
+        IdempotencyKey = "second-request",
+        Lines = [fulfillmentOrder.Lines[0] with { Quantity = 34 }]
+    }), "IdempotencyConflict");
+
+    var erpRegistered = await fulfillment.AdvanceAsync(prepared.Id);
+    Check(erpRegistered.State == "erp-registered", "ERP registration occurs first when the approved policy says ERP then WMS.");
+    await fulfillment.AdvanceAsync(prepared.Id);
+    await fulfillment.AdvanceAsync(prepared.Id);
+    var accepted = await fulfillment.AdvanceAsync(prepared.Id);
+    Check(accepted.State == "wms-accepted" &&
+        accepted.History.Any(entry => entry.State == "wms-accepted"),
+        "WMS acceptance is explicitly separate from completed fulfillment processing.");
+    await fulfillment.AdvanceAsync(prepared.Id);
+    await fulfillment.AdvanceAsync(prepared.Id);
+    await fulfillment.AdvanceAsync(prepared.Id);
+    var processed = await fulfillment.AdvanceAsync(prepared.Id);
+    Check(processed.State == "processed" && processed.Packages.Count == 4 &&
+        processed.Publications.Count == 8 && processed.Publications.All(item => item.State == "acknowledged"),
+        "Two warehouses, multiple packages, tracking and mock ERP/marketplace status updates complete end to end.");
+    Check(processed.History.FindIndex(entry => entry.State == "erp-registered") <
+        processed.History.FindIndex(entry => entry.State == "wms-accepted"),
+        "Persisted status history follows the business-approved write sequence.");
+    var restartedFulfillment = new FulfillmentOrchestrationService(
+        fulfillmentWms, fulfillmentInventory, fulfillmentErp, fulfillmentCanonical, statusPublisher, fulfillmentEnvironment);
+    Check(restartedFulfillment.Get(processed.Id).Packages.Count == 4,
+        "Workflow history and package tracking survive service reconstruction.");
+
+    var wmsFirstOrder = fulfillmentOrder with
+    {
+        ExternalOrderId = "package-fulfillment-1002",
+        IdempotencyKey = "request-fulfillment-1002",
+        Lines = [fulfillmentOrder.Lines[0] with { Quantity = 2 }]
+    };
+    fulfillment.UpdatePolicy(approvedPolicy with
+    {
+        WriteSequence = [FulfillmentWriteSteps.WmsFulfillmentSubmission, FulfillmentWriteSteps.ErpOrderRegistration]
+    });
+    var wmsFirst = await fulfillment.ReceiveAsync(wmsFirstOrder);
+    await fulfillment.AdvanceAsync(wmsFirst.Id);
+    await fulfillment.AdvanceAsync(wmsFirst.Id);
+    var wmsFirstAccepted = fulfillment.Get(wmsFirst.Id);
+    Check(wmsFirstAccepted.State == "wms-accepted" &&
+        wmsFirstAccepted.History.All(entry => entry.State != "erp-registered"),
+        "The alternate approved WMS-before-ERP sequence is honored.");
+    var erpSecond = await fulfillment.AdvanceAsync(wmsFirst.Id);
+    Check(erpSecond.State == "erp-registered" &&
+        erpSecond.History.FindIndex(entry => entry.State == "wms-accepted") <
+        erpSecond.History.FindIndex(entry => entry.State == "erp-registered"),
+        "ERP registration waits for WMS acceptance when policy orders WMS first.");
+    var insufficient = await fulfillment.ReceiveAsync(fulfillmentOrder with
+    {
+        ExternalOrderId = "package-fulfillment-1003",
+        IdempotencyKey = "request-fulfillment-1003",
+        Lines = [fulfillmentOrder.Lines[0] with { Quantity = 100 }]
+    });
+    Check(insufficient.State == "blocked-stock" && insufficient.Warehouses.Length == 0,
+        "Insufficient stock is blocked before any external write.");
+
+    var rejectionRoot = Path.Combine(testFolder, "rejection");
+    Directory.CreateDirectory(rejectionRoot);
+    var rejectionEnvironment = new WmsTestEnvironment(rejectionRoot);
+    var rejectionDb = new DemoStore(rejectionEnvironment);
+    var rejectionCanonical = new CanonicalStore(rejectionDb, fulfillmentConfiguration);
+    var rejectionErp = new MockNebimProvider(rejectionDb,
+        new ErpConnectionProfile("mock-nebim", "default", AllowMockWrites: true));
+    await new NebimCanonicalSync(rejectionErp, rejectionCanonical, rejectionDb).Run(CancellationToken.None);
+    var rejectingWms = new MockWmsProvider(writableProfile,
+        new WmsMockBehavior(RejectWarehouseId: "mock-outlet"));
+    var rejectingInventory = new WmsInventoryService(rejectingWms, rejectionCanonical,
+        new IntegrationRegistry(rejectionEnvironment), rejectionEnvironment);
+    var rejectingWorkflow = new FulfillmentOrchestrationService(rejectingWms, rejectingInventory, rejectionErp,
+        rejectionCanonical, new MockFulfillmentStatusPublisher(writableProfile, new()), rejectionEnvironment);
+    rejectingWorkflow.UpdatePolicy(approvedPolicy);
+    var rejected = await rejectingWorkflow.ReceiveAsync(fulfillmentOrder with
+    {
+        ExternalOrderId = "package-rejected-1004",
+        IdempotencyKey = "request-rejected-1004"
+    });
+    await rejectingWorkflow.AdvanceAsync(rejected.Id);
+    await rejectingWorkflow.AdvanceAsync(rejected.Id);
+    await rejectingWorkflow.AdvanceAsync(rejected.Id);
+    await rejectingWorkflow.AdvanceAsync(rejected.Id);
+    var warehouseRejected = await rejectingWorkflow.AdvanceAsync(rejected.Id);
+    Check(warehouseRejected.State == "wms-rejected" &&
+        warehouseRejected.History.Any(entry => entry.Message.Contains("reddetti", StringComparison.Ordinal)),
+        "Warehouse rejection is visible and stops later fulfillment stages.");
+
+    var ambiguousRoot = Path.Combine(testFolder, "ambiguous");
+    Directory.CreateDirectory(ambiguousRoot);
+    var ambiguousEnvironment = new WmsTestEnvironment(ambiguousRoot);
+    var ambiguousDb = new DemoStore(ambiguousEnvironment);
+    var ambiguousCanonical = new CanonicalStore(ambiguousDb, fulfillmentConfiguration);
+    var ambiguousErp = new MockNebimProvider(ambiguousDb,
+        new ErpConnectionProfile("mock-nebim", "default", AllowMockWrites: true));
+    await new NebimCanonicalSync(ambiguousErp, ambiguousCanonical, ambiguousDb).Run(CancellationToken.None);
+    var ambiguousWms = new MockWmsProvider(writableProfile, new WmsMockBehavior(AmbiguousSubmission: true));
+    var ambiguousInventory = new WmsInventoryService(ambiguousWms, ambiguousCanonical,
+        new IntegrationRegistry(ambiguousEnvironment), ambiguousEnvironment);
+    var ambiguousWorkflow = new FulfillmentOrchestrationService(ambiguousWms, ambiguousInventory, ambiguousErp,
+        ambiguousCanonical, new MockFulfillmentStatusPublisher(writableProfile, new()), ambiguousEnvironment);
+    ambiguousWorkflow.UpdatePolicy(approvedPolicy with { WriteSequence = [FulfillmentWriteSteps.WmsFulfillmentSubmission] });
+    var uncertain = await ambiguousWorkflow.ReceiveAsync(wmsFirstOrder with
+    {
+        ExternalOrderId = "package-unknown-1005",
+        IdempotencyKey = "request-unknown-1005"
+    });
+    var outcomeUnknown = await ambiguousWorkflow.AdvanceAsync(uncertain.Id);
+    Check(outcomeUnknown.State == "wms-outcome-unknown",
+        "A timeout after the mock WMS accepted a request is retained as an unknown outcome.");
+    var reconciled = await ambiguousWorkflow.AdvanceAsync(uncertain.Id);
+    Check(reconciled.State == "wms-accepted" &&
+        reconciled.History.Any(entry => entry.State == "wms-outcome-unknown"),
+        "Unknown WMS outcomes are reconciled by external request ID, not resubmitted.");
 }
 finally
 {
@@ -188,7 +353,7 @@ finally
     Directory.Delete(absolute, true);
 }
 
-Console.WriteLine("PASS WMS contract and multi-warehouse inventory: stock categories, approved sellable rule, reservations, per-warehouse safety stock, channel assignments/caps, provider-managed stock protection, ERP/WMS discrepancy review, stale-version rejection, unknown/negative stock blocking, movement/history persistence, provider workflows and mock failures/latency. No real stock writes.");
+Console.WriteLine("PASS WMS contracts, multi-warehouse inventory and fulfillment orchestration: approved configurable ERP/WMS sequence, deterministic external IDs/idempotency, duplicate delivery, ERP registration, accepted-vs-processed, warehouse allocation, multiple packages, shortage/rejection, timeout reconciliation, shipment tracking, status publications, history and restart persistence. Mock-only; no real ERP/WMS/marketplace writes.");
 
 sealed class WmsTestEnvironment(string contentRoot) : IWebHostEnvironment
 {

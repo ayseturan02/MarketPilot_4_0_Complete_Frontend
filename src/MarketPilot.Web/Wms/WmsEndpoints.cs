@@ -15,9 +15,17 @@ public static class WmsEndpoints
         var failureOperation = configuration["Wms:Mock:FailureOperation"];
 
         services.AddSingleton(profile);
-        services.AddSingleton(new WmsMockBehavior(delay, failureOperation));
+        services.AddSingleton(new WmsMockBehavior(
+            delay,
+            failureOperation,
+            configuration.GetValue("Wms:Mock:AmbiguousSubmission", false),
+            configuration["Wms:Mock:RejectWarehouseId"],
+            configuration.GetValue("Wms:Mock:PackageCount", 1),
+            configuration.GetValue<decimal?>("Wms:Mock:ShipmentQuantityLimit")));
         services.AddSingleton<IWmsProvider, MockWmsProvider>();
         services.AddSingleton<WmsInventoryService>();
+        services.AddSingleton<IFulfillmentStatusPublisher, MockFulfillmentStatusPublisher>();
+        services.AddSingleton<FulfillmentOrchestrationService>();
     }
 
     public static void MapWmsProviders(this WebApplication app)
@@ -40,9 +48,9 @@ public static class WmsEndpoints
                 var status = error.Error.Code switch
                 {
                     "NotSupported" => 501,
-                    "Disabled" or "WriteDisabled" or "IdempotencyConflict" => 409,
+                    "Disabled" or "WriteDisabled" or "IdempotencyConflict" or "ReviewRequired" => 409,
                     "NotFound" => 404,
-                    "SimulatedFailure" => 503,
+                    "SimulatedFailure" or "OutcomeUnknown" => 503,
                     _ => 400
                 };
                 return Results.Json(new { error = error.Error }, statusCode: status);
@@ -100,5 +108,33 @@ public static class WmsEndpoints
                 return Results.BadRequest(new { error = "type Cancellation veya Return olmalıdır." });
             return Results.Ok(await provider.CheckCancellationOrReturnEligibilityAsync(id, requestType, ct));
         });
+
+        group.MapGet("/fulfillment/policy", (FulfillmentOrchestrationService fulfillment) =>
+            Results.Ok(fulfillment.ReadPolicy()));
+        group.MapPut("/fulfillment/policy", (
+            FulfillmentWorkflowPolicy policy,
+            FulfillmentOrchestrationService fulfillment) =>
+            Results.Ok(fulfillment.UpdatePolicy(policy)));
+        group.MapGet("/fulfillment/workflows", (FulfillmentOrchestrationService fulfillment) =>
+            Results.Ok(fulfillment.List()));
+        group.MapGet("/fulfillment/workflows/{id}", (
+            string id,
+            FulfillmentOrchestrationService fulfillment) =>
+            Results.Ok(fulfillment.Get(id)));
+        group.MapPost("/fulfillment/orders", async (
+            FulfillmentWorkflowOrder order,
+            FulfillmentOrchestrationService fulfillment,
+            CancellationToken ct) =>
+            Results.Ok(await fulfillment.ReceiveAsync(order, ct)));
+        group.MapPost("/fulfillment/workflows/{id}/advance", async (
+            string id,
+            FulfillmentOrchestrationService fulfillment,
+            CancellationToken ct) =>
+            Results.Ok(await fulfillment.AdvanceAsync(id, ct)));
+        group.MapPost("/fulfillment/workflows/{id}/retry-validation", async (
+            string id,
+            FulfillmentOrchestrationService fulfillment,
+            CancellationToken ct) =>
+            Results.Ok(await fulfillment.RetryValidationAsync(id, ct)));
     }
 }
