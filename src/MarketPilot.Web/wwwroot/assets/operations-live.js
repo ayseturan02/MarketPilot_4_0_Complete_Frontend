@@ -64,7 +64,7 @@ if(typeof globalThis.fetch==='function'){
  };
 }
 if(typeof document.addEventListener==='function'){
- document.addEventListener('input',event=>{const form=event.target.closest?.('.content form');if(form)form.dataset.workspaceDirty='true';});
+ document.addEventListener('input',event=>{const form=event.target.closest?.('.content form');if(form&&!form.matches('.lf-filter-form,.wu-filter'))form.dataset.workspaceDirty='true';});
  document.addEventListener('submit',event=>{const form=event.target;workspaceSubmittingForm=form;setTimeout(()=>{if(workspaceSubmittingForm===form)workspaceSubmittingForm=null;},0);},true);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshOrderRevision(true);});
 }

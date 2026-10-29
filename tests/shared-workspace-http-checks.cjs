@@ -18,7 +18,7 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   const modules=['picking','labels','tracking','returns','refunds','invoices','invoice_drafts','efatura','invoice_archive','invoice_matching','credit_notes','payments','reconciliation','marketplace_rules','messages'];
   for(const module of modules){const data=await view(module);assert(data.items.length<=100);assert(!JSON.stringify(data).includes('Taslak-001'),'static example records must not appear');}
   assert.equal((await api('workspace/views/invalid')).status,404);assert.equal((await api('workspace/views/invoices?size=101')).status,400);
-  const created=await sourceProduct(base,{name:'Shared workflow product',sku:'SHARED-WORKFLOW',category:'Shared category',price:200,stock:40,channels:[]});assert.equal(created.status,200);
+  const created=await sourceProduct(base,{name:'Shared workflow product',sku:'SHARED-WORKFLOW',category:'Giyim / Tişört',price:200,stock:40,channels:[]});assert.equal(created.status,200);
   const product=created.body,initialOverview=(await api('overview')).body;
   const draft={customer:'Shared customer',channel:'Yerel satış',requestId:randomUUID(),lines:[{productId:product.id,quantity:3}]};
   const order=(await api('workspace/orders',{body:draft})).body;assert(order.id,JSON.stringify(order));assert.equal(order.total,600);assert.equal(order.lines[0].productId,product.id);
@@ -96,7 +96,7 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   await page.locator('[data-analysis=settings] input[name=businessName]').blur();await sourceProduct(base,{...product,price:251});await page.waitForTimeout(3000);
   assert.equal(await page.locator('[data-analysis=settings] input[name=businessName]').inputValue(),'Do not erase my edit');
   await page.getByRole('button',{name:'Ayarları kaydet',exact:true}).click();await page.waitForFunction(()=>data.settings.businessName==='Do not erase my edit');
-  await page.evaluate(()=>nav('products'));await page.locator('.ch-body .ty-business-table').waitFor();await page.locator('.content .lf-filter-form input[name=search]').fill('SHARED-WORKFLOW');await page.getByRole('button',{name:'Filtrele',exact:true}).click();await page.locator('.ch-body .ty-business-table').waitFor();
+  await page.evaluate(()=>nav('products'));await page.locator('.ch-body .ty-business-table').waitFor();await page.locator('.content .lf-filter-form input[name=search]').fill('SHARED-WORKFLOW');await page.getByRole('button',{name:'Filtrele',exact:true}).click();await page.locator('.ch-body .ty-business-table').waitFor();assert.equal(await page.locator('.lf-filter-form').getAttribute('data-workspace-dirty'),null,'catalog filters must not block live updates');
   await sourceProduct(base,{...product,price:251,stock:39});await page.waitForFunction(()=>chState().result?.items.length===1&&chState().result.items[0].product.stock===39,{},{timeout:15000});
   assert.equal(await page.locator('.content .lf-filter-form input[name=search]').inputValue(),'SHARED-WORKFLOW','live refresh must preserve filters');
   const newerStore=(await api('integrations/connections',{body:{name:'Second shared outlet',marketplace:'boyner',mode:'demo',environment:'stage'}})).body;
