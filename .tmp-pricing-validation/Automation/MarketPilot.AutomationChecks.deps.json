@@ -1,0 +1,39 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "MarketPilot.AutomationChecks/1.0.0": {
+        "dependencies": {
+          "MarketPilot.Web": "1.0.0"
+        },
+        "runtime": {
+          "MarketPilot.AutomationChecks.dll": {}
+        }
+      },
+      "MarketPilot.Web/1.0.0": {
+        "runtime": {
+          "MarketPilot.Web.dll": {
+            "assemblyVersion": "1.0.0",
+            "fileVersion": ""
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "MarketPilot.AutomationChecks/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "MarketPilot.Web/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

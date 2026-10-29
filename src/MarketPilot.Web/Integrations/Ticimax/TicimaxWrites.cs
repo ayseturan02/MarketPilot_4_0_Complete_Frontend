@@ -4,6 +4,7 @@ public sealed partial class TicimaxSoap
 {
     public async Task<string?> WriteStockPrice(ConnectionSettings s, MarketplaceProduct p, int quantity, decimal? price, CancellationToken ct)
     {
+        MarketPilot.Web.Pricing.RealPriceWrites.Deny(price);
         if(!CredentialProfiles.Writes(configuration,s))throw new IntegrationException("write_disabled","Ticimax yazma izni kapalı.",409);
         if(!int.TryParse(p.Id,out var id)||id<=0)throw new IntegrationException("identifier_required","Ticimax varyasyon numarası gerekli.",409);
         var contract=await Contract(s,"UrunServis",ct);

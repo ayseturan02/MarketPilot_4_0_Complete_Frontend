@@ -99,6 +99,8 @@ public sealed class StockOutbox
     }
     public StockWriteJob Enqueue(ConnectionState store, string barcode, int quantity, decimal? price, string reason, DateTimeOffset? verifyExisting = null, string? nativeSku = null, string? requestId = null)
     {
+        if(price.HasValue)throw new ArgumentException("Price changes require the ERP pricing approval flow.");
+        if(store.Settings.Mode=="real")MarketPilot.Web.Pricing.RealPriceWrites.Deny(price);
         if (string.IsNullOrWhiteSpace(barcode) || barcode.Length > 120 || quantity is < 0 or > 1000000 || price is <= 0 or > 10000000)
             throw new ArgumentException("Stok gönderimi alanları geçersiz.");
         if (StockRestriction(store, barcode) is { } restriction) throw new ArgumentException(restriction);
@@ -190,6 +192,7 @@ public sealed class StockOutbox
             foreach (var job in due)
             {
                 ct.ThrowIfCancellationRequested();
+                if(job.Mode=="real"&&job.Price.HasValue){Finish(job.Id,"blocked","Real price writes are disabled.");continue;}
                 if (!registry.Connections.TryGetValue(job.StoreId, out var store) || CatalogHub.Source(store) != job.Source || AccountIdentity(store) != job.AccountIdentity)
                 { Finish(job.Id, "blocked", "Mağaza bağlantısı değişti; yanlış mağazaya gönderim yapılmadı."); continue; }
                 var storeGate = registry.Gates.GetOrAdd(store.Id, _ => new(1, 1));

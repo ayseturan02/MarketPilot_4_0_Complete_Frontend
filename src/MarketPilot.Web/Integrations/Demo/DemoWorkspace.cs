@@ -153,6 +153,7 @@ public sealed partial class DemoWorkspace
         lock (gate)
         {
             var state = State(settings);
+            if(action.Price.HasValue && (action.Type!="stock" || state.Products.Count(p=>p.Barcode==action.Barcode&&p.SalePrice==action.Price)!=1))throw new ArgumentException("Price changes require the ERP pricing approval flow.");
             if (string.IsNullOrWhiteSpace(action.RequestId) || action.RequestId.Length > 100) throw new ArgumentException("İşlem kimliği gerekli.");
             var fingerprint=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(action,json))));
             var existing = state.Jobs.FirstOrDefault(j => j.RequestId == action.RequestId); if (existing is not null) { if(existing.Fingerprint.Length>0&&existing.Fingerprint!=fingerprint)throw new ArgumentException("Aynı işlem kimliği farklı bir istek için kullanılamaz."); return existing; }
@@ -200,7 +201,7 @@ public sealed partial class DemoWorkspace
             {
                 case "stock":
                     var index = state.Products.FindIndex(p => p.Barcode == job.Reference); if (index < 0) throw new ArgumentException("Ürün bulunamadı.");
-                    var product = state.Products[index]; state.Products[index] = product with { Stock = job.Quantity, SalePrice = job.Price, ListPrice = Math.Max(product.ListPrice ?? job.Price!.Value, job.Price!.Value), OnSale = job.Quantity > 0 && product.ApprovalStatus == "approved" }; break;
+                    var product = state.Products[index]; state.Products[index] = product with { Stock = job.Quantity, OnSale = job.Quantity > 0 && product.ApprovalStatus == "approved" }; break;
                 case "order-next":
                     var oi = state.Orders.FindIndex(o => o.PackageId == job.Reference); if (oi < 0) throw new ArgumentException("Sipariş bulunamadı.");
                     var order = state.Orders[oi]; if (order.Status != job.Text) throw new ArgumentException("Sipariş durumu değişmiş; tekrar kontrol et.");

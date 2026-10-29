@@ -9,6 +9,7 @@ namespace MarketPilot.Web.Integrations.Hepsiburada
     {
         public async Task<string?> WriteStockPrice(ConnectionSettings s, MarketplaceProduct p, int quantity, decimal? price, CancellationToken ct)
         {
+            MarketPilot.Web.Pricing.RealPriceWrites.Deny(price);
             if (!CredentialProfiles.Writes(configuration,s)) throw new IntegrationException("write_disabled","Hepsiburada yazma izni kapalı.",409);
             if (string.IsNullOrWhiteSpace(p.ContentId) || string.IsNullOrWhiteSpace(p.Sku))
                 throw new IntegrationException("identifier_required", "Hepsiburada SKU ve satıcı stok kodu gerekli.", 409);
@@ -29,6 +30,7 @@ namespace MarketPilot.Web.Integrations.N11
     {
         public async Task<string?> WriteStockPrice(ConnectionSettings s, MarketplaceProduct p, int quantity, decimal? price, CancellationToken ct)
         {
+            MarketPilot.Web.Pricing.RealPriceWrites.Deny(price);
             if (!CredentialProfiles.Writes(configuration,s)) throw new IntegrationException("write_disabled","n11 yazma izni kapalı.",409);
             if (quantity > 999999) throw new IntegrationException("invalid_quantity","n11 stoku en fazla 999999 olabilir.",400);
             var page = await Products(s,new(Search:p.Sku,Sender:"ALL",Size:100),ct);
@@ -56,6 +58,7 @@ namespace MarketPilot.Web.Integrations.Boyner
         private DateTimeOffset nextWrite;
         public async Task<string?> WriteStockPrice(ConnectionSettings s, MarketplaceProduct p, int quantity, decimal? price, CancellationToken ct)
         {
+            MarketPilot.Web.Pricing.RealPriceWrites.Deny(price);
             if (!CredentialProfiles.Writes(configuration,s)) throw new IntegrationException("write_disabled","Boyner yazma izni kapalı.",409);
             var sale=price??p.SalePrice;var list=price.HasValue?Math.Max(price.Value,p.ListPrice??price.Value):p.ListPrice;
             if(p.Barcode.Length==0 || p.Currency!="TRY" || sale is not >0 || list is null || list<sale)
@@ -80,6 +83,7 @@ namespace MarketPilot.Web.Integrations.Amazon
     {
         public async Task<string?> WriteStockPrice(ConnectionSettings s, MarketplaceProduct p, int quantity, decimal? price, CancellationToken ct)
         {
+            MarketPilot.Web.Pricing.RealPriceWrites.Deny(price);
             if (!CredentialProfiles.Writes(configuration,s)) throw new IntegrationException("write_disabled","Amazon yazma izni kapalı.",409);
             if(p.Sku.Length==0) throw new IntegrationException("identifier_required","Amazon satıcı SKU gerekli.",409);
             var path="/listings/2021-08-01/items/"+Uri.EscapeDataString(Seller(s.Environment))+"/"+Uri.EscapeDataString(p.Sku);

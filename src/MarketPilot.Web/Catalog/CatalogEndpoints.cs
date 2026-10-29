@@ -63,3 +63,4 @@ public static class CatalogEndpoints
 public record CatalogSelection(string[] Keys);
 
 public sealed record ErpPreviewApply(string Token);
+

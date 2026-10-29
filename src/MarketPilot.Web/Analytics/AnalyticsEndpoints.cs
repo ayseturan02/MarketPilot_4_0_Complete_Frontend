@@ -51,7 +51,7 @@ public static class AnalyticsEndpoints
 
         app.MapGet("/api/analytics/profit", (DemoStore db) => Results.Ok(db.CatalogRead(s => new {
             generatedAt = DateTimeOffset.UtcNow,
-            products = s.Products.Where(p=>p.SourceSystem==ProductOwnershipPolicy.ErpSource).OrderBy(p => p.Name).Select(p => {
+            products = s.Products.Where(p=>p.SourceSystem==ProductOwnershipPolicy.ErpSource).Select(p=>MarketPilot.Web.Pricing.PricingProjection.Clone(s,p)).OrderBy(p => p.Name).Select(p => {
                 var cost = s.ProductCosts.GetValueOrDefault(p.Id);
                 var ready = p.PriceKnown && cost is not null && cost.Currency == p.Currency;
                 decimal? expenses = ready ? cost!.UnitCost + p.Price * cost.CommissionRate / 100 + cost.ShippingCost + cost.OtherCost : null;

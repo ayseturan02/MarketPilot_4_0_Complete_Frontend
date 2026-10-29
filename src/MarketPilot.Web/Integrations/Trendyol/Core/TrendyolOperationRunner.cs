@@ -21,6 +21,7 @@ public sealed partial class TrendyolOperationRunner(TrendyolApiClient client, IC
 
     public async Task<TrendyolOperationResult> RunAsync(TrendyolOperation op, ConnectionSettings settings, TrendyolOperationRequest request, CancellationToken ct)
     {
+        if(settings.Mode!="demo"&&op.Write&&request.Body is {} body&&MarketPilot.Web.Pricing.RealPriceWrites.HasPrice(body))MarketPilot.Web.Pricing.RealPriceWrites.Deny(1);
         var environment = settings.Environment;
         if (op.StageOnly && environment != "stage") throw Invalid("Bu servis yalnızca stage (test) ortamında çalışır.", "stage_only");
         var demo = settings.Mode == "demo";

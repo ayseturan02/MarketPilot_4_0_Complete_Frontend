@@ -152,7 +152,7 @@ public sealed class CanonicalStore(DemoStore db,IConfiguration configuration)
                 if(Active(r))Need(qty<=Calculate(s,r.VariantId,r.WarehouseId,r.Id).Quantity,"Yeterli satılabilir stok yok.");break;
             case PriceList p:
                 Need(Present(p.Name)&&p.ValidFrom!=default&&(!p.ValidTo.HasValue||p.ValidTo>p.ValidFrom)&&p.Entries!=null&&p.Entries.Count is >0 and <=10000,"Fiyat listesi veya geçerlilik aralığı geçersiz.");
-                foreach(var e in p.Entries){Need(e!=null&&e.Amount>=0&&e.Amount<=100000000&&Currency(e.Currency)&&e.VatRate is null or >=0 and <=100,"Fiyat veya para birimi geçersiz.");Convert(s,e.VariantId,1,e.UnitCode);}Need(p.Entries.Select(e=>(e.VariantId,e.Currency,e.UnitCode)).Distinct().Count()==p.Entries.Count,"Tekrar fiyat satırı.");break;
+                foreach(var e in p.Entries){Need(e!=null&&e.Amount is null or >=0 and <=100000000&&Currency(e.Currency)&&e.VatRate is null or >=0 and <=100,"Fiyat veya para birimi geçersiz.");Convert(s,e.VariantId,1,e.UnitCode);}Need(p.Entries.Select(e=>(e.VariantId,e.Currency,e.UnitCode)).Distinct().Count()==p.Entries.Count,"Tekrar fiyat satırı.");break;
             case MarketplaceOrder o:
                 Need(Present(o.Context.ExternalAccountId)&&Present(o.OrderNumber)&&Currency(o.Currency)&&o.OrderedAt!=default&&o.Status is "new" or "preparing" or "shipped" or "delivered" or "cancelled" or "returned","Sipariş üst bilgisi geçersiz.");
                 Need(o.Lines!=null&&o.Lines.Count is >0 and <=1000&&o.Lines.All(l=>l!=null)&&o.Lines.Select(l=>l.Id).Distinct().Count()==o.Lines.Count,"Sipariş satırları tekil olmalı.");

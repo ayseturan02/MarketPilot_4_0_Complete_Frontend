@@ -26,7 +26,7 @@ public sealed partial class CatalogHub
                 .Select(l => new { listing = fresh(l), product = products[l.ProductId] }).Where(r => ListingFilters.Exact(r.listing.Status, q.Status)).OrderBy(r => r.product.Name).ThenBy(r => r.listing.Key);
             var total = rows.Count();
             return new {
-                items = rows.Skip(q.Page * q.Size).Take(q.Size).Select(r => new { r.listing, product = Clone(r.product) }).ToArray(),
+                items = rows.Skip(q.Page * q.Size).Take(q.Size).Select(r => new { r.listing, product = Project(s,r.product,0) }).ToArray(),
                 page = q.Page,
                 size = q.Size,
                 totalElements = total,

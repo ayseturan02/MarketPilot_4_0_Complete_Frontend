@@ -16,7 +16,7 @@ public sealed record StockPosition(string Id,RecordContext Context,string Varian
 public sealed record StockReservation(string Id,RecordContext Context,string VariantId,string WarehouseId,string OrderId,decimal Quantity,string UnitCode,
     string Status="held",DateTimeOffset? ExpiresAt=null) : CanonicalRecord(Id,Context);
 public sealed record AvailableToSell(string TenantId,string VariantId,string WarehouseId,string UnitCode,decimal? OnHand,decimal Reserved,decimal? SafetyStock,decimal? Quantity,DateTimeOffset CalculatedAt);
-public sealed record PriceEntry(string VariantId,decimal Amount,string Currency,string UnitCode,bool VatIncluded,decimal? VatRate=null);
+public sealed record PriceEntry(string VariantId,decimal? Amount,string Currency,string UnitCode,bool VatIncluded,decimal? VatRate=null);
 public sealed record PriceList(string Id,RecordContext Context,string Name,IReadOnlyList<PriceEntry> Entries,DateTimeOffset ValidFrom,DateTimeOffset? ValidTo=null) : CanonicalRecord(Id,Context);
 public sealed record OrderLine(string Id,string VariantId,string ExternalLineId,string Sku,string? Barcode,decimal Quantity,string UnitCode,decimal UnitPrice,string Currency);
 public sealed record MarketplaceOrder(string Id,RecordContext Context,string OrderNumber,string Status,string Currency,IReadOnlyList<OrderLine> Lines,DateTimeOffset OrderedAt) : CanonicalRecord(Id,Context);

@@ -63,8 +63,8 @@ try
     var outbox = services.GetRequiredService<StockOutbox>();
     var demoStore = registry.Connections["trendyol"];
     var product = demo.Snapshot(demoStore.Settings).Products[0];
-    var job = outbox.Enqueue(demoStore, product.Barcode, 42, product.SalePrice, "fixture");
-    Check(outbox.Enqueue(demoStore, product.Barcode, 42, product.SalePrice, "fixture").Id == job.Id, "Repeated enqueue must reuse the active job");
+    var job = outbox.Enqueue(demoStore, product.Barcode, 42, null, "fixture");
+    Check(outbox.Enqueue(demoStore, product.Barcode, 42, null, "fixture").Id == job.Id, "Repeated enqueue must reuse the active job");
     await outbox.ProcessDue(default);
     Check(Json(outbox.Status()).GetProperty("waiting").GetInt32() == 1, "Sending a demo action must wait for completion");
     var providerJob = demo.Enqueue(demoStore.Settings, new("stock", "outbox-" + job.Id, product.Barcode, 42, product.SalePrice));
@@ -102,9 +102,9 @@ try
     await uncertain.ProcessDue(default);
     Check(transport.Calls == beforeSend && uncertain.ConfirmedStock(live.Id, "INTERRUPTED") == 55, "Interrupted real dispatch must verify without resending");
 
-    var oldTarget = uncertain.Enqueue(demoStore, product.Barcode, 77, product.SalePrice, "ordered target");
+    var oldTarget = uncertain.Enqueue(demoStore, product.Barcode, 77, null, "ordered target");
     await uncertain.ProcessDue(default);
-    var newTarget = uncertain.Enqueue(demoStore, product.Barcode, 78, product.SalePrice, "ordered target");
+    var newTarget = uncertain.Enqueue(demoStore, product.Barcode, 78, null, "ordered target");
     Check(newTarget.Sequence > oldTarget.Sequence, "Targets must keep durable ordering even when clock timestamps are equal");
     await uncertain.ProcessDue(default);
     Check(!demo.Snapshot(demoStore.Settings).Jobs.Any(j => j.RequestId == "outbox-" + newTarget.Id), "A newer target must wait for the in-flight old target");
@@ -114,9 +114,9 @@ try
     demo.ProcessPendingJobs(); clock.Advance(2); await uncertain.ProcessDue(default);
     Check(uncertain.ConfirmedStock(demoStore.Id, product.Barcode) == 78, "The newest ordered target must become the confirmed stock");
 
-    var barcodeTarget=uncertain.Enqueue(demoStore,product.Barcode,80,product.SalePrice,"mixed identity",requestId:"barcode-replay");
+    var barcodeTarget=uncertain.Enqueue(demoStore,product.Barcode,80,null,"mixed identity",requestId:"barcode-replay");
     await uncertain.ProcessDue(default);
-    var skuTarget=uncertain.Enqueue(demoStore,"sku:"+product.Sku,81,product.SalePrice,"mixed identity",nativeSku:product.Sku);
+    var skuTarget=uncertain.Enqueue(demoStore,"sku:"+product.Sku,81,null,"mixed identity",nativeSku:product.Sku);
     await uncertain.ProcessDue(default);
     Check(!demo.Snapshot(demoStore.Settings).Jobs.Any(j=>j.RequestId=="outbox-"+skuTarget.Id),"SKU and barcode targets must share the same product ordering");
     demo.Enqueue(demoStore.Settings,new("stock","outbox-"+barcodeTarget.Id,product.Barcode,80,product.SalePrice)).DueAt=DateTimeOffset.UtcNow.AddSeconds(-1);
@@ -124,7 +124,7 @@ try
     demo.Enqueue(demoStore.Settings,new("stock","outbox-"+skuTarget.Id,product.Barcode,81,product.SalePrice)).DueAt=DateTimeOffset.UtcNow.AddSeconds(-1);
     demo.ProcessPendingJobs();clock.Advance(2);await uncertain.ProcessDue(default);
     Check(uncertain.ConfirmedStock(demoStore.Id,product.Barcode)==81,"A SKU-only completion must be visible under its resolved barcode");
-    Check(uncertain.Enqueue(demoStore,product.Barcode,80,product.SalePrice,"mixed identity",requestId:"barcode-replay").Id==barcodeTarget.Id,"Resolved demo identity must not invalidate request idempotency");
+    Check(uncertain.Enqueue(demoStore,product.Barcode,80,null,"mixed identity",requestId:"barcode-replay").Id==barcodeTarget.Id,"Resolved demo identity must not invalidate request idempotency");
 
     var accountBound = uncertain.Enqueue(live, "ACCOUNT-BOUND", 99, null, "account guard");
     config["Marketplaces:Trendyol:stage:SellerId"] = "456";
@@ -141,7 +141,7 @@ try
         releaser.Start();
         try
         {
-            var retried=uncertain.Enqueue(demoStore,product.Barcode,68,product.SalePrice,"transient Windows destination lock");
+            var retried=uncertain.Enqueue(demoStore,product.Barcode,68,null,"transient Windows destination lock");
             Check(uncertain.Find(retried.Id)?.Quantity==68,"Temporary read locks must not lose an accepted stock target");
         }
         finally{releaser.Join();held.Dispose();}
@@ -149,7 +149,7 @@ try
 
     var snapshot = Json(uncertain.Status()).GetRawText();
     var blocker = outboxFile + ".tmp"; Directory.CreateDirectory(blocker);
-    try { uncertain.Enqueue(demoStore, product.Barcode, 66, product.SalePrice, "disk fixture"); throw new Exception("Disk failure was accepted"); }
+    try { uncertain.Enqueue(demoStore, product.Barcode, 66, null, "disk fixture"); throw new Exception("Disk failure was accepted"); }
     catch (IOException) { }
     catch (UnauthorizedAccessException) { }
     finally { Directory.Delete(blocker); }

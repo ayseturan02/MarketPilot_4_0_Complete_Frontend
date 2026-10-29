@@ -580,7 +580,7 @@ public sealed class CentralStockService
                     continue;
                 }
 
-                queue.Enqueue(store, product.Barcode, target, product.SalePrice, "Merkezi stok otomasyonu");
+                queue.Enqueue(store, product.Barcode, target, null, "Merkezi stok otomasyonu");
                 queued++;
             }
 

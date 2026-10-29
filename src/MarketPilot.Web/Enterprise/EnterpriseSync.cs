@@ -107,6 +107,7 @@ public sealed class EnterpriseSync
     private SyncTarget[] Targets(EnterprisePlan plan,string task)
     {
         var registry=services.GetRequiredService<IntegrationRegistry>();
+        if(task=="price")throw new ArgumentException("ERP price preview/approval workflow is required; automatic legacy price sends are disabled.");
         var targets=plan.Targets.Where(t=>t.Enabled&&(task switch{"stock"=>t.Stock,"price"=>t.Price,"images"=>t.Images,"listings"=>t.Products,"orders"=>t.Orders,_=>t.Orders})).ToArray();
         foreach(var target in targets){if(!registry.Connections.TryGetValue(target.StoreId,out var s)||target.Source!=CatalogHub.Source(s))throw new IntegrationException("source_changed","Hedef mağaza kaynağı değişti; planı güncelleyin.",409);}
         return targets;

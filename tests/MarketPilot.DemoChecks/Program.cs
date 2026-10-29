@@ -15,9 +15,9 @@ try
     var demo = new DemoWorkspace(env); var settings = new ConnectionSettings("Main", "trendyol", "demo", "stage");
     var initial = demo.Snapshot(settings); Check(initial.Products.Count == 8 && initial.Orders.Count == 6 && initial.Claims.Count == 2 && initial.Questions.Count == 3, "Seed coverage failed");
     var barcode = initial.Products[0].Barcode; var orderId = initial.Orders[0].PackageId;
-    var pending = demo.Enqueue(settings, new("stock", "stock-1", barcode, 41, 499m));
+    var pending = demo.Enqueue(settings, new("stock", "stock-1", barcode, 41, initial.Products[0].SalePrice));
     Check(pending.State == "pending" && demo.Snapshot(settings).Products[0].Stock == 36, "Pending job changed inventory early");
-    Check(demo.Enqueue(settings, new("stock", "stock-1", barcode, 41, 499m)).Id == pending.Id, "Duplicate command was not idempotent");
+    Check(demo.Enqueue(settings, new("stock", "stock-1", barcode, 41, initial.Products[0].SalePrice)).Id == pending.Id, "Duplicate command was not idempotent");
     Reject(() => demo.Enqueue(settings, new("stock", "stock-1", barcode, 99, 999m)));
     demo.Enqueue(settings, new("order-next", "order-1", Reference: orderId));
     Reject(() => demo.Enqueue(settings, new("order-next", "order-duplicate", Reference: orderId)));
@@ -25,7 +25,7 @@ try
     Reject(() => demo.Enqueue(settings, new("answer", "short-answer", Reference: "demo-question-1", Text: "short")));
     Reject(() => demo.Snapshot(settings with { Mode = "real" }));
     await Task.Delay(2200);
-    var done = demo.Snapshot(settings); Check(done.Products[0].Stock == 41 && done.Products[0].SalePrice == 499m && done.Orders[0].Status == "Picking", "Job application failed");
+    var done = demo.Snapshot(settings); Check(done.Products[0].Stock == 41 && done.Products[0].SalePrice == initial.Products[0].SalePrice && done.Orders[0].Status == "Picking", "Job application failed");
     var restored = new DemoWorkspace(env); Check(restored.Snapshot(settings).Products[0].Stock == 41, "Inventory did not survive service restart");
     Check(restored.Snapshot(settings with { Name = "Outlet" }).Products[0].Stock == 12, "Store isolation failed");
     demo.Enqueue(settings, new("answer", "answer-1", Reference: "demo-question-1", Text: "Merhaba, ürünümüz yüzde yüz pamuktur."));

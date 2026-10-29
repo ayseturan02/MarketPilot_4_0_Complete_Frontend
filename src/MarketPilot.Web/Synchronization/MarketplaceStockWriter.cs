@@ -29,6 +29,8 @@ public sealed class MarketplaceStockWriter(MarketplaceClients clients, IConfigur
     }
     public async Task<string?> Send(ConnectionSettings s, MarketplaceProduct product, int quantity, decimal? price, CancellationToken ct, string? expectedIdentity=null)
     {
+        if(price.HasValue)throw new IntegrationException("pricing_blocked","Real price writes are disabled. Use ERP pricing preview.",409);
+        MarketPilot.Web.Pricing.RealPriceWrites.Deny(price);
         var session=clients.Session(s);
         if(!configuration.GetValue<bool>("Synchronization:AllowRealWrites") || !CredentialProfiles.Writes(session.Config,s)) throw new IntegrationException("write_disabled","Bu mağazada gerçek yazma izni açılmamış.",409);
         if(expectedIdentity is not null && CredentialProfiles.Fingerprint(session.Config,s)!=expectedIdentity) throw new IntegrationException("account_changed","Gönderimden önce satıcı kimlik bilgileri değişti; işlem durduruldu.",409);

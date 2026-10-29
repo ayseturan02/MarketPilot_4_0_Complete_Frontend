@@ -121,6 +121,10 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
     private static Product Project(Database s,Product product,int safetyStock)
     {
         var projected=Clone(product);
+        MarketPilot.Web.Pricing.PricingProjection.Apply(s,projected);
+        var price=MarketPilot.Web.Pricing.ErpPricingService.MasterEntry(s,product,DateTimeOffset.UtcNow);
+        projected.PriceKnown=price?.Amount is >0;
+        if(price?.Amount is >0){projected.Price=price.Amount.Value;projected.Currency=price.Currency;projected.VatIncluded=price.VatIncluded;}
         projected.SellableStock=MarketPilot.Web.Workspace.OperationalInventory.Sellable(s,product,requireReservationSnapshot:true,safetyStock:safetyStock);
         projected.SellableStockState=projected.SellableStock.HasValue?StockValueState.Known:
             !product.StockKnown||product.ReservationState==StockValueState.Unknown?StockValueState.Unknown:StockValueState.NotProvided;
@@ -289,57 +293,11 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
             var p = s.Products.First(x => x.Id == l.ProductId);
             var c = registry.Connections.GetValueOrDefault(l.StoreId);
             var current = fresh(l);
-            string? reason = p.SourceSystem!=ProductOwnershipPolicy.ErpSource ? "ERP ana ürün kaydı yok." : c == null || Source(c) != l.Source ? "Mağaza bağlantısı değişmiş." : c.Settings.Mode == "real" && !RealWrites(c) ? "Bu mağazada gerçek stok/fiyat gönderimi açılmamış." : p.Status != "Aktif" ? "Ürün aktif değil." : current.Status is "missing" or "source_changed" ? "Mağaza kaydı bulunamadı." : !p.StockKnown || !p.PriceKnown ? "Merkezi stok veya fiyat bilinmiyor." : p.Stock != decimal.Truncate(p.Stock) || p.Stock > 1000000 || p.Price is <= 0 or > 10000000 ? "Gönderim için tam sayı stok ve pozitif fiyat gerekli." : p.Currency != current.Currency || p.VatIncluded != true ? "Para birimi ve KDV dahil fiyatı kontrol et." : l.Barcode.Length == 0 && l.Sku.Length == 0 ? "Mağaza barkodu veya SKU gerekli." : c.Settings.Marketplace == "amazon" && MarketPilot.Web.Integrations.Amazon.AmazonDemo.IsAmazonFulfilled(l.Barcode) ? "Amazon deposu stoğu bu işlemle değiştirilemez." : c.Settings.Marketplace == "n11" && MarketPilot.Web.Integrations.N11.N11Demo.Depot(l.Barcode) ? "n11depom stoğu bu işlemle değiştirilemez." : null;
-            return new PublishLine(k, p.Id, p.Version, l.StoreId, p.Name, current.Stock, current.Price, p.StockKnown ? MarketPilot.Web.Workspace.OperationalInventory.Available(s,p) : null, p.PriceKnown ? p.Price : null, reason == null, reason);
+            return new PublishLine(k,p.Id,p.Version,l.StoreId,p.Name,current.Stock,current.Price,null,null,false,"Use ERP pricing preview and approval; combined stock/price publishing is disabled.");
         }).ToArray());
     }
 
-    public object Publish(CatalogPublish input)
-    {
-        if (string.IsNullOrWhiteSpace(input.RequestId) || input.RequestId.Length > 100 || input.Keys == null || input.Versions == null)
-            throw new IntegrationException("invalid_request", "İşlem kimliği gerekli.", 400);
-        var fp = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { keys = input.Keys.OrderBy(k => k).ToArray(), versions = input.Versions.OrderBy(v => v.Key) }))));
-        // Repeated requests return the original job even if a product was edited afterwards.
-        var previous = db.CatalogRead(s => s.Catalog.Jobs.FirstOrDefault(j => j.RequestId == input.RequestId));
-        if (previous != null)
-        {
-            if (previous.Fingerprint != fp)
-                throw new IntegrationException("idempotency_conflict", "Bu işlem kimliği farklı bir istekte kullanılmış.", 409);
-            return previous;
-        }
-
-        var lines = Preview(input.Keys);
-        if (lines.Any(l => !l.Ready))
-            throw new IntegrationException("publish_blocked", lines.First(l => !l.Ready).Reason!, 409);
-        return db.Modify(s =>
-        {
-            var duplicate = s.Catalog.Jobs.FirstOrDefault(j => j.RequestId == input.RequestId);
-            if (duplicate != null)
-            {
-                if (duplicate.Fingerprint != fp)
-                    throw new IntegrationException("idempotency_conflict", "İşlem kimliği farklı bir istekte kullanılmış.", 409);
-                return duplicate;
-            }
-
-            var job = new CatalogJob
-            {
-                RequestId = input.RequestId,
-                Fingerprint = fp
-            };
-            foreach (var line in lines)
-            {
-                var l = s.Catalog.Listings[line.Key];
-                var p = s.Products.First(p => p.Id == l.ProductId);
-                if (!input.Versions.TryGetValue(p.Id, out var version) || version != p.Version || line.Version != p.Version)
-                    throw new IntegrationException("version_conflict", "Önizlemeden sonra ürün değişti. Yeniden önizle.", 409);
-                job.Targets.Add(new() { Key = l.Key, StoreId = l.StoreId, Source = l.Source, ProductId = p.Id, Version = p.Version, Barcode = l.Barcode, NativeSku = l.Sku, Stock = MarketPilot.Web.Workspace.OperationalInventory.Available(s,p), Price = p.Price });
-            }
-
-            s.Catalog.Jobs.Insert(0, job);
-            db.Event(s, "Mağaza işlemi sıraya alındı", $"{job.Targets.Count} mağaza kaydı");
-            return job;
-        });
-    }
+    public object Publish(CatalogPublish input)=>throw new IntegrationException("pricing_workflow_required","ERP fiyat listesi, fark önizlemesi ve fiyat onay akışı kullanılmalıdır.",409);
 
     public object Jobs(CatalogQuery q)
     {
@@ -358,6 +316,7 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
                 ct.ThrowIfCancellationRequested();
                 try
                 {
+                    if(t.Price>0)throw new IntegrationException("pricing_workflow_required","Legacy price queue disabled; create ERP price approval.",409);
                     if (!registry.Connections.TryGetValue(t.StoreId, out var store) || Source(store) != t.Source)
                         throw new ArgumentException("Mağaza bağlantısı değişti.");
                     if (store.Settings.Mode == "real")

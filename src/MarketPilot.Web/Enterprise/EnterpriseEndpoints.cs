@@ -1,3 +1,4 @@
+using MarketPilot.Web.Pricing;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -13,14 +14,14 @@ public static class EnterpriseEndpoints
 {
     public static void AddEnterprise(this IServiceCollection services)
     {
-        services.AddNebimProviders();
+        services.AddNebimProviders();services.AddErpPricing();
         services.AddHttpClient("EnterpriseBridge",c=>c.Timeout=Timeout.InfiniteTimeSpan).ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
         services.AddSingleton<EnterpriseBridge>();services.AddSingleton<IErpCatalogProvider,MarketPilotErpBridgeProvider>();services.AddSingleton<IWmsProvider,WmsBridgeProvider>();services.AddSingleton<ICargoProvider,CargoBridgeProvider>();services.AddSingleton<ErpCatalog>();services.AddSingleton<EnterpriseSync>();services.AddHostedService<EnterpriseSyncWorker>();
         services.Configure<RateLimiterOptions>(o=>o.AddPolicy("erp-inbound",c=>RateLimitPartition.GetFixedWindowLimiter(c.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new FixedWindowRateLimiterOptions{PermitLimit=120,Window=TimeSpan.FromMinutes(1),QueueLimit=0})));
     }
     public static void MapEnterprise(this WebApplication app)
     {
-        app.MapNebimProviders();
+        app.MapNebimProviders();app.MapErpPricing();
         var group=app.MapGroup("/api/sync/enterprise");
         group.AddEndpointFilter(async(context,next)=>{
             if(context.HttpContext.Request.Method!="GET"&&context.HttpContext.RequestServices.GetRequiredService<LocalAccountStore>().Configured&&!context.HttpContext.User.IsInRole("admin"))return Results.StatusCode(403);

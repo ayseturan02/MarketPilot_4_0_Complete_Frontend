@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "check": "node scripts/check.mjs",
+    "check:pricing": "dotnet run --project tests/MarketPilot.PricingChecks && node tests/pricing-http-checks.cjs",
     "check:sync": "dotnet build src/MarketPilot.Web && dotnet run --project tests/MarketPilot.SynchronizationChecks -p:BuildProjectReferences=false && node tests/synchronization-http-checks.cjs"
   },
   "devDependencies": {
