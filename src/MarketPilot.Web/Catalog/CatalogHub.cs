@@ -91,7 +91,7 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
         return db.CatalogRead<ListingPage<CatalogProductRow>>(s =>
         {
             var byProduct = s.Catalog.Listings.Values.GroupBy(l => l.ProductId).ToDictionary(g => g.Key, g => g.ToArray());
-            var rows = s.Products.Where(p => string.IsNullOrWhiteSpace(q.Search) || ListingFilters.Text(p.Name, q.Search) || ListingFilters.Text(p.Sku, q.Search) || ListingFilters.Text(p.Barcode, q.Search)).Where(p => ListingFilters.Exact(p.Status, q.Status) && ListingFilters.Text(p.Category, q.Category) && ListingFilters.Exact(p.SourceMode, q.Mode)).Where(p => string.IsNullOrWhiteSpace(q.StoreId) || byProduct.GetValueOrDefault(p.Id, []).Any(l => l.StoreId == q.StoreId)).Where(p => q.Mapped != "yes" || byProduct.ContainsKey(p.Id)).Where(p => q.Mapped != "no" || !byProduct.ContainsKey(p.Id)).OrderByDescending(p => p.CreatedAt).ThenBy(p => p.Id);
+            var rows = s.Products.Where(p => string.IsNullOrWhiteSpace(p.Category) || IsClothingCategory(p.Category)).Where(p => string.IsNullOrWhiteSpace(q.Search) || ListingFilters.Text(p.Name, q.Search) || ListingFilters.Text(p.Sku, q.Search) || ListingFilters.Text(p.Barcode, q.Search)).Where(p => ListingFilters.Exact(p.Status, q.Status) && ListingFilters.Text(p.Category, q.Category) && ListingFilters.Exact(p.SourceMode, q.Mode)).Where(p => string.IsNullOrWhiteSpace(q.StoreId) || byProduct.GetValueOrDefault(p.Id, []).Any(l => l.StoreId == q.StoreId)).Where(p => q.Mapped != "yes" || byProduct.ContainsKey(p.Id)).Where(p => q.Mapped != "no" || !byProduct.ContainsKey(p.Id)).OrderByDescending(p => p.CreatedAt).ThenBy(p => p.Id);
             var total = rows.Count();
             var items = rows.Skip(q.Page * q.Size).Take(q.Size).Select(p => new CatalogProductRow(Clone(p), byProduct.GetValueOrDefault(p.Id, []).Take(8).Select(fresh).ToArray(), byProduct.GetValueOrDefault(p.Id, []).Length)).ToArray();
             return new(items, q.Page, q.Size, total, (int)Math.Ceiling(total / (double)q.Size));
@@ -275,10 +275,15 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
         Ensure();
         return db.CatalogRead(s =>
         {
-            var rows = s.Products.GroupBy(p => p.Category).Where(g => ListingFilters.Text(g.Key, q.Search)).OrderBy(g => g.Key).Select(g => new { category = g.Key, products = g.Count(), brands = g.Select(p => p.Brand).Where(b => b.Length > 0).Distinct().Take(10), bindings = s.Catalog.Categories.Values.Where(b => b.Category == g.Key).ToArray() }).ToArray();
+            var rows = s.Products.GroupBy(p => p.Category).Where(g => IsClothingCategory(g.Key) && ListingFilters.Text(g.Key, q.Search)).OrderBy(g => g.Key).Select(g => new { category = g.Key, products = g.Count(), brands = g.Select(p => p.Brand).Where(b => b.Length > 0).Distinct().Take(10), bindings = s.Catalog.Categories.Values.Where(b => b.Category == g.Key).ToArray() }).ToArray();
             return ListingFilters.Page(rows, new ListingQuery(Page: q.Page, Size: q.Size));
         });
     }
+
+    private static bool IsClothingCategory(string category) =>
+        category.StartsWith("Giyim", StringComparison.OrdinalIgnoreCase) ||
+        category.Equals("Moda", StringComparison.OrdinalIgnoreCase) ||
+        category.StartsWith("Tekstil /", StringComparison.OrdinalIgnoreCase);
 
     public object Bind(CategoryBinding input)
     {

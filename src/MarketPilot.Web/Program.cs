@@ -221,20 +221,20 @@ public partial class DemoStore {
  public object Overview(){var d=Read();var orders=d.Orders.Where(o=>o.Status!="İptal").ToList();return new{revenue=orders.Sum(o=>o.Total),orders=d.Orders.Count,products=d.Products.Count,lowStock=d.Products.Count(p=>p.StockKnown&&p.Stock<=d.Settings.LowStockThreshold),activeConnections=d.Connections.Count(c=>c.Enabled && c.Available),lastSync=d.LastSync,latestOrders=d.Orders.Take(5),activity=d.Activity.Take(5),channels=d.Orders.GroupBy(o=>o.Channel).Select(g=>new{name=g.Key,total=g.Sum(o=>o.Total),count=g.Count()}).OrderByDescending(x=>x.total).ToList()};}
  private static Database Seed(){var d=new Database();
  var items=new (string name,string sku,string category,decimal price,int stock,string icon,string[] channels)[]{
- ("Kablosuz Bluetooth Kulaklık","ELK-1001","Elektronik",1899,124,"🎧",new[]{"Trendyol","Amazon"}),
- ("Minimalist Seramik Vazo","EV-2040","Ev & Yaşam",749,8,"🏺",new[]{"Hepsiburada","n11"}),
- ("Organik Pamuk Oversize Tişört","MOD-3002","Moda",599,86,"👕",new[]{"Trendyol"}),
- ("Paslanmaz Çelik Termos 500ml","EV-1018","Ev & Yaşam",1099,42,"🥤",new[]{"Amazon","Trendyol","n11"}),
- ("Ergonomik Kablosuz Mouse","ELK-1033","Elektronik",1299,5,"🖱️",new[]{"Hepsiburada","Amazon"}),
- ("Deri Kapaklı Not Defteri","KRT-4512","Kırtasiye",329,235,"📓",new[]{"n11"}),
- ("Aromaterapi Mum Seti","EV-5551","Ev & Yaşam",429,64,"🕯️",new[]{"Trendyol","Hepsiburada"}),
- ("Akıllı Masa Lambası","ELK-6090","Elektronik",1799,19,"💡",new[]{"Amazon"}),
- ("Spor Su Matarası","SP-3339","Spor",489,102,"🏃",new[]{"Trendyol","n11"})};
+ ("Organik Pamuk Oversize Tişört","TSH-3002","Giyim / Tişört",599,86,"👕",new[]{"Trendyol"}),
+ ("Keten Gömlek","GML-1018","Giyim / Gömlek",1099,42,"👔",new[]{"Amazon","Trendyol","n11"}),
+ ("Dokuma Pantolon","PNT-1033","Giyim / Pantolon",1299,5,"👖",new[]{"Hepsiburada","Amazon"}),
+ ("Fermuarlı Sweatshirt","SWT-4512","Giyim / Sweatshirt",799,235,"🧥",new[]{"n11"}),
+ ("Triko Hırka","HRK-5551","Giyim / Hırka",1199,64,"🧶",new[]{"Trendyol","Hepsiburada"}),
+ ("Pamuklu Basic Tişört","TSH-6090","Giyim / Tişört",499,19,"👕",new[]{"Amazon"}),
+ ("Kadın Günlük Elbise","ELB-3339","Giyim / Elbise",899,102,"👗",new[]{"Trendyol","n11"}),
+ ("Kapüşonlu Mont","MNT-2040","Giyim / Dış Giyim",1749,8,"🧥",new[]{"Hepsiburada","n11"}),
+ ("Erkek Polo Yaka Tişört","POL-1001","Giyim / Tişört",749,124,"👕",new[]{"Trendyol","Amazon"})};
  int i=1;foreach(var t in items)d.Products.Add(new Product{Id=$"p{i++:000}",Name=t.name,Sku=t.sku,Category=t.category,Price=t.price,Stock=t.stock,Image=t.icon,Channels=t.channels.ToList()});
  var customers=new[]{"Zeynep Kaya","Mehmet Yılmaz","Elif Demir","Burak Aydın","Sude Şahin","Ahmet Arslan","Deniz Öztürk","Ceren Koç","Can Yıldız","Merve Öz"};var channels=new[]{"Trendyol","Hepsiburada","Amazon","n11"};var statuses=new[]{"Yeni","Hazırlanıyor","Kargolandı","Tamamlandı","Tamamlandı","Tamamlandı","İptal"};var rng=new Random(47);
  for(int j=0;j<32;j++){var p=d.Products[rng.Next(d.Products.Count)];var qty=rng.Next(1,4);d.Orders.Add(new Order{Id=$"MP-{260000+j}",Customer=customers[j%customers.Length],Channel=channels[j%channels.Length],Product=p.Name,Total=p.Price*qty,Quantity=qty,Status=statuses[j%statuses.Length],Date=DateTimeOffset.Now.AddHours(-j*3-rng.Next(1,3))});}
  var cons=new (string,string,string,bool,string)[]{("Trendyol","T","#ff7c31",true,"Demo bağlantı · Gerçek API bağlı değil"),("Hepsiburada","H","#f49b22",true,"Demo bağlantı · Gerçek API bağlı değil"),("Amazon","a","#252b37",true,"Demo bağlantı · Gerçek API bağlı değil"),("n11","n","#d34a7b",false,"Bağlantı henüz yapılandırılmadı"),("Shopify","S","#76b64c",false,"Adaptör geliştirme aşamasında"),("ÇiçekSepeti","Ç","#ee5a69",false,"Adaptör geliştirme aşamasında"),("PrestaShop","P","#3482c6",false,"Adaptör geliştirme aşamasında"),("eBay","e","#527cda",false,"Adaptör geliştirme aşamasında")};
  int k=1;foreach(var c in cons)d.Connections.Add(new Connection{Id=$"c{k++}",Name=c.Item1,Initial=c.Item2,Color=c.Item3,Enabled=c.Item4,Available=c.Item4,Note=c.Item5});
- d.Activity=new(){new(){Title="Sipariş alındı",Detail="MP-260000 · Trendyol",At=DateTimeOffset.Now.AddMinutes(-6)},new(){Title="Stok kontrol edildi",Detail="9 ürün · Örnek veri",At=DateTimeOffset.Now.AddMinutes(-18)},new(){Title="Ürün kaynağından alındı",Detail="Kablosuz Bluetooth Kulaklık",At=DateTimeOffset.Now.AddHours(-1)},new(){Title="Kargo durumu güncellendi",Detail="MP-260002 · Örnek işlem",At=DateTimeOffset.Now.AddHours(-2)}};return d;
+ d.Activity=new(){new(){Title="Sipariş alındı",Detail="MP-260000 · Trendyol",At=DateTimeOffset.Now.AddMinutes(-6)},new(){Title="Stok kontrol edildi",Detail="9 giyim ürünü · Örnek veri",At=DateTimeOffset.Now.AddMinutes(-18)},new(){Title="Ürün kaynağından alındı",Detail="Organik Pamuk Oversize Tişört",At=DateTimeOffset.Now.AddHours(-1)},new(){Title="Kargo durumu güncellendi",Detail="MP-260002 · Örnek işlem",At=DateTimeOffset.Now.AddHours(-2)}};return d;
  }
 }
