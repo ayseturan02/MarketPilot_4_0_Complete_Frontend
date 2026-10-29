@@ -127,7 +127,7 @@ public sealed partial class N11Adapter(HttpClient http,IConfiguration configurat
     }
     public async Task<MarketplacePage<MarketplaceOrder>> OrdersAsync(ConnectionSettings s,OrderQuery q,CancellationToken ct)
     {
-        var query=new N11Query(Search:q.OrderNumber,Status:q.Status,StartDate:q.StartDate,EndDate:q.EndDate,Page:q.Page,Size:q.Size);if(query.Error() is {} error)throw new IntegrationException("invalid_query",error,400);var page=await Orders(s,query,ct);return new(page.Items.Select(x=>x.Order).ToArray(),q.Page,q.Size,page.TotalElements,page.TotalPages,null);
+        var query=new N11Query(Search:q.OrderNumber,Status:q.Status,StartDate:q.StartDate,EndDate:q.EndDate,Page:q.Page,Size:q.Size);if(query.Error() is {} error)throw new IntegrationException("invalid_query",error,400);var page=await Orders(s,query,ct);return new(page.Items.Select(x=>x.Order with{FulfilledBy=x.Sender}).ToArray(),q.Page,q.Size,page.TotalElements,page.TotalPages,null);
     }
 }
 internal static class Nj

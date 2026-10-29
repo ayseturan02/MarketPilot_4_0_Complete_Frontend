@@ -79,7 +79,18 @@ public sealed class TicimaxAdapter(TicimaxSoap soap):IMarketplaceAdapter
     }
     public async Task<MarketplacePage<MarketplaceOrder>> OrdersAsync(ConnectionSettings s,OrderQuery q,CancellationToken ct)
     {
-        var page=await Orders(s,new(Search:q.OrderNumber,StartDate:q.StartDate,EndDate:q.EndDate,Page:q.Page),ct);return new(page.Items.Select(o=>new MarketplaceOrder("",o.Number,o.StatusName,o.Date,o.CustomerName,"",o.Total,null,o.Discount,o.Currency,"","",null,[],new("",o.TrackingNumber,"","","",null,null),new(o.InvoiceNumber,"Bildirilmedi","",false,"","","",null,[]))).ToArray(),q.Page,25,null,null,page.HasMore?"page:"+(q.Page+1):null);
+        var page=await Orders(s,new(Search:q.OrderNumber,StartDate:q.StartDate,EndDate:q.EndDate,Page:q.Page),ct);var orders=new List<MarketplaceOrder>();
+        // Central stock deducts sales from these lines, so they are read for every order; an order without lines would look like no sale.
+        foreach(var o in page.Items)orders.Add(new MarketplaceOrder("",o.Number,o.StatusName,o.Date,o.CustomerName,"",o.Total,null,o.Discount,o.Currency,"","",null,await OrderLines(s,o,ct),new("",o.TrackingNumber,"","","",null,null),new(o.InvoiceNumber,"Bildirilmedi","",false,"","","",null,[])));
+        return new(orders,q.Page,25,null,null,page.HasMore?"page:"+(q.Page+1):null);
+    }
+    // Cancelled items are left out: Ticimax status codes are store-specific, and counting a cancelled item as sold only under-reports stock.
+    private async Task<MarketplaceOrderLine[]> OrderLines(ConnectionSettings s,TicimaxOrder o,CancellationToken ct)
+    {
+        if(!long.TryParse(o.Id,out var id)||id<1)throw new IntegrationException("invalid_response","Ticimax sipariş kimliği okunamadı.");
+        var result=await soap.Call(s,"SiparisServis","SelectSiparisUrun",Fields(("SiparisId",id),("IptalEdilmisUrunler",false)),ct);
+        return result.Elements().Select(e=>{var quantity=Tx.N(e,"Adet");if(quantity is null or <0 or >int.MaxValue||quantity!=decimal.Truncate(quantity.Value))throw new IntegrationException("invalid_response","Ticimax sipariş satırı adedi okunamadı.");
+            return new MarketplaceOrderLine(Tx.S(e,"ID"),Tx.S(e,"StokKodu"),Tx.S(e,"Barkod"),Tx.S(e,"UrunAdi"),(int)quantity.Value,null,Tx.N(e,"Tutar"),Tx.N(e,"KdvOrani"),o.Currency,o.StatusName,"");}).ToArray();
     }
 }
 internal static class Tx

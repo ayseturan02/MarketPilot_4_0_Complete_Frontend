@@ -8,7 +8,8 @@ RUN dotnet publish src/MarketPilot.Web/MarketPilot.Web.csproj --configuration Re
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
-RUN mkdir -p /app/Data && chown -R "$APP_UID":0 /app
+# Only the data folder is writable by the runtime user; the application files stay owned by root.
+RUN mkdir -p /app/Data && chown -R "$APP_UID":0 /app/Data
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
 USER $APP_UID

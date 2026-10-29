@@ -85,7 +85,10 @@ async function main() {
     const credentials = { name: 'admin', password };
     assert.equal((await request('/api/access/setup', { remote: true, body: credentials })).status, 403,
       'remote clients must not create the first administrator');
-    const setup = await request('/api/access/setup', { body: credentials });
+    assert.equal((await request('/api/access/setup', { body: credentials })).status, 403,
+      'the gateway bootstrap path must also require the one-time setup code');
+    const setupToken = docker('exec', name, 'cat', '/app/Data/setup-token.txt');
+    const setup = await request('/api/access/setup', { body: { ...credentials, setupToken } });
     assert.equal(setup.status, 200, await setup.clone().text());
     const setCookie = setup.headers.get('set-cookie') || '';
     assert.match(setCookie, /;\s*secure(?:;|$)/i);

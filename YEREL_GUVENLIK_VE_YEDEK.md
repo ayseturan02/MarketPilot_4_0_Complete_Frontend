@@ -13,7 +13,7 @@
 
 - Demo işleri bir saniyelik arka plan servisiyle işlenir. Tarayıcının açık olması veya listeyi yenilemek gerekmez. Sunucu durursa kayıtlı bekleyen işler sonraki başlatmada devam eder.
 - Aynı işlem kimliği aynı içerikle tekrar gönderildiğinde iş çoğaltılmaz; farklı içerikle tekrar kullanılırsa reddedilir. Aynı sipariş/iade/soru için çakışan bekleyen işlemler engellenir.
-- Parolalar PBKDF2-SHA256 (210.000 tur, kullanıcıya özgü salt) ile özetlenir. Oturum çerezi HttpOnly/SameSite Strict'tir; oturum süresi sekiz saattir. Giriş denemeleri IP bazında sınırlanır. Mutasyonlarda kaynak ve JSON biçimi kontrol edilir.
+- Parolalar PBKDF2-SHA256 (210.000 tur, kullanıcıya özgü salt) ile özetlenir. Oturum çerezi HttpOnly/SameSite Strict'tir; oturum süresi sekiz saattir. Giriş denemeleri IP bazında ve ayrıca hesap başına (15 dakikada 10 hatalı deneme, hangi IP’den gelirse gelsin) sınırlanır; parola özeti hesap kilidi dışında ve en fazla dört eşzamanlı işlemle hesaplanır, böylece giriş denemeleri oturumlu kullanıcıları yavaşlatamaz. Not: sınır dolan hesap 15 dakika boyunca doğru parolayla da giriş yapamaz. Mutasyonlarda kaynak ve JSON biçimi kontrol edilir.
 - Demo dosyasını kaydetmek başarısız olursa bellek son kaydedilen duruma döner; başarılıymış gibi ilerlenmez.
 - Sunucu açıkken 24 saatte bir AES-256-GCM ile şifreli yedek oluşturulur; son 14 yedek saklanır. Her oluşturma sonrasında şifre çözme, dosya özetleri ve JSON/XML okunabilirliği kontrol edilir.
 - Yönetim ekranındaki **Doğrula** mevcut dosyaları değiştirmez. Bu, canlı uygulamaya tam geri yükleme provası değildir.

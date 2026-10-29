@@ -134,7 +134,50 @@ try
         Items = { ["sku:SWT-GRI-M"] = new() { Sku = "SWT-GRI-M", Quantity = 30 } },
         Sales = { new() { Id = "interrupted-demo", StoreId = "real-fixture", Sku = "A", Barcode = "A-barcode", Quantity = 1 } } }), provider, config);
     Check(View(demoLegacy).GetProperty("sales").GetArrayLength() == 0, "Demo-source legacy state must not be migrated to a real source");
-    Console.WriteLine("PASS synchronization regressions: all pages, alias deduplication, demo/real isolation, unmatched retry, cancellation/return idempotency, source failure, repeated pages, duplicate source rows, two-day window, legacy migration, recovery and disk rollback. Mock transports only.");
+    // Review regressions, each against its own fresh real source.
+    async Task<(CentralStockService Service, OrdersFixture Orders, SourceFixture Source)> Fresh(string name, string marketplace)
+    {
+        var root = Path.Combine(folder, "review-" + name); Directory.CreateDirectory(root);
+        var e = new TestEnvironment { ContentRootPath = root };
+        var r = new IntegrationRegistry(e);
+        r.Connections["review-" + name] = new("review-" + name, new("Review " + name, marketplace, "real", "production"), "untested", null, null, null, null, null);
+        var src = new SourceFixture(); var orders = new OrdersFixture { Market = marketplace };
+        var p = new ServiceCollection().AddSingleton<IConfiguration>(config).AddSingleton<IWebHostEnvironment>(e).AddSingleton(TimeProvider.System).AddSingleton<StockOutbox>().AddSingleton(r).AddSingleton(new DemoWorkspace(e))
+            .AddSingleton<IHttpClientFactory>(src).AddTransient<CentralStockSource>().AddSingleton<IMarketplaceAdapter>(orders).BuildServiceProvider();
+        var s = new CentralStockService(e, p, config);
+        orders.Rows = [OrdersFixture.Order("seed-" + name, "A")];
+        await s.RunAsync(default);
+        Check(s.LastRunSucceeded && Quantity(s, "A") == 10, "Review fixture must baseline " + name);
+        return (s, orders, src);
+    }
+
+    // Trendyol scans by last update: an order placed before watching that is delivered later is not a new sale.
+    var (watch, watchOrders, watchSource) = await Fresh("prewatch", "trendyol");
+    watchOrders.Rows.Add(OrdersFixture.Order("placed-before-watch", "A", 3) with { Status = "Delivered", OrderDate = DateTimeOffset.UtcNow.AddDays(-5) });
+    await watch.RunAsync(default);
+    Check(watch.LastRunSucceeded && Quantity(watch, "A") == 10 && watchSource.Reports.Count == 0, "An order placed before watching must not be deducted when it surfaces later");
+    watchOrders.Rows.Add(OrdersFixture.Order("placed-after-watch", "A", 2));
+    await watch.RunAsync(default);
+    Check(Quantity(watch, "A") == 8 && watchSource.Reports.Count == 1, "An order placed after watching must still be deducted");
+
+    // A split package keeps its old id as UnPacked while its lines move to new packages.
+    var (split, splitOrders, splitSource) = await Fresh("split", "trendyol");
+    splitOrders.Rows.Add(OrdersFixture.Order("pkg-1", "A", 2));
+    await split.RunAsync(default);
+    Check(Quantity(split, "A") == 8, "Split fixture sale must be deducted");
+    splitOrders.Rows[1] = splitOrders.Rows[1] with { Status = "UnPacked" };
+    splitOrders.Rows.Add(OrdersFixture.Order("pkg-2", "A", 1)); splitOrders.Rows.Add(OrdersFixture.Order("pkg-3", "A", 1));
+    await split.RunAsync(default);
+    Check(split.LastRunSucceeded && Quantity(split, "A") == 8, "A split package must not be deducted twice");
+
+    // Amazon-fulfilled (FBA) units are not in the stock application; merchant-fulfilled ones are.
+    var (fba, fbaOrders, fbaSource) = await Fresh("fba", "amazon");
+    fbaOrders.Rows.Add(OrdersFixture.Order("fba-order", "A", 4) with { FulfilledBy = "AMAZON" });
+    fbaOrders.Rows.Add(OrdersFixture.Order("fbm-order", "A", 1) with { FulfilledBy = "MERCHANT" });
+    await fba.RunAsync(default);
+    Check(fba.LastRunSucceeded && Quantity(fba, "A") == 9 && fbaSource.Reports.Count == 1, "Amazon-fulfilled lines must not reduce central stock");
+
+    Console.WriteLine("PASS synchronization regressions: all pages, alias deduplication, demo/real isolation, unmatched retry, cancellation/return idempotency, source failure, repeated pages, duplicate source rows, two-day window, legacy migration, recovery, disk rollback, pre-watch orders, split packages and FBA lines. Mock transports only.");
 }
 finally
 {
@@ -145,7 +188,8 @@ finally
 
 sealed class OrdersFixture : IMarketplaceAdapter
 {
-    public string Marketplace => "hepsiburada";
+    public string Market = "hepsiburada";
+    public string Marketplace => Market;
     public List<MarketplaceOrder> Rows = new();
     public List<int> Pages = new();
     public List<long?> Starts = new();
