@@ -1,1 +1,0 @@
-PASS isolated HTTP: authentication/roles, CSRF rejection, session revocation, queue without browser/read requests, idempotency and admin encrypted backups. Main data untouched.

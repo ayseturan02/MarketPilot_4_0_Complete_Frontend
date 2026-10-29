@@ -1,1 +1,0 @@
-PASS account HTTP/browser: two sellers on one channel/environment, profile picker, invalid/duplicate profiles, no fallback, secret-free metadata/persistence, real-write guard, input/Origin validation, shared demo outbox action, mobile and viewer protection. No outbound marketplace calls.

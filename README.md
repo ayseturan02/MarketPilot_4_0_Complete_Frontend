@@ -173,3 +173,6 @@ Kârlılık ekranındaki ürün maliyetlerini yönetici kaydeder. Alış, komisy
 Bildirimler stok eşiği ve servis/kuyruk durumlarından üretilir. İşlem kayıtlarında operasyon geçmişi, yöneticiler için ayrıca sistem olayları bulunur. Otomasyon ekranı Senkronizasyon ekranıyla aynı zamanlayıcı ve gönderim kuyruğunu yönetir. Genel ayarlardaki stok eşiği ve senkronizasyon bildirim tercihi ilgili ekranlara yansır; e-posta gönderim servisi yapılandırılmış değildir.
 
 Uçlar: `/api/analytics/reports`, `/api/analytics/profit`, `/api/analytics/workspace`, yönetici yazması için `PUT /api/analytics/costs/{id}`. `node tests/analytics-system-http-checks.cjs` geçici verilerle hesap tutarlılığını, yeniden başlatmada kalıcılığı, ekranların birlikte güncellenmesini, mobil görünümü ve rol sınırlarını sınar.
+
+
+Ortak ERP/WMS/pazaryeri veri sözleşmeleri, JSON kayıt API’si ve testler: [sözleşme belgesi](docs/contracts/README.md).

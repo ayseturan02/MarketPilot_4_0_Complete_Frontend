@@ -1,1 +1,0 @@
-PASS shared application: 15 connected workflows, cross-screen order/document/shipment identities, atomic stock and cancellation/return recovery, idempotency, native questions/claims/finance, source isolation, restart persistence, global store revision, live refresh, preserved forms/filters, mobile and viewer guards.

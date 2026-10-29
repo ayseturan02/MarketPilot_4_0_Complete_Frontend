@@ -1,3 +1,4 @@
+using MarketPilot.Web.Contracts;
 using System.Collections.Concurrent;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
@@ -42,7 +43,7 @@ public sealed class BusinessWorkspaces(IServiceProvider root,IWebHostEnvironment
         services.AddSingleton(accounts);services.AddSingleton(root.GetRequiredService<ILoggerFactory>());services.AddLogging();
         services.AddSingleton(root.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions>>());
         services.AddSingleton<DemoStore>();services.AddCatalog();services.AddOrderWebhooks();services.AddMarketplaceIntegrations(scopedConfig);
-        services.AddLocalReliability();services.AddBackgroundSynchronization();services.AddEnterprise();services.AddSingleton<WorkspaceHub>();services.AddOperationalPreparation();
+        services.AddLocalReliability();services.AddBackgroundSynchronization();services.AddEnterprise();services.AddSingleton<WorkspaceHub>();services.AddOperationalPreparation();services.AddCanonicalContracts();
         var dataLock=DataDirectoryLock.Acquire(folder);
         ServiceProvider? provider=null;
         try

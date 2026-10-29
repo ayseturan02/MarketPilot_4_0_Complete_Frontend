@@ -1,1 +1,0 @@
-PASS ERP hub: manual product creation removed, signed source import, source ownership, scoped stock/price/images, independent schedules, persistent acknowledgements, restart/uncertain-write protection, WMS cargo gate, credentials hidden, form/mobile and viewer guards. Mock bridge only; no live vendor API used.

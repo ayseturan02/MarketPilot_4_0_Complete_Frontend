@@ -1,3 +1,4 @@
+using MarketPilot.Web.Contracts;
 using System.Text.Json;
 using MarketPilot.Web.Enterprise;
 using MarketPilot.Web.Workspace;
@@ -58,6 +59,7 @@ builder.Services.AddBackgroundSynchronization();
 builder.Services.AddEnterprise();
 builder.Services.AddSingleton<WorkspaceHub>();
 builder.Services.AddOperationalPreparation();
+builder.Services.AddCanonicalContracts();
 builder.Services.AddSingleton<BusinessWorkspaces>();builder.Services.AddHostedService<BusinessWorkspaceWorker>();
 var app = builder.Build();
 if (publicDeployment)
@@ -95,6 +97,7 @@ app.MapBackgroundSynchronization();
 app.MapAnalyticsWorkspace();
 app.MapSharedWorkspace();
 app.MapOperationalPreparation();
+app.MapCanonicalContracts();
 app.MapEnterprise();
 
 app.MapGet("/api/health", (IWebHostEnvironment env, ReliabilityState reliability, IConfiguration configuration) => {
@@ -188,7 +191,7 @@ public class Connection {public string Id{get;set;}="";public string Name{get;se
 public record ConnectionPatch(bool Enabled);
 public class Activity {public string Title{get;set;}="";public string Detail{get;set;}="";public DateTimeOffset At{get;set;}=DateTimeOffset.Now;}
 public class Settings {public string BusinessName{get;set;}="İnternet Tekstil";public string Currency{get;set;}="TRY";public int LowStockThreshold{get;set;}=10;public bool EmailNotifications{get;set;}=true;public bool SyncNotifications{get;set;}=true;}
-public class Database {public OperationalState Operations{get;set;}=new();public Dictionary<string,ErpReceipt> ErpReceipts{get;set;}=new();public List<WorkspaceRecord> WorkspaceRecords{get;set;}=new();public Dictionary<string,string> WorkspaceActions{get;set;}=new();public Dictionary<string,ProductCost> ProductCosts{get;set;}=new();public CatalogState Catalog{get;set;}=new();public List<StockMovement> StockMovements{get;set;}=new();public List<Shipment> Shipments{get;set;}=new();public List<Product> Products{get;set;}=new();public List<Order> Orders{get;set;}=new();public List<Connection> Connections{get;set;}=new();public List<Activity> Activity{get;set;}=new();public Settings Settings{get;set;}=new();public DateTimeOffset LastSync{get;set;}=DateTimeOffset.Now.AddMinutes(-18);}
+public class Database {public ContractState Contracts{get;set;}=new();public OperationalState Operations{get;set;}=new();public Dictionary<string,ErpReceipt> ErpReceipts{get;set;}=new();public List<WorkspaceRecord> WorkspaceRecords{get;set;}=new();public Dictionary<string,string> WorkspaceActions{get;set;}=new();public Dictionary<string,ProductCost> ProductCosts{get;set;}=new();public CatalogState Catalog{get;set;}=new();public List<StockMovement> StockMovements{get;set;}=new();public List<Shipment> Shipments{get;set;}=new();public List<Product> Products{get;set;}=new();public List<Order> Orders{get;set;}=new();public List<Connection> Connections{get;set;}=new();public List<Activity> Activity{get;set;}=new();public Settings Settings{get;set;}=new();public DateTimeOffset LastSync{get;set;}=DateTimeOffset.Now.AddMinutes(-18);}
 public partial class DemoStore {
  private readonly object _gate=new();private readonly string _file;private readonly JsonSerializerOptions _json=new(JsonSerializerDefaults.Web){WriteIndented=true}; private Database _data; private long _revision; private readonly string _instance=Guid.NewGuid().ToString("N"); public string Revision => _instance + ":" + Interlocked.Read(ref _revision);
  public DemoStore(IWebHostEnvironment env){var folder=Path.Combine(env.ContentRootPath,"Data");Directory.CreateDirectory(folder);_file=Path.Combine(folder,"demo-store.json");_data=File.Exists(_file)?JsonSerializer.Deserialize<Database>(File.ReadAllText(_file),_json)??throw new InvalidOperationException("Local catalogue file cannot be read."):Seed();foreach(var product in _data.Products){product.StockState??=product.StockKnown?StockValueState.Known:StockValueState.Unknown;product.ReservedQuantity=Math.Max(0,product.ReservedQuantity);product.ExternalReferences??=[];}foreach(var order in _data.Orders)order.ExternalReferences??=[];foreach(var shipment in _data.Shipments)shipment.ExternalReferences??=[];foreach(var record in _data.WorkspaceRecords)record.ExternalReferences??=[];DemoErpCatalogFixture.Apply(_data);foreach(var order in _data.Orders.Where(o=>o.SourceMode=="local")){order.StockManaged=false;order.StockApplied=false;}RetiredChannelCleanup.Apply(_data);Save();}
