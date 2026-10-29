@@ -1,3 +1,4 @@
+const {setAuthority}=require('./mock-price-authority-fixture.cjs');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),net=require('node:net');
 const {spawn}=require('node:child_process');
@@ -28,7 +29,7 @@ const dll=process.env.MARKETPILOT_WEB_DLL||path.join(root,'src/MarketPilot.Web/b
     db.orders=Array.from({length:80},(_,i)=>({id:'ANALYTICS-'+i,customer:'Test customer',channel:'Analytics test',sourceMode:'local',product:'Fixture',quantity:1,total:100+i,totalKnown:i!==1,currency:'TRY',status:i%10===0?'İptal':'Tamamlandı',date:'2026-10-15T12:00:00Z',lines:[]}));
     db.orders.push({...db.orders[2],id:'ANALYTICS-USD',total:9999,currency:'USD'});
     let product=db.products.find(p=>p.id==='p001');assert(product);product.price=200;product.stock=4;product.sourceSystem='nebim-v3';product.sourceMode='demo';product.barcode='ANALYTICS-P001';product.warehouseCode='MAIN';
-    fs.writeFileSync(file,JSON.stringify(db));await start();
+    setAuthority(db,product,200);fs.writeFileSync(file,JSON.stringify(db));await start();
     const sourceUpdate=await sourceProduct(base,product);assert.equal(sourceUpdate.status,200);product=sourceUpdate.body;
     const filtered=(await api('analytics/reports?mode=local&currency=TRY')).body;
     const eligible=db.orders.filter(o=>o.currency==='TRY'&&o.status!=='İptal'&&o.totalKnown),total=eligible.reduce((sum,o)=>sum+o.total,0);
@@ -52,6 +53,7 @@ const dll=process.env.MARKETPILOT_WEB_DLL||path.join(root,'src/MarketPilot.Web/b
     profit=(await api('analytics/profit')).body.products.find(p=>p.id===product.id);assert.equal(profit.margin,70);assert.equal(profit.marginRate,35);
     assert.equal((await api('products/'+product.id,{method:'PUT',body:{price:250}})).status,409,'manual product price edits must be rejected');
     assert.equal((await sourceProduct(base,{...product,price:250,warehouseCode:'MAIN'})).status,200,'ERP source updates must remain available');
+    assert.equal((await api('analytics/profit')).body.products.find(p=>p.id===product.id).margin,70,'Legacy scalar price cannot replace authorized list');await stop();const next=JSON.parse(fs.readFileSync(file));setAuthority(next,next.products.find(p=>p.id===product.id),250);fs.writeFileSync(file,JSON.stringify(next));await start();
     assert.equal((await api('analytics/profit')).body.products.find(p=>p.id===product.id).margin,115,'profit follows catalogue price changes');
     await stop();await start();assert.equal((await api('analytics/profit')).body.products.find(p=>p.id===product.id).margin,115,'costs persist across restart');
     assert((await api('analytics/workspace')).body.alerts.some(a=>a.id==='stock:'+product.id));

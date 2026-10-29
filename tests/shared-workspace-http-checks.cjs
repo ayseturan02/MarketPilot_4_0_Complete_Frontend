@@ -91,7 +91,7 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   await page.evaluate(()=>nav('profit'));await page.waitForFunction(id=>axState.profit?.products.some(p=>p.id===id),product.id);
   await api('analytics/costs/'+product.id,{method:'PUT',body:{unitCost:100,commissionRate:0,shippingCost:0,otherCost:0,currency:'TRY'}});
   await sourceProduct(base,{...product,price:250,warehouseCode:'MAIN'});
-  await page.waitForFunction(id=>axState.profit?.products.find(p=>p.id===id)?.margin===150,product.id,{timeout:15000});
+  await page.waitForFunction(id=>axState.profit?.products.find(p=>p.id===id)?.state==='missing_price',product.id,{timeout:15000});
   await page.evaluate(()=>nav('settings'));await page.locator('[data-analysis=settings] input[name=businessName]').fill('Do not erase my edit');
   await page.locator('[data-analysis=settings] input[name=businessName]').blur();await sourceProduct(base,{...product,price:251,warehouseCode:'MAIN'});await page.waitForTimeout(3000);
   assert.equal(await page.locator('[data-analysis=settings] input[name=businessName]').inputValue(),'Do not erase my edit');

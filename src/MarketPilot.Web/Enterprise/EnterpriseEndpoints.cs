@@ -9,6 +9,7 @@ using MarketPilot.Web.Local;
 using Microsoft.AspNetCore.RateLimiting;
 
 using MarketPilot.Web.Enterprise.Nebim;
+using MarketPilot.Web.Wms;
 namespace MarketPilot.Web.Enterprise;
 public static class EnterpriseEndpoints
 {
@@ -21,7 +22,7 @@ public static class EnterpriseEndpoints
     }
     public static void MapEnterprise(this WebApplication app)
     {
-        app.MapNebimProviders();app.MapErpPricing();
+        app.MapNebimProviders();app.MapWmsProviders();app.MapErpPricing();
         var group=app.MapGroup("/api/sync/enterprise");
         group.AddEndpointFilter(async(context,next)=>{
             if(context.HttpContext.Request.Method!="GET"&&context.HttpContext.RequestServices.GetRequiredService<LocalAccountStore>().Configured&&!context.HttpContext.User.IsInRole("admin"))return Results.StatusCode(403);

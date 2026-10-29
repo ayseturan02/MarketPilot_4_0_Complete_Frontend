@@ -1,5 +1,7 @@
 # MarketPilot ortak veri sözleşmeleri — v1
 
+Bağımsız WMS sağlayıcı arayüzü, mock işlemleri ve uygulama içi uçlar için [WMS_PROVIDER.md](./WMS_PROVIDER.md) belgesine bakın.
+
 ## Ortak katalog: mock ERP okuma modeli
 
 `CatalogHub` sorguları ve `CatalogSource` mağaza adayları korunur; `CatalogSource` ana ürün oluşturmaz. Ana kayıt güncellemesi `ErpCatalogReadModel` üzerinden `INebimErpProvider` tam mock görüntüsünden yapılır. `CanonicalProduct` artık isteğe bağlı `Description` ve `ApprovedImages` taşır. Mock görsel uygulamaya ait yerel bir SVG'dir; Nebim görsel endpoint'i değildir.

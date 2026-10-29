@@ -6,6 +6,18 @@ Ana fiyat yetkisi Nebim V3 ERP'dedir. `PriceList`, `PriceEntry` ve `RecordContex
 
 ## Hesaplama
 
+Yapılandırılabilir `PercentageCostBasis` seçimi `net` veya `gross` olur. Bu seçim komisyon ve değişken masrafın hangi fiyat tabanına uygulanacağını belirler. Kaynakta KDV dahil tutar `S`, oran `v`, sabit net masraf `F`, artış `m`, toplam yüzdesel masraf `c` ise MarketPilot'un açık kuralı şöyledir:
+
+```text
+N = kaynak KDV dahilse S / (1 + v), değilse S
+k = matrah netse c, brütse c × (1 + v)
+T = (N + F) × (1 + m) / (1 - k)
+T = T × (1 - seçilen kampanya indirimi)
+Yayın = hedef KDV dahilse T × (1 + v), değilse T
+```
+
+Formüldeki oranlar yüzde/100 olarak kullanılır. `k >= 1` reddedilir. Nihai tutar iki basamağa yuvarlanıp güvenlik sınırlarıyla karşılaştırılır. Gerçek pazaryeri komisyon tahakkuku veya Nebim hesaplama yöntemi böyleymiş gibi varsayılmaz; işletme kendi doğrulanmış kurallarını yapılandırmalıdır. Döviz kuru veya vergi oranı tahmin edilmez.
+
 Kaynakta KDV dahilse açık KDV oranıyla nete dönülür. Kaynak KDV oranı varsa kullanılır; yoksa kanalın açıkça yapılandırılmış oranı gerekir. Net tutara sabit net masraf ve yapılandırılmış artış uygulanır; komisyon ve değişken masraf yapılandırılan matraha göre hesaplanır. Hedef KDV dahil/hariç kuralı uygulanır. Sonuç iki ondalıkla, yarım değerler sıfırdan uzağa yuvarlanır. Bunlar MarketPilot işletme kurallarıdır; Nebim yöntemi olarak sunulmaz.
 
 Etkin kampanyalardan en yüksek öncelikli tek kampanya uygulanır. İndirimler birikmez. Aynı en yüksek öncelikte iki etkin kampanya varsa işlem engellenir. Başlangıç dahildir, bitiş dahil değildir.
@@ -21,6 +33,10 @@ Eksik fiyat `null` kalır. Sıfır veya negatif fiyat, bilinmeyen KDV, para biri
 Mock yayın makbuzu aynı önizleme kimliğiyle tekilleştirilir ve yeniden başlatma sonrasında korunur. Gerçek fiyat gönderimi yapılandırma bayraklarıyla açılamaz. Eski birleşik stok/fiyat gönderim akışı ERP onayını atlayamaz. Stok işleri onaylı fiyatı değiştirmez.
 
 ## Doğrulama
+
+Fiyat menüsü sırasıyla kaynak listesini okuma, yetkili ana liste seçimi, kanal/satıcı listesi eşleştirmesi, kampanya tanımı, fark önizlemesi ve onaylı mock yayın adımlarını sunar. Kaynak fiyat tutarını değiştiren bir giriş alanı veya HTTP endpoint'i bulunmaz. Ürün API'si, CSV ve kârlılık görünümü yetkili liste bulunmadığında fiyatı bilinmiyor gösterir; JSON'da fiyat `null`, CSV'de boş alandır. Ana kaynak tutarı ile kanala özel türetilmiş tutar ayrı tutulur.
+
+Mock fiyat işlemi mevcut stok miktarını korur. Bir mock ilandaki fiyat değişikliği başka satıcının ilanına uygulanmaz. Mock yayın makbuzu kaydedildikten sonra MarketPilot metadata dosyasına yazma başarısız olursa tekrar isteği makbuzu bulur, fiyatı ikinci kez göndermez. Bu durum regresyonda dosya hatası enjekte edilerek doğrulanır.
 
 `dotnet run --project tests/MarketPilot.PricingChecks` hesaplama, güvenlik, kampanya, tüm mock kanallar, onay, sürüm, eskime, tekrar ve kalıcılık senaryolarını çalıştırır.
 

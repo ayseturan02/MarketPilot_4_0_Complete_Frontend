@@ -146,6 +146,10 @@ public sealed class OrderWebhookInbox
                     }
                 }
                 catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
+                catch(IntegrationException e)when(e.Code=="order_stale")
+                {
+                    state="ignored";error=e.Message;
+                }
                 catch(Exception e)
                 {
                     state="pending";

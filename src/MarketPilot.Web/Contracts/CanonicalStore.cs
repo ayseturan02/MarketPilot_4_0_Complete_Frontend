@@ -186,6 +186,7 @@ public sealed class CanonicalStore(DemoStore db,IConfiguration configuration)
         Need(Types.ContainsKey(kind)&&page>=0&&size is >=1 and <=100&&(long)page*size<=int.MaxValue,"Liste veya sayfa geçersiz.");
         return db.CatalogRead(s=>{var rows=s.Contracts.Records.Values.Select(v=>v.Deserialize<StoredRecord>(Json)!).Where(r=>r.Kind==kind&&Parse(kind,r.Payload).Context.TenantId==TenantId).OrderBy(r=>Parse(kind,r.Payload).Id).ToArray();return new{items=rows.Skip(page*size).Take(size).Select(r=>r.Payload.Clone()).ToArray(),totalElements=rows.Length,page,size};});
     }
+    public T[] Records<T>() where T:CanonicalRecord=>db.CatalogRead(s=>Rows<T>(s.Contracts).ToArray());
     public MappingReview[] Reviews()=>db.CatalogRead(s=>s.Contracts.ManualMappings.Where(r=>r.Context.TenantId==TenantId).TakeLast(100).Reverse().ToArray());
     public MappingReview Resolve(string queueId,string variantId)=>db.Modify(s=>{
         var index=s.Contracts.ManualMappings.FindIndex(r=>r.Id==queueId&&r.Context.TenantId==TenantId);if(index<0)throw Error("Eşleştirme kuyruğu kaydı bulunamadı.",404);

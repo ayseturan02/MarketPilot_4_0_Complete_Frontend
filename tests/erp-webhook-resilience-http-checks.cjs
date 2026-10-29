@@ -3,7 +3,7 @@ const {spawn}=require('node:child_process'),{chromium}=require('./browser-test-r
 const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'marketpilot-resilience-')),sockets=new Set();let child,browser,mode='valid';
- const item={sku:'RESILIENCE-SKU',barcode:'RESILIENCE-BC',name:'Resilience source product',stock:23,price:449,currency:'TRY'};
+ const item={sku:'RESILIENCE-SKU',barcode:'RESILIENCE-BC',name:'Resilience source product',stock:23,price:449,currency:'TRY',warehouseCode:'MAIN',vatIncluded:true,sourceVersion:1,sourceUpdatedAt:'2026-10-29T00:00:00Z'};
  const erp=http.createServer((req,res)=>{
   if(req.headers.authorization!=='Bearer fixture-erp-key'){res.writeHead(401).end();return;}
   res.setHeader('Content-Type','application/json');
@@ -35,8 +35,8 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   const liveStart=Date.now();assert.equal((await api('health')).status,200);assert(Date.now()-liveStart<2000,'health must respond while ERP body is stalled');
   await until(async()=>(await task()).error?.includes('zaman aşımına uğradı'),'ERP timeout reason');assert.deepEqual((await api('products/search?sku=RESILIENCE-SKU')).body.items,initial);
   await page.reload();await page.getByText(/Harici servis zaman aşımına uğradı/).waitFor();await page.screenshot({path:path.join(root,'artifacts/resilience/erp-timeout.png'),fullPage:true});
-  mode='valid';item.price=459;await catalog();await until(async()=>(await task()).state==='completed'&&(await task()).error===null,'ERP recovers');
-  assert.equal((await api('products/search?sku=RESILIENCE-SKU')).body.items[0].price,459);
+  mode='valid';item.price=459;item.sourceVersion=2;await catalog();await until(async()=>(await task()).state==='completed'&&(await task()).error===null,'ERP recovers');
+  assert.equal((await api('products/search?sku=RESILIENCE-SKU')).body.items[0].price,null,'No authorized price list means unknown, not fallback');assert.equal(JSON.parse(fs.readFileSync(path.join(temp,'Data/demo-store.json'))).products.find(p=>p.sku==='RESILIENCE-SKU').price,459,'Transport snapshot still records explicit ERP value');
   const repeated=packet('duplicate-lines');assert.equal((await hook(repeated)).status,200);await until(async()=>(await orders('duplicate-lines')).length===1,'webhook saved');assert.equal((await hook(repeated)).body.duplicates,1);assert.equal((await orders('duplicate-lines'))[0].lines.length,2,'repeated SKU on distinct order lines is valid');
   // Fault the order persistence AFTER the webhook has its own independent durable inbox.
   const blockedFile=path.join(temp,'Data/demo-store.json.tmp');fs.mkdirSync(blockedFile);assert.equal((await hook(packet('write-fault'))).status,200);

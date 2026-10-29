@@ -67,7 +67,7 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   const externalOrder=(await api('orders')).body.find(o=>o.sourceMode==='demo');assert(externalOrder,'demo marketplace order should be imported');
   assert.equal((await api('orders/'+externalOrder.id+'/status',{status:'Tamamlandı'},'PUT')).status,409);
   assert.equal((await api('shipments',{orderId:externalOrder.id,carrier:'manual',trackingNumber:'MANUAL-1'})).status,409);
-  await until(async()=>{const w=(await api('integrations/demo/connections/trendyol/workspace')).body;return w.products.find(p=>p.barcode===item.barcode)?.salePrice===510;});
+  await until(async()=>(await api('sync/enterprise')).body.tasks.some(t=>t.task==='price'&&t.state==='blocked'));assert.equal((await api('integrations/demo/connections/trendyol/workspace')).body.products.find(p=>p.barcode===item.barcode).salePrice,449,'Legacy task cannot bypass ERP price approval');
   const untouched=(await api('integrations/demo/connections/hepsiburada/workspace')).body;assert.equal(untouched.products.find(p=>p.barcode===item.barcode).stock,32,'unselected store must remain untouched');
   assert(received.some(r=>r.path==='/v1/product-images'&&r.payload.images[0]===item.images[0]));
   const erpPlan=(await api('sync/enterprise')).body.plan,wmsPlan={...erpPlan,stockAuthority:'wms',schedules:erpPlan.schedules.map(schedule=>({...schedule,enabled:['stock','wms-stock','wms-reservations'].includes(schedule.task)}))};

@@ -297,7 +297,11 @@ public sealed partial class CatalogHub(DemoStore db, IntegrationRegistry registr
         }).ToArray());
     }
 
-    public object Publish(CatalogPublish input)=>throw new IntegrationException("pricing_workflow_required","ERP fiyat listesi, fark önizlemesi ve fiyat onay akışı kullanılmalıdır.",409);
+    public object Publish(CatalogPublish input)
+    {
+        if(string.IsNullOrWhiteSpace(input.RequestId)||input.Keys==null||input.Versions==null)throw new IntegrationException("invalid_request","İşlem kimliği, ilanlar ve sürümler gerekli.",400);
+        throw new IntegrationException("pricing_workflow_required","ERP fiyat listesi, fark önizlemesi ve onay akışı gerekli.",409);
+    }
 
     public object Jobs(CatalogQuery q)
     {

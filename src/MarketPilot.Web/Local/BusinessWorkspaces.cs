@@ -8,6 +8,7 @@ using MarketPilot.Web.Integrations;
 using MarketPilot.Web.Synchronization;
 using MarketPilot.Web.Webhooks;
 using MarketPilot.Web.Workspace;
+using MarketPilot.Web.Wms;
 using Microsoft.Extensions.FileProviders;
 
 namespace MarketPilot.Web.Local;
@@ -33,7 +34,7 @@ public sealed class BusinessWorkspaces(IServiceProvider root,IWebHostEnvironment
         Directory.CreateDirectory(folder);
         var env=new BusinessEnvironment(environment,folder);
         // Credentials and connector settings are explicitly per business; never inherit another seller's keys.
-        string[] privateRoots=["Marketplaces:","MarketplaceAccounts:","Enterprise:","Webhooks:","Businesses:"];
+        string[] privateRoots=["Marketplaces:","MarketplaceAccounts:","Enterprise:","Wms:","Webhooks:","Businesses:"];
         var values=configuration.AsEnumerable().Where(p=>p.Value!=null&&!privateRoots.Any(prefix=>p.Key.StartsWith(prefix,StringComparison.OrdinalIgnoreCase))).ToDictionary(p=>p.Key,p=>p.Value,StringComparer.OrdinalIgnoreCase);
         foreach(var entry in configuration.GetSection("Businesses:"+id).AsEnumerable(true).Where(p=>p.Value!=null))values[entry.Key]=entry.Value;
         values["Workspace:BusinessId"]=id;
@@ -43,7 +44,7 @@ public sealed class BusinessWorkspaces(IServiceProvider root,IWebHostEnvironment
         services.AddSingleton(accounts);services.AddSingleton(root.GetRequiredService<ILoggerFactory>());services.AddLogging();
         services.AddSingleton(root.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions>>());
         services.AddSingleton<DemoStore>();services.AddCatalog();services.AddOrderWebhooks();services.AddMarketplaceIntegrations(scopedConfig);
-        services.AddLocalReliability();services.AddBackgroundSynchronization();services.AddEnterprise();services.AddSingleton<WorkspaceHub>();services.AddOperationalPreparation();services.AddCanonicalContracts();
+        services.AddLocalReliability();services.AddBackgroundSynchronization();services.AddEnterprise();services.AddWmsProviders(scopedConfig);services.AddSingleton<WorkspaceHub>();services.AddOperationalPreparation();services.AddCanonicalContracts();
         var dataLock=DataDirectoryLock.Acquire(folder);
         ServiceProvider? provider=null;
         try

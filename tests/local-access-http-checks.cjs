@@ -21,7 +21,7 @@ const project=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r
   assert.equal((await api('/api/access/users/'+viewer.id,{role:'operator',enabled:true},admin)).status,200);
   assert.equal((await api('/api/products',undefined,viewerCookie)).status,401);
   r=await api('/api/access/login',{name:'test-viewer',password:'Viewer-Only-Password-2026'});const operator=cookie(r);
-  const action={type:'stock',requestId:'worker-http',barcode:'8691000000001',quantity:51,price:499};
+  const action={type:'stock',requestId:'worker-http',barcode:'8691000000001',quantity:51,price:449};
   assert.equal((await api('/api/integrations/demo/connections/trendyol/actions',action,operator)).status,200);
   assert.equal((await api('/api/integrations/demo/connections/trendyol/actions',action,operator)).status,200);
   assert.equal((await api('/api/integrations/demo/connections/trendyol/actions',{...action,quantity:52},operator)).status,400);

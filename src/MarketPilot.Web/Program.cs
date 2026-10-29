@@ -13,6 +13,7 @@ using MarketPilot.Web.Webhooks;
 using MarketPilot.Web.Integrations.CentralStock;
 using MarketPilot.Web.Integrations.Demo;
 using MarketPilot.Web.Synchronization;
+using MarketPilot.Web.Wms;
 
 var builder = WebApplication.CreateBuilder(args);
 var configuredDeploymentMode = builder.Configuration["Deployment:Mode"];
@@ -57,6 +58,7 @@ builder.AddLocalAccess();
 builder.Services.AddLocalReliability();
 builder.Services.AddBackgroundSynchronization();
 builder.Services.AddEnterprise();
+builder.Services.AddWmsProviders(builder.Configuration);
 builder.Services.AddSingleton<WorkspaceHub>();
 builder.Services.AddOperationalPreparation();
 builder.Services.AddCanonicalContracts();

@@ -20,6 +20,7 @@ vm.runInContext(fs.readFileSync(path.join(root,'assets/amazon/amazon-center.js')
 vm.runInContext(fs.readFileSync(path.join(root,'assets/n11/n11-center.js'),'utf8'),context);
 vm.runInContext(fs.readFileSync(path.join(root,'assets/boyner/boyner-center.js'),'utf8'),context);
 vm.runInContext(fs.readFileSync(path.join(root,'assets/ticimax/ticimax-center.js'),'utf8'),context);
+vm.runInContext(fs.readFileSync(path.join(root,'assets/wms-inventory.js'),'utf8'),context);
 const source = fs.readFileSync(path.join(root,'assets/app.js'),'utf8');
 // Skip network bootstrap; exercise the same page render functions with explicit fixtures.
 vm.runInContext(source.slice(0,source.lastIndexOf('(async()=>')), context);
@@ -88,4 +89,26 @@ vm.runInContext(`tyTab='products';render();`,context);
 assert(app.innerHTML.includes('Gösterilecek kayıt bulunmuyor.'));
 vm.runInContext(`integrationForm('trendyol');`,context);
 assert(app.innerHTML.includes('name="marketplace" disabled'));
-console.log('PASS: 41 menu entries, connection modes/actions, escaping, four marketplace panels, Trendyol API center, existing draft pages and script order.');
+const wmsHtml=vm.runInContext(`(()=>{
+  wmsInventoryData={
+    profile:{providerKey:'mock',tenantId:'default'},
+    capabilities:{isMock:true},
+    policy:{safetyStockByWarehouse:{'mock-main':2},warehouseAssignmentsByAccount:{trendyol:['mock-main']},channelStockLimits:{trendyol:10}},
+    approvedSellableRule:'strict-deduction',ruleApprovedAt:'2026-10-29T10:00:00Z',
+    warehouses:[{id:'mock-main',code:'MAIN',name:'Ana Depo',isActive:true}],
+    stock:[
+      {warehouse:{id:'mock-main',code:'MAIN',name:'Ana Depo'},snapshot:{warehouseId:'mock-main',sku:'SKU-1',onHandQuantity:20,reservedQuantity:3,damagedQuantity:1,blockedQuantity:0,returnInspectionQuantity:0,allocatedQuantity:0,inTransferQuantity:0,unit:'EA',capturedAt:'2026-10-29T10:00:00Z',sourceVersion:2},safetyStock:2,sellableQuantity:14,sellableState:'known'},
+      {warehouse:{id:'mock-main',code:'MAIN',name:'Ana Depo'},snapshot:{warehouseId:'mock-main',sku:'FBA-SKU',onHandQuantity:8,reservedQuantity:0,unit:'EA',capturedAt:'2026-10-29T10:00:00Z',providerManaged:true,providerName:'Amazon FBA'},sellableQuantity:null,sellableState:'provider-managed'}
+    ],
+    movements:[],history:[],discrepancies:[{warehouseCode:'MAIN',sku:'SKU-1',wmsQuantity:20,erpQuantity:18,wmsUnit:'EA',erpUnit:'EA',state:'conflict',wmsSourceTime:'2026-10-29T10:00:00Z'}],
+    channelStock:[],marketplaceAccounts:[{id:'trendyol',marketplace:'trendyol',name:'Trendyol'}],readAt:'2026-10-29T10:01:00Z'
+  };
+  view='inventory';return inventory();
+})()`,context);
+assert(wmsHtml.includes('Ana Depo')&&wmsHtml.includes('SKU-1')&&wmsHtml.includes('14'));
+assert(wmsHtml.includes('Amazon FBA')&&wmsHtml.includes('İşletme onaylı'));
+assert(wmsHtml.includes('Fark inceleme')&&wmsHtml.includes('WMS fiziksel'));
+assert(wmsHtml.includes('Atanmış depolar')&&wmsHtml.includes('Kanal stok üst limiti'));
+assert(wmsHtml.includes('stok göndermez'),'WMS inventory UI must not imply a stock write.');
+assert(html.indexOf('/assets/wms-inventory.js') < html.indexOf('/assets/app.js'));
+console.log('PASS: 41 menu entries, marketplace panels, WMS multi-warehouse inventory, provider-managed stock, discrepancy review and no-write policy.');
