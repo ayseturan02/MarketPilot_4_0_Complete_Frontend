@@ -56,6 +56,8 @@ public sealed class StockOutbox
         var rows=products.Where(p=>string.IsNullOrWhiteSpace(job.NativeSku)?p.Barcode==job.Barcode:p.Sku==job.NativeSku).Take(2).ToArray();
         return rows.Length==1 && (job.Barcode.StartsWith("sku:",StringComparison.Ordinal)||rows[0].Barcode==job.Barcode)?rows[0]:null;
     }
+    // A failed or blocked target is not resent on every run; after this pause the next run queues it again.
+    private static readonly TimeSpan RetryCooldown = TimeSpan.FromMinutes(15);
     private static bool Active(string state) => state is "queued" or "dispatching" or "waiting" or "uncertain" or "blocked";
 
     public StockOutbox(IWebHostEnvironment env, IntegrationRegistry registry, DemoWorkspace demo, IServiceProvider services, IConfiguration config, TimeProvider clock)
@@ -117,7 +119,7 @@ public sealed class StockOutbox
                     return Copy(repeated);
                 }
             }
-            var existing = jobs.FirstOrDefault(j => j.StoreId == store.Id && j.Source == source && j.AccountIdentity == account && SameProduct(j,barcode,nativeSku) && (requestId is null || j.RequestId==requestId) && j.Quantity == quantity && j.Price == price && (Active(j.State) || j.State == "failed"));
+            var existing = jobs.FirstOrDefault(j => j.StoreId == store.Id && j.Source == source && j.AccountIdentity == account && SameProduct(j,barcode,nativeSku) && (requestId is null || j.RequestId==requestId) && j.Quantity == quantity && j.Price == price && (Active(j.State) && j.State != "blocked" || j.State is "failed" or "blocked" && j.FinishedAt > clock.GetUtcNow() - RetryCooldown));
             if (existing is not null) return Copy(existing);
             if (jobs.Count(j => Active(j.State)) >= 5000) throw new IntegrationException("outbox_full", "Stok gönderim kuyruğu dolu.", 409);
             foreach (var old in jobs.Where(j => j.StoreId == store.Id && SameProduct(j,barcode,nativeSku) && j.SentAt is null && j.State is "queued" or "blocked" or "failed"))
@@ -126,7 +128,9 @@ public sealed class StockOutbox
                 Barcode = barcode, NativeSku = nativeSku, RequestId = requestId, RequestFingerprint = requestFingerprint, Quantity = quantity, Price = price, Reason = reason, CreatedAt = clock.GetUtcNow(),
                 NextAttemptAt = clock.GetUtcNow(), SentAt = verifyExisting, State = verifyExisting is null ? "queued" : "uncertain" };
             jobs.Insert(0, job);
-            var terminal = jobs.Where(j => !Active(j.State)).OrderByDescending(j => j.CreatedAt).Skip(2000).ToHashSet();
+            // The newest completed job per product is the confirmed channel stock; pruning it would resend unchanged stock every run.
+            var confirmed = jobs.Where(j => j.State == "completed").GroupBy(j => (j.StoreId, j.Source, j.AccountIdentity, j.Barcode)).Select(g => g.MaxBy(j => j.FinishedAt)!).ToHashSet();
+            var terminal = jobs.Where(j => !Active(j.State) && !confirmed.Contains(j)).OrderByDescending(j => j.CreatedAt).Skip(2000).ToHashSet();
             jobs.RemoveAll(terminal.Contains);
             Save(); return Copy(job);
         }
@@ -184,7 +188,7 @@ public sealed class StockOutbox
             lock (gate)
             {
                 due = jobs.Where(j => j.State is "queued" or "waiting" or "uncertain" && j.NextAttemptAt <= clock.GetUtcNow())
-                    .OrderBy(j => j.Sequence).Where(j => !jobs.Any(old => old.Id != j.Id && old.StoreId == j.StoreId && old.Source == j.Source && old.AccountIdentity == j.AccountIdentity && SameProduct(old,j.Barcode,j.NativeSku) && old.Sequence < j.Sequence && Active(old.State)))
+                    .OrderBy(j => j.Sequence).Where(j => !jobs.Any(old => old.Id != j.Id && old.StoreId == j.StoreId && old.Source == j.Source && old.AccountIdentity == j.AccountIdentity && SameProduct(old,j.Barcode,j.NativeSku) && old.Sequence < j.Sequence && Active(old.State) && old.State != "blocked"))
                     .GroupBy(j => j.StoreId).Select(g => Copy(g.First())).Take(5).ToArray();
             }
             foreach (var job in due)
@@ -202,7 +206,9 @@ public sealed class StockOutbox
     }
     private async Task ProcessOne(ConnectionState store, StockWriteJob job, CancellationToken ct)
     {
-        if (store.Settings.Mode == "real" && !config.GetValue<bool>("Synchronization:AllowRealWrites"))
+        // Only a new send needs write permission. A job already sent keeps being verified (a read), otherwise it would stay
+        // blocked with SentAt set and hold back every later job for the product even after writes are enabled again.
+        if (job.State == "queued" && store.Settings.Mode == "real" && !config.GetValue<bool>("Synchronization:AllowRealWrites"))
         { Finish(job.Id, "blocked", "Gerçek gönderim izni veya bu kanalın yazma adaptörü hazır değil."); return; }
         if (job.State is "waiting" or "uncertain")
         {

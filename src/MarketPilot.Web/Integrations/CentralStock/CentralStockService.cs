@@ -53,6 +53,8 @@ public sealed class CentralStockState
     public HashSet<string> ApprovedReturns { get; set; } = new();
     public Dictionary<string, string> UnmatchedSales { get; set; } = new();
     public Dictionary<string, DateTimeOffset> ScannedThrough { get; set; } = new();
+    /// <summary>When each source was first watched; orders placed before it are already in the stock application's numbers.</summary>
+    public Dictionary<string, DateTimeOffset> WatchedSince { get; set; } = new();
     public DateTimeOffset? LastAttemptAt { get; set; }
     public string LastRunStatus { get; set; } = "idle";
     public Dictionary<string, CentralStoreStatus> Stores { get; set; } = new();
@@ -74,7 +76,10 @@ public sealed class CentralStockService
         "UnSupplied",
         "Returned",
         "UnDelivered",
-        "İptal"
+        "İptal",
+        // A split package keeps its old id with this status while its lines move to new packages that are counted instead.
+        "UnPacked",
+        "Unpackaged"
     };
     // Only Trendyol's order stream filters by last update. Other adapters filter by order date, so a rolling two-day
     // window keeps cancellations of recent orders visible after the incremental scan has moved past them.
@@ -376,8 +381,9 @@ public sealed class CentralStockService
                     return false;
                 }
 
+                // The stock outbox holds this gate for one marketplace call, so wait for it instead of skipping the whole run.
                 var gateway = registry.Gates.GetOrAdd(store.Id, _ => new(1, 1));
-                if (!await gateway.WaitAsync(0, ct))
+                if (!await gateway.WaitAsync(TimeSpan.FromSeconds(90), ct))
                 {
                     SetStore(store.Id, "busy", "Mağazada başka bir işlem sürüyor; bu tur stok dağıtılmayacak.");
                     return false;
@@ -386,8 +392,9 @@ public sealed class CentralStockService
                 try
                 {
                     DateTimeOffset from;
+                    // Line keys deduplicate the overlap, so a generous one costs nothing and absorbs clock drift.
                     lock (gate)
-                        from = state.ScannedThrough.TryGetValue(StoreSource(store), out var previousScan) ? previousScan.AddMinutes(-5) : scannedUntil.AddDays(-2);
+                        from = state.ScannedThrough.TryGetValue(StoreSource(store), out var previousScan) ? previousScan.AddMinutes(-60) : scannedUntil.AddDays(-2);
                     if (!LastModifiedScans.Contains(store.Settings.Marketplace) && from > scannedUntil.AddDays(-2))
                         from = scannedUntil.AddDays(-2);
                     orders = await MarketplaceOrderReader.ReadAllAsync(adapter, store.Settings, from, scannedUntil, ct);
@@ -406,9 +413,10 @@ public sealed class CentralStockService
 
         lock (gate)
         {
-            var lines = orders.SelectMany(o => o.Lines.Select(l => (Order: o, Line: l, Key: $"{StoreSource(store)}|{(o.PackageId.Length > 0 ? o.PackageId : o.OrderNumber)}|{l.Id}|{l.Barcode}"))).ToArray();
+            var lines = orders.SelectMany(o => o.Lines.Where(l => !ChannelFulfilled(store, o, l)).Select(l => (Order: o, Line: l, Key: $"{StoreSource(store)}|{(o.PackageId.Length > 0 ? o.PackageId : o.OrderNumber)}|{l.Id}|{l.Barcode}"))).ToArray();
             if (state.WatchedStores.Add(StoreSource(store)))
             {
+                state.WatchedSince[StoreSource(store)] = scannedUntil;
                 foreach (var x in lines)
                 {
                     state.SeenOrderLines.Add(x.Key);
@@ -424,6 +432,10 @@ public sealed class CentralStockService
                 return true;
             }
 
+            // Sources watched by an older version have no start time; every order before their last complete scan was already seen.
+            if (!state.WatchedSince.ContainsKey(StoreSource(store)))
+                state.WatchedSince[StoreSource(store)] = state.ScannedThrough.GetValueOrDefault(StoreSource(store), scannedUntil);
+            var watchedSince = state.WatchedSince[StoreSource(store)];
             var added = 0;
             var complete = true;
             foreach (var(order, line, key)in lines)
@@ -432,6 +444,16 @@ public sealed class CentralStockService
                 if (order.Status.Equals("Returned", StringComparison.OrdinalIgnoreCase))
                     continue;
                 var desired = NotSold.Contains(order.Status) ? 0 : line.Quantity;
+                // Trendyol scans by last update, so an order placed before watching started can show up later (e.g. on delivery).
+                // It is already in the stock application's numbers: record it without counting it as a new sale.
+                var known = state.AppliedQuantities.ContainsKey(key) || state.SeenOrderLines.Contains(key);
+                if (!known && order.OrderDate is { } placed && placed < watchedSince)
+                {
+                    state.SeenOrderLines.Add(key);
+                    state.AppliedQuantities[key] = desired;
+                    state.UnmatchedSales.Remove(key);
+                    continue;
+                }
                 var previous = state.AppliedQuantities.GetValueOrDefault(key, state.SeenOrderLines.Contains(key) ? desired : 0);
                 var delta = desired - previous;
                 if (delta == 0)
@@ -580,11 +602,22 @@ public sealed class CentralStockService
                     continue;
                 }
 
-                queue.Enqueue(store, product.Barcode, target, product.SalePrice, "Merkezi stok otomasyonu");
+                if (!TryEnqueue(() => queue.Enqueue(store, product.Barcode, target, product.SalePrice, "Merkezi stok otomasyonu"), store, product.Barcode, ref skipped, out var full))
+                {
+                    if (full) break;
+                    continue;
+                }
                 queued++;
             }
 
             SetStore(store.Id, "demo", $"{queued} kanal güncellemesi kalıcı gönderim kuyruğunda; {skipped} kanal tarafından yönetilen/geçersiz ürün atlandı.");
+            return;
+        }
+
+        // Queuing writes that the outbox will only block again churns its history; report the store as read-only instead.
+        if (!RealWritesAllowed(store))
+        {
+            SetStore(store.Id, "readonly", "Bu mağazada gerçek stok gönderimi kapalı (Synchronization:AllowRealWrites / hesap profili AllowWrites); stok kanala gönderilmedi.");
             return;
         }
 
@@ -621,7 +654,11 @@ public sealed class CentralStockService
             }
 
             var nativeSku = linked.SingleOrDefault()?.Listing.Sku;
-            queue.Enqueue(store, target.Barcode, target.Target, null, "Merkezi stok otomasyonu", nativeSku: !string.IsNullOrWhiteSpace(nativeSku) ? nativeSku : target.Sku.Length > 0 ? target.Sku : null);
+            if (!TryEnqueue(() => queue.Enqueue(store, target.Barcode, target.Target, null, "Merkezi stok otomasyonu", nativeSku: !string.IsNullOrWhiteSpace(nativeSku) ? nativeSku : target.Sku.Length > 0 ? target.Sku : null), store, target.Barcode, ref skipped, out var full))
+            {
+                if (full) break;
+                continue;
+            }
             queued++;
         }
 
@@ -692,6 +729,34 @@ public sealed class CentralStockService
             };
         }
     }
+
+    private bool RealWritesAllowed(ConnectionState store)
+    {
+        try { return configuration.GetValue<bool>("Synchronization:AllowRealWrites") && CredentialProfiles.Writes(CredentialProfiles.For(configuration, store.Settings), store.Settings); }
+        catch (Exception e) when (e is IntegrationException or InvalidOperationException) { return false; }
+    }
+
+    // One invalid item (e.g. a quantity the outbox refuses) must not stop distribution of every other item and store.
+    private bool TryEnqueue(Action enqueue, ConnectionState store, string barcode, ref int skipped, out bool full)
+    {
+        full = false;
+        try { enqueue(); return true; }
+        catch (Exception e) when (e is ArgumentException or IntegrationException)
+        {
+            skipped++;
+            full = e is IntegrationException { Code: "outbox_full" };
+            lock (gate) Event("warning", $"{store.Settings.Name} · {barcode}: stok gönderimi kuyruğa alınamadı ({e.Message}).");
+            return false;
+        }
+    }
+
+    // Stock held by the marketplace itself (Amazon FBA, n11depom) is not in the stock application, so its sales are not deducted.
+    private static bool ChannelFulfilled(ConnectionState store, MarketplaceOrder order, MarketplaceOrderLine line) => store.Settings.Marketplace switch
+    {
+        "amazon" => store.Settings.Mode == "demo" ? Amazon.AmazonDemo.IsAmazonFulfilled(line.Barcode) : string.Equals(order.FulfilledBy, "AMAZON", StringComparison.OrdinalIgnoreCase),
+        "n11" => store.Settings.Mode == "demo" ? N11.N11Demo.Depot(line.Barcode) : string.Equals(order.FulfilledBy, "N11", StringComparison.OrdinalIgnoreCase),
+        _ => false
+    };
 
     private CentralStockItem? Find(string sku, string barcode)
     {

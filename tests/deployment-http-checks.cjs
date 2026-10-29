@@ -72,12 +72,21 @@ async function main() {
     })).status, 403, 'remote clients must not bootstrap the first admin');
     assert.equal((await request('/api/products')).status, 403, 'API must remain closed until local bootstrap');
 
+    const tokenFile = path.join(temp, 'Data', 'setup-token.txt');
+    assert(fs.existsSync(tokenFile), 'public mode must write a one-time setup code');
+    assert.equal((await (await request('/api/access/status', { remote: false })).json()).setupTokenRequired, true);
+    assert.equal((await request('/api/access/setup', {
+      body: { name: 'admin', password: 'a-strong-test-password', setupToken: 'wrong-code' },
+      remote: false,
+      requestOrigin: base
+    })).status, 403, 'the bootstrap path alone must not create the first admin');
     const setup = await request('/api/access/setup', {
-      body: { name: 'admin', password: 'a-strong-test-password' },
+      body: { name: 'admin', password: 'a-strong-test-password', setupToken: fs.readFileSync(tokenFile, 'utf8').trim() },
       remote: false,
       requestOrigin: base
     });
     assert.equal(setup.status, 200, await setup.clone().text());
+    assert(!fs.existsSync(tokenFile), 'the setup code must be removed after use');
     const setCookie = setup.headers.get('set-cookie') || '';
     assert.match(setCookie, /;\s*secure(?:;|$)/i, 'public session cookie must require HTTPS');
     assert.match(setCookie, /;\s*httponly(?:;|$)/i);

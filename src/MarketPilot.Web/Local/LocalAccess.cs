@@ -20,8 +20,27 @@ public sealed class LocalUser
     public bool Enabled { get; set; } = true;
     public int Version { get; set; }
 }
+public sealed class LoginThrottledException() : Exception("Çok fazla giriş denemesi. Bir süre sonra tekrar dene.");
 public sealed record UserSummary(string Id, string Name, string Role, bool Enabled);
-public sealed record LocalCredentials(string Name, string Password);
+public sealed record LocalCredentials(string Name, string Password, string? SetupToken = null);
+
+// In public mode the first administrator needs a one-time code from Data/setup-token.txt. Reaching the bootstrap path
+// (another user on the host, or a host proxy that forwards as localhost) is then not enough to claim the server.
+public sealed class SetupToken(IWebHostEnvironment env)
+{
+    private readonly object gate = new();
+    private readonly string file = Path.Combine(env.ContentRootPath, "Data", "setup-token.txt");
+    public void Ensure() { lock (gate) if (!File.Exists(file)) File.WriteAllText(file, Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant()); }
+    public bool Matches(string? value)
+    {
+        lock (gate)
+        {
+            if (string.IsNullOrWhiteSpace(value) || !File.Exists(file)) return false;
+            return CryptographicOperations.FixedTimeEquals(System.Text.Encoding.UTF8.GetBytes(File.ReadAllText(file).Trim()), System.Text.Encoding.UTF8.GetBytes(value.Trim()));
+        }
+    }
+    public void Remove() { lock (gate) File.Delete(file); }
+}
 public sealed record NewLocalUser(string Name, string Password, string Role);
 public sealed record ChangeLocalUser(string Role, bool Enabled);
 public sealed record ChangePasswordInput(string CurrentPassword,string NewPassword);
@@ -60,15 +79,39 @@ public sealed class LocalAccountStore
             users.Add(user); Save(before); return Summary(user);
         }
     }
+    // Every authenticated request takes the account lock (session validation), so the slow PBKDF2 runs outside it,
+    // with bounded concurrency, and each account allows a limited number of failures per window from any IP.
+    private static readonly SemaphoreSlim hashing = new(4, 4);
+    private const int MaxFailures = 10;
+    private static readonly TimeSpan FailureWindow = TimeSpan.FromMinutes(15);
+    private readonly Dictionary<string, (int Count, DateTimeOffset Since)> failures = new();
     public (UserSummary User, int Version)? Authenticate(string name, string password)
     {
+        if (password is null || password.Length > 128) return null;
+        var key = (name ?? "").Trim().ToLowerInvariant();
+        string? id; byte[] salt, expected;
         lock (gate)
         {
-            if (password is null || password.Length > 128) return null;
-            var user = users.FirstOrDefault(u => u.Name == (name ?? "").Trim().ToLowerInvariant());
-            var actual = Hash(password, user is null ? new byte[16] : Convert.FromBase64String(user.Salt));
-            if (user is null || !user.Enabled || !CryptographicOperations.FixedTimeEquals(actual, Convert.FromBase64String(user.PasswordHash))) return null;
-            return (Summary(user), user.Version);
+            if (failures.TryGetValue(key, out var seen) && seen.Count >= MaxFailures && DateTimeOffset.UtcNow - seen.Since < FailureWindow) throw new LoginThrottledException();
+            var user = users.FirstOrDefault(u => u.Name == key);
+            id = user?.Id; salt = user is null ? new byte[16] : Convert.FromBase64String(user.Salt); expected = user is null ? new byte[32] : Convert.FromBase64String(user.PasswordHash);
+        }
+        if (!hashing.Wait(TimeSpan.FromSeconds(5))) throw new LoginThrottledException();
+        byte[] actual;
+        try { actual = Hash(password, salt); } finally { hashing.Release(); }
+        lock (gate)
+        {
+            // The account may have changed while hashing; only the verified password hash may sign in.
+            var current = users.FirstOrDefault(u => u.Id == id);
+            if (current is null || !current.Enabled || current.PasswordHash != Convert.ToBase64String(expected) || !CryptographicOperations.FixedTimeEquals(actual, expected))
+            {
+                var now = DateTimeOffset.UtcNow;
+                if (failures.Count > 10000) foreach (var old in failures.Where(f => now - f.Value.Since >= FailureWindow).Select(f => f.Key).ToArray()) failures.Remove(old);
+                failures[key] = failures.TryGetValue(key, out var previous) && now - previous.Since < FailureWindow ? (previous.Count + 1, previous.Since) : (1, now);
+                return null;
+            }
+            failures.Remove(key);
+            return (Summary(current), current.Version);
         }
     }
     public bool ValidateSession(string? id, string? version)
@@ -130,6 +173,7 @@ public static class LocalAccess
         var keys = Path.Combine(builder.Environment.ContentRootPath, "Data", "keys"); Directory.CreateDirectory(keys);
         builder.Services.AddDataProtection().SetApplicationName("InternetTekstil.Local").PersistKeysToFileSystem(new DirectoryInfo(keys));
         builder.Services.AddSingleton<LocalAccountStore>();
+        builder.Services.AddSingleton<SetupToken>();
         builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(o =>
         {
             o.Cookie.Name = "it_session"; o.Cookie.HttpOnly = true; o.Cookie.SameSite = SameSiteMode.Strict;
@@ -152,6 +196,11 @@ public static class LocalAccess
     public static void UseLocalAccess(this WebApplication app)
     {
         app.UseAuthentication(); app.UseRateLimiter();
+        if (IsPublicDeployment(app.Configuration) && !app.Services.GetRequiredService<LocalAccountStore>().Configured)
+        {
+            app.Services.GetRequiredService<SetupToken>().Ensure();
+            app.Logger.LogWarning("İlk yönetici için tek kullanımlık kurulum kodu Data/setup-token.txt dosyasına yazıldı.");
+        }
         app.Use(async (context, next) =>
         {
             var configuration = context.RequestServices.GetRequiredService<IConfiguration>();
@@ -183,15 +232,24 @@ public static class LocalAccess
             }
             context.Response.Headers.CacheControl = "no-store"; await next();
         });
-        app.MapGet("/api/access/status", (HttpContext c, LocalAccountStore store) => Results.Ok(new { configured = store.Configured, authenticated = c.User.Identity?.IsAuthenticated == true, name = c.User.Identity?.Name, role = c.User.FindFirstValue(ClaimTypes.Role) }));
-        app.MapPost("/api/access/setup", async (LocalCredentials credentials, HttpContext c, LocalAccountStore store) =>
+        app.MapGet("/api/access/status", (HttpContext c, LocalAccountStore store) => Results.Ok(new { configured = store.Configured, setupTokenRequired = IsPublicDeployment(app.Configuration) && !store.Configured, authenticated = c.User.Identity?.IsAuthenticated == true, name = c.User.Identity?.Name, role = c.User.FindFirstValue(ClaimTypes.Role) }));
+        app.MapPost("/api/access/setup", async (LocalCredentials credentials, HttpContext c, LocalAccountStore store, SetupToken token) =>
         {
-            try { var user = store.Create(credentials.Name, credentials.Password, "admin", true); await SignIn(c, user, 0); return Results.Ok(new { ok = true }); }
+            var publicDeployment = IsPublicDeployment(app.Configuration);
+            if (publicDeployment && !token.Matches(credentials.SetupToken)) return Results.Json(new { error = "Kurulum kodu geçersiz. Sunucudaki Data/setup-token.txt dosyasındaki kodu girin." }, statusCode: 403);
+            try
+            {
+                var user = store.Create(credentials.Name, credentials.Password, "admin", true);
+                if (publicDeployment) token.Remove();
+                await SignIn(c, user, 0); return Results.Ok(new { ok = true });
+            }
             catch (ArgumentException e) { return Results.BadRequest(new { error = e.Message }); }
         }).RequireRateLimiting("local-login");
         app.MapPost("/api/access/login", async (LocalCredentials credentials, HttpContext c, LocalAccountStore store) =>
         {
-            var result = store.Authenticate(credentials.Name, credentials.Password);
+            (UserSummary User, int Version)? result;
+            try { result = store.Authenticate(credentials.Name, credentials.Password); }
+            catch (LoginThrottledException e) { return Results.Json(new { error = e.Message }, statusCode: 429); }
             if (result is null) return Results.Json(new { error = "Hesap adı veya parola hatalı." }, statusCode: 401);
             await SignIn(c, result.Value.User, result.Value.Version); return Results.Ok(new { ok = true });
         }).RequireRateLimiting("local-login");
