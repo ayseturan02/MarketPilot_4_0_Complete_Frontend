@@ -1,0 +1,1 @@
+PASS WMS logistics HTTP + browser: mock intake, shipment/cargo/returns/labels screens, policy approval, invalid transitions, quarantine, restock and seed replay. Isolated data; no external service calls.

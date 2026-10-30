@@ -1,0 +1,5 @@
+page.waitForFunction: Timeout 30000ms exceeded.
+    at C:\Users\ayse0\Desktop\MarketPilot_4_0_Complete_Frontend\tests\shared-workspace-http-checks.cjs:85:83 {
+  log: [],
+  name: 'TimeoutError'
+}

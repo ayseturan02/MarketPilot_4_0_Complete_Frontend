@@ -1,0 +1,1 @@
+PASS 180 WMS logistics checks: every state pair, replay/conflict/order, tracking, partial quantities, multi-package/depot, channel approval, label authority, return QC/WMS approval, mock scenarios and persistence.

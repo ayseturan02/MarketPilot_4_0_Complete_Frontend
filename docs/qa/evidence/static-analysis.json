@@ -1,0 +1,336 @@
+{
+  "javascriptSyntax": [
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/amazon/amazon-center.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/amazon/amazon-demo-details.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/analytics-system.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/app.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/automatic-synchronization.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/boyner/boyner-center.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog-erp.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/erp-pricing.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/central-stock.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/enterprise-sync.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/hepsiburada/hepsiburada-center.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/hepsiburada/hepsiburada-details.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/integrations.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/listing-filters.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/local-access-ui.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/marketplace-stock.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/n11/n11-center.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/operational-preparation.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/operations-live.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/product-store-stocks.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/ticimax/ticimax-center.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/trendyol/trendyol-api.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/trendyol/trendyol-demo-workspace.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/trendyol/trendyol-workflows.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/webhook-receiver.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/wms-fulfillment.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/wms-inventory.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/wms-logistics.js",
+      "exitCode": 0,
+      "error": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/workspace-workflows.js",
+      "exitCode": 0,
+      "error": ""
+    }
+  ],
+  "projects": [
+    {
+      "file": "src/MarketPilot.Web/MarketPilot.Web.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.AccountWriteChecks/MarketPilot.AccountWriteChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.AmazonChecks/MarketPilot.AmazonChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.AutomationChecks/MarketPilot.AutomationChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.BoynerChecks/MarketPilot.BoynerChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.CanonicalChecks/MarketPilot.CanonicalChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.CatalogChecks/MarketPilot.CatalogChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.ChannelContractChecks/MarketPilot.ChannelContractChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.DemoChecks/MarketPilot.DemoChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.ErpReadModelChecks/MarketPilot.ErpReadModelChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.ErpTransferChecks/MarketPilot.ErpTransferChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.HepsiburadaChecks/MarketPilot.HepsiburadaChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.IntegrationChecks/MarketPilot.IntegrationChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.ListingChecks/MarketPilot.ListingChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.LocalReliabilityChecks/MarketPilot.LocalReliabilityChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.N11Checks/MarketPilot.N11Checks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.NebimChecks/MarketPilot.NebimChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.OrchestratorChecks/MarketPilot.OrchestratorChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.PricingChecks/MarketPilot.PricingChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.SecurityChecks/MarketPilot.SecurityChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.SynchronizationChecks/MarketPilot.SynchronizationChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.TicimaxChecks/MarketPilot.TicimaxChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.WmsChecks/MarketPilot.WmsChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.WmsLogisticsChecks/MarketPilot.WmsLogisticsChecks.csproj",
+      "packages": []
+    },
+    {
+      "file": "tests/MarketPilot.WorkerIsolationAudit/MarketPilot.WorkerIsolationAudit.csproj",
+      "packages": []
+    }
+  ],
+  "sameTypeNamesAcrossNamespaces": {
+    "DemoStore": [
+      "src/MarketPilot.Web/ListingFilters.cs:52",
+      "src/MarketPilot.Web/Program.cs:209",
+      "src/MarketPilot.Web/Catalog/CatalogStore.cs:3"
+    ],
+    "Shipment": [
+      "src/MarketPilot.Web/Program.cs:199",
+      "src/MarketPilot.Web/Contracts/CanonicalModels.cs:25"
+    ],
+    "CatalogHub": [
+      "src/MarketPilot.Web/Catalog/CatalogHub.cs:9",
+      "src/MarketPilot.Web/Catalog/CatalogOperations.cs:3"
+    ],
+    "OperationsHub": [
+      "src/MarketPilot.Web/Catalog/OperationsHub.cs:9",
+      "src/MarketPilot.Web/Catalog/OrderObservations.cs:11"
+    ],
+    "MarketplaceOrder": [
+      "src/MarketPilot.Web/Contracts/CanonicalModels.cs:22",
+      "src/MarketPilot.Web/Integrations/Contracts.cs:17"
+    ],
+    "SyncCheckpoint": [
+      "src/MarketPilot.Web/Contracts/CanonicalModels.cs:30",
+      "src/MarketPilot.Web/Enterprise/IntegrationMonitoring.cs:54"
+    ],
+    "IWmsProvider": [
+      "src/MarketPilot.Web/Enterprise/EnterpriseProviders.cs:8",
+      "src/MarketPilot.Web/Wms/Contracts.cs:124"
+    ],
+    "EnterpriseSync": [
+      "src/MarketPilot.Web/Enterprise/EnterpriseSync.cs:12",
+      "src/MarketPilot.Web/Enterprise/EnterpriseSync.Integration.cs:7"
+    ],
+    "MarketplaceAccount": [
+      "src/MarketPilot.Web/Integrations/Contracts.cs:4",
+      "src/MarketPilot.Web/Local/TenantSecurity.cs:12"
+    ],
+    "HepsiburadaAdapter": [
+      "src/MarketPilot.Web/Integrations/MarketplaceWrites.cs:8",
+      "src/MarketPilot.Web/Integrations/Hepsiburada/HepsiburadaAdapter.cs:9"
+    ],
+    "N11Adapter": [
+      "src/MarketPilot.Web/Integrations/MarketplaceWrites.cs:29",
+      "src/MarketPilot.Web/Integrations/N11/N11Adapter.cs:28"
+    ],
+    "BoynerAdapter": [
+      "src/MarketPilot.Web/Integrations/MarketplaceWrites.cs:55",
+      "src/MarketPilot.Web/Integrations/Boyner/BoynerAdapter.cs:15"
+    ],
+    "AmazonApiClient": [
+      "src/MarketPilot.Web/Integrations/MarketplaceWrites.cs:82",
+      "src/MarketPilot.Web/Integrations/Amazon/AmazonApiClient.cs:9"
+    ],
+    "DemoWorkspace": [
+      "src/MarketPilot.Web/Integrations/Demo/DemoListingSearch.cs:5",
+      "src/MarketPilot.Web/Integrations/Demo/DemoPolicyPrices.cs:3",
+      "src/MarketPilot.Web/Integrations/Demo/DemoSales.cs:4",
+      "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs:69"
+    ],
+    "TicimaxSoap": [
+      "src/MarketPilot.Web/Integrations/Ticimax/TicimaxSoap.cs:11",
+      "src/MarketPilot.Web/Integrations/Ticimax/TicimaxWrites.cs:3"
+    ],
+    "OrderWebhookReceiver": [
+      "src/MarketPilot.Web/Webhooks/OrderWebhookReadiness.cs:9",
+      "src/MarketPilot.Web/Webhooks/OrderWebhookReceiver.cs:12"
+    ]
+  },
+  "totalSourceLines": 16809,
+  "sourceFiles": 173,
+  "endpointDeclarations": 194,
+  "markers": [
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/Contracts.cs",
+      "line": 17,
+      "marker": "TODO"
+    }
+  ],
+  "coverage": "No line/branch instrumentation; source syntax checks cannot validate generated DOM handlers."
+}

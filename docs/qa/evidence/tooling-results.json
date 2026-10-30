@@ -1,0 +1,23 @@
+[
+  {
+    "name": "accounts-diagnostic",
+    "exitCode": 1
+  },
+  {
+    "name": "npm-offline-audit",
+    "exitCode": 0
+  },
+  {
+    "name": "docker-compose-config",
+    "exitCode": 125
+  },
+  {
+    "name": "node-syntax",
+    "exitCode": 0
+  },
+  {
+    "name": "docker-compose-direct",
+    "exitCode": 0,
+    "note": "Direct installed compose executable; first docker --config attempt could not discover the user plugin. Static config only; no image build or daemon deployment."
+  }
+]

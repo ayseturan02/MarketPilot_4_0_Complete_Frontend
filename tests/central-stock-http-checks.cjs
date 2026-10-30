@@ -29,11 +29,11 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
     // Production rule over HTTP: polyamide products are refused before the catalogue and before a Trendyol product request is built.
     const post=(url,body)=>fetch(base+url,{method:'POST',headers:{'Content-Type':'application/json',Origin:base},body:JSON.stringify(body)});
     const legacy=await post('/api/products',{name:'Naylon tayt',sku:'PA-HTTP-1',category:'Giyim',price:100,stock:1});
-    assert.equal(legacy.status,422,'legacy product create must refuse polyamide');assert.match((await legacy.json()).error,/polyamid bazlı/);
+    assert.equal(legacy.status,405,'legacy product creation remains disabled because ERP owns product master data');
     const trendyol=await post('/api/integrations/trendyol/connections/trendyol/operations/products.createV2',{body:{items:[{barcode:'PA-HTTP-2',title:'Tayt',description:'%78 Poliamid %22 Elastan'}]}});
-    assert.equal(trendyol.status,400,'Trendyol product content must refuse polyamide');assert.equal((await trendyol.json()).code,'production_rule');
+    assert.equal(trendyol.status,405,'Trendyol product creation remains disabled because ERP owns product master data');
     const cotton=await post('/api/integrations/trendyol/connections/trendyol/operations/products.createV2',{body:{items:[{barcode:'CT-HTTP-1',title:'Tişört',description:'%100 pamuk, naylon poşette gönderilir'}]}});
-    assert.equal(cotton.status,200,'a cotton product with packaging nylon must still be previewed');
+    assert.equal(cotton.status,405,'all Trendyol product creation stays disabled, including producible products');
     console.log('PASS central stock: baseline without deduction, cross-channel deduction, source report without double count, safety stock, oversell refusal, settings bounds, cross-origin rejection and polyamide production rule. Isolated temp data.');
   }finally{child.kill();await sleep(500);fs.rmSync(temp,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1;});

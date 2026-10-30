@@ -13,6 +13,7 @@ public sealed partial class OrderWebhookReceiver(IConfiguration configuration, I
 {
     public const string Root = "Webhooks:Trendyol";
     public const int MaxBytes = 2 * 1024 * 1024;
+    private string CallbackPath(string id)=>configuration["Workspace:BusinessId"] is { } business&&business!="default"&&MarketPilot.Web.Local.BusinessWorkspaces.ValidId(business)?"/hooks/businesses/"+business+"/orders/"+id:"/hooks/orders/"+id;
     private readonly object rateGate = new();
     private readonly Dictionary<string, (DateTimeOffset Start, int Count)> windows = new();
     public OrderHookBinding? Binding(string id)
@@ -122,7 +123,7 @@ public sealed partial class OrderWebhookReceiver(IConfiguration configuration, I
         return new
         {
             receiverImplemented = true,
-            exampleCallbackPath = "/hooks/orders/receiver01",
+            exampleCallbackPath = CallbackPath("receiver01"),
             configuredCount = endpoints.Length,
             readyCount = endpoints.Count(e => e.Ready),
             endpoints,

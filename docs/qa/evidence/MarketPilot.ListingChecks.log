@@ -1,0 +1,1 @@
+PASS: 100,000 products + 100,000 orders, distant exact match, stock/status/date filters before sort/page, bounded results and invalid query rejection (260 ms, in-memory correctness check; not a production load benchmark).

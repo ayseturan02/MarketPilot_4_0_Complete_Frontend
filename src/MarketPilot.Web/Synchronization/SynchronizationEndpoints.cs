@@ -15,6 +15,7 @@ public static class SynchronizationEndpoints
         app.MapGet("/api/sync/automation", (OrderSynchronization automation, StockOutbox outbox) => Results.Ok(new { automation = automation.Status(), outbox = outbox.Status() }));
         app.MapPost("/api/sync/automation", (AutomationSettings input, HttpContext context, LocalAccountStore accounts, OrderSynchronization automation, CentralStockService stock) => {
             if (accounts.Configured && !context.User.IsInRole("admin")) return Results.StatusCode(403);
+            if(context.RequestServices.GetRequiredService<MarketPilot.Web.Enterprise.EnterpriseSync>().Managed)return Results.Conflict(new{error="Zaman planı Senkronizasyon Merkezi’nden yönetilir."});
             if(input.IntervalSeconds is <30 or >3600 || input.LookbackDays is <1 or >14) return Results.BadRequest(new { error = "Aralık 30–3600 saniye, sipariş taraması 1–14 gün olmalı." });
             try {
                 if (input.Enabled && stock.Settings.AutoSync) stock.UpdateSettings(stock.Settings with { AutoSync = false });

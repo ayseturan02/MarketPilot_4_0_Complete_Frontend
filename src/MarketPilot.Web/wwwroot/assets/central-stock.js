@@ -17,6 +17,17 @@ function csRun(){csPost('/run',{},r=>r.lastRunStatus==='completed'?'Kaynak stok 
 function csSaveSettings(event){event.preventDefault();const f=event.target.elements;csPost('/settings',{autoSync:f.autoSync.checked,intervalSeconds:Number(f.intervalSeconds.value),safetyStock:Number(f.safetyStock.value)},'Merkezi stok ayarları kaydedildi.');}
 function csDemoSale(event){event.preventDefault();const f=event.target.elements;csPost('/demo-sale',{connectionId:f.store.value,barcode:f.barcode.value,quantity:Number(f.quantity.value)},r=>`${r.order.orderNumber||r.order} oluşturuldu; stok diğer kanallarda düşürülüyor.`);}
 function csTime(v){return v?new Date(v).toLocaleString('tr-TR',{dateStyle:'short',timeStyle:'short'}):'—';}
+function csUnmatchedReview(){
+  if(!csData&&!csLoading&&!csError)csLoad();
+  const canResolve=typeof localAccess==='undefined'||!localAccess.configured||localAccess.role==='admin';
+  if(!csData)return `<p class="cs-hint">${esc(csError||'Satış eşleşmeleri okunuyor…')}</p>`;
+  const errors=(csData.stores||[]).filter(store=>store.status?.status==='error');
+  return `<div class="cs-unmatched"><strong>Eşleşmeyen satışlar: ${csData.unmatchedSales||0}</strong>
+    ${csError||csData.lastError?`<p role="alert">${esc(csError||csData.lastError)}</p>`:''}
+    ${errors.map(store=>`<p role="alert">${esc(store.name)}: ${esc(store.status.message)}</p>`).join('')}
+    ${csData.unmatched?.length?`<p>Doğru ERP ürününü Ürün Eşleştirme ekranından seçin. Stok kaynağında takip edilmeyen bir satış için Yoksay kararı verilebilir.</p><ul>${csData.unmatched.map(item=>`<li><span>${esc(item.item)}</span>${canResolve?`<button class="btn btn-small" onclick="csIgnoreUnmatched(${jsArg(item.key)})" ${csBusy?'disabled':''}>Yoksay</button>`:''}</li>`).join('')}</ul>`:''}
+    ${canResolve?`<button class="btn" onclick="csRun()" ${csBusy?'disabled':''}>Eşleşmeleri yeniden değerlendir</button>`:''}</div>`;
+}
 
 function centralStockPanel(){
   if(!csData&&!csLoading&&!csError)csLoad();

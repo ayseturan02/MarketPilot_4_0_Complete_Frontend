@@ -31,8 +31,18 @@ var orders=await adapter.OrdersAsync(settings,new(Page:1,Size:25),default);
 Check(handler.Uri!.AbsolutePath.EndsWith("/orders/merchantid/"+merchant)&&handler.Uri.Query.Contains("offset=25"),"Paid order endpoint failed");
 Check(orders.TotalPages==4&&orders.Items[0].Lines[0].UnitPrice==449.9m&&orders.Items[0].Total==899.8m&&orders.Items[0].Status=="Created"&&orders.Items[0].ShipmentAddress!.City=="İstanbul","Order line/amount/address mapping failed");
 await adapter.OrdersAsync(settings,new(Size:25,Status:"Awaiting"),default);Check(handler.Uri!.AbsolutePath.EndsWith("/paymentawaiting"),"Payment-awaiting endpoint failed");
-await adapter.OrdersAsync(settings,new(Size:25,Status:"Picking"),default);Check(handler.Uri!.AbsolutePath.EndsWith("/packages/merchantid/"+merchant),"Packages endpoint failed");
+handler.Body="""[{"packageNumber":"PK-1","orderNumber":"1234567890","status":"Open","barcode":"CARGO-ONLY","items":[{"id":"package-item-not-order-line","lineItemId":"line-1","merchantSku":"TSH-EKR-S","quantity":2,"price":{"amount":449.9,"currency":"TRY"}}]}]""";
+handler.TotalCount="21";
+var packages=await adapter.OrdersAsync(settings,new(Page:1,Size:25,Status:"Picking"),default);
+Check(handler.Uri!.AbsolutePath.EndsWith("/packages/merchantid/"+merchant)&&handler.Uri.Query.Contains("limit=10")&&handler.Uri.Query.Contains("offset=10"),"Packages endpoint/limit failed");
+Check(packages.Items[0].Lines[0].Id==orders.Items[0].Lines[0].Id&&packages.Items[0].Lines[0].Barcode==""&&packages.Items[0].Status=="Picking","Paid/package identity changed or cargo barcode treated as product");
+Check(packages.TotalElements==21&&packages.TotalPages==3,"Package response header pagination lost");
+var beforeLongWindow=handler.Calls;
+try{await adapter.OrdersAsync(settings,new(Status:"Picking",StartDate:0,EndDate:172800000),default);throw new Exception("Long package window accepted");}catch(IntegrationException error){Check(error.Code=="invalid_dates"&&handler.Calls==beforeLongWindow,"Long package window reached provider");}
 await adapter.OrdersAsync(settings,new(Size:25,Status:"MissingInvoice"),default);Check(handler.Uri!.AbsolutePath.EndsWith("/missing-invoice"),"Missing invoice endpoint failed");
+handler.TotalCount=null;
+handler.Body="""[{"packageNumber":"PK-1","items":[{"id":"unverified-package-id","merchantSku":"TSH-EKR-S","quantity":2}]}]""";
+try{await adapter.OrdersAsync(settings,new(Status:"Picking"),default);throw new Exception("Missing line identity accepted");}catch(IntegrationException error){Check(error.Code=="package_identity_missing","Missing identity was not blocked");}
 handler.Body = """{"orderNumber":"1234567890","items":[{"merchantSku":"X","quantity":1,"unitPrice":{"amount":12,"currency":"TRY"}}]}""";
 var detail=await adapter.OrdersAsync(settings,new(Size:25,OrderNumber:"1234567890"),default);Check(detail.Items.Count==1&&detail.Items[0].OrderNumber=="1234567890","Order detail object mapping failed");
 Check(handler.Uri!.AbsolutePath.EndsWith("/ordernumber/1234567890"),"Order detail endpoint failed");
@@ -47,11 +57,13 @@ Console.WriteLine("PASS Hepsiburada fixtures: environment/authentication, native
 
 sealed class Fixture : HttpMessageHandler
 {
-    public string Body="{}"; public HttpStatusCode Status=HttpStatusCode.OK;public Uri? Uri;public string? Authorization,UserAgent;public int Calls;
+    public string Body="{}"; public HttpStatusCode Status=HttpStatusCode.OK;public Uri? Uri;public string? Authorization,UserAgent,TotalCount;public int Calls;
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage r,CancellationToken ct)
     {
         if(r.Method!=HttpMethod.Get)throw new Exception("Unexpected live write");
         Calls++;Uri=r.RequestUri;Authorization=r.Headers.Authorization?.ToString();UserAgent=r.Headers.GetValues("User-Agent").Single();
-        return Task.FromResult(new HttpResponseMessage(Status){Content=new StringContent(Body)});
+        var response=new HttpResponseMessage(Status){Content=new StringContent(Body)};
+        if(TotalCount!=null)response.Headers.TryAddWithoutValidation("totalcount",TotalCount);
+        return Task.FromResult(response);
     }
 }

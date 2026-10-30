@@ -1,0 +1,1 @@
+PASS automatic synchronization/outbox: scheduled multi-page import, interval and restart recovery, failure backoff, disabled polling, durable dispatch, idempotency, real-write guard, Retry-After, 503/connection/timeout uncertainty and query-before-retry, readback, transient Windows read locks and disk rollback. All transports mocked.

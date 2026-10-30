@@ -14,10 +14,16 @@ namespace MarketPilot.Web.Integrations;
 // Profiles are server configuration, never persisted with connection records or returned as credentials.
 public static class CredentialProfiles
 {
+    public static void CheckRealConnections(IConfiguration root,ConnectionSettings settings)
+    {
+        if(settings.Mode=="real"&&MarketPilot.Web.Local.LocalAccess.IsPublicDeployment(root)&&!root.GetValue<bool>("IntegrationSecurity:AllowRealConnections"))
+            throw new IntegrationException("real_connections_disabled","Üretimde gerçek bağlantılar sunucuda varsayılan kapalıdır.",409);
+    }
     public const string Unassigned = "_unassigned";
     public static readonly string[] Markets = ["trendyol", "hepsiburada", "n11", "amazon", "boyner", "ticimax"];
     public static IConfiguration For(IConfiguration root, ConnectionSettings s)
     {
+        CheckRealConnections(root,s);
         if (s.Mode == "demo" || s.CredentialProfile is null) return root; // Existing single-account configuration remains readable.
         if (!Regex.IsMatch(s.CredentialProfile, "^[a-zA-Z0-9_-]{1,64}$") || s.CredentialProfile == Unassigned)
             throw new IntegrationException("credential_profile_missing", "Bu mağazaya sunucuda tanımlı bir kimlik profili seçilmeli.", 409);
@@ -36,6 +42,7 @@ public static class CredentialProfiles
         "boyner" => BoynerAdapter.IsConfigured(c, e), "ticimax" => TicimaxSoap.IsConfigured(c, e), _ => false
     };
     public static bool Writes(IConfiguration c, ConnectionSettings s) =>
+        (!MarketPilot.Web.Local.LocalAccess.IsPublicDeployment(c)||c.GetValue<bool>("IntegrationSecurity:AllowRealConnections")) &&
         Configured(c, s.Marketplace, s.Environment) && c.GetValue<bool>($"Marketplaces:{s.Marketplace}:{s.Environment}:AllowWrites");
     public static string Identity(IConfiguration root, ConnectionSettings s)
     {
@@ -76,9 +83,10 @@ public static class CredentialProfiles
         .Select(p =>
         {
             var s = new ConnectionSettings("", p["Marketplace"]!.ToLowerInvariant(), "real", p["Environment"]!, p.Key);
-            var c = For(root, s);
+            var configured=false;var writes=false;
+            try{var c=For(root,s);configured=Configured(c,s.Marketplace,s.Environment);writes=Writes(c,s);}catch(IntegrationException){}
             return (object)new { id = p.Key, label = p["Label"] ?? p.Key, marketplace = s.Marketplace, environment = s.Environment,
-                configured = Configured(c, s.Marketplace, s.Environment), writes = Writes(c, s) };
+                configured, writes };
         }).ToArray();
 }
 
@@ -110,12 +118,13 @@ public sealed class MarketplaceClients(IConfiguration root, IHttpClientFactory h
     private Bundle TicimaxBundle(IConfiguration c) { var soap = new TicimaxSoap(http, c); return new(new TicimaxAdapter(soap), c, null, soap, null); }
     public Bundle Session(ConnectionSettings s) => s.CredentialProfile is null
         ? new(Adapter(s),root,s.Marketplace=="trendyol"?Trendyol(s):null,s.Marketplace=="ticimax"?Ticimax(s):null,s.Marketplace=="amazon"?Amazon(s):null) : Get(s);
-    public IMarketplaceAdapter Adapter(ConnectionSettings s) => s.CredentialProfile is null
-        ? services.GetServices<IMarketplaceAdapter>().First(a => a.Marketplace == s.Marketplace) : Get(s).Adapter;
+    public IMarketplaceAdapter Adapter(ConnectionSettings s)
+    {CredentialProfiles.CheckRealConnections(root,s);return s.CredentialProfile is null
+        ? services.GetServices<IMarketplaceAdapter>().First(a => a.Marketplace == s.Marketplace) : Get(s).Adapter;}
     public T Adapter<T>(ConnectionSettings s) where T : class, IMarketplaceAdapter => (T)Adapter(s);
-    public TrendyolOperationRunner Trendyol(ConnectionSettings s) => s.CredentialProfile is null ? services.GetRequiredService<TrendyolOperationRunner>() : Get(s).Runner!;
-    public TicimaxSoap Ticimax(ConnectionSettings s) => s.CredentialProfile is null ? services.GetRequiredService<TicimaxSoap>() : Get(s).Soap!;
-    public AmazonApiClient Amazon(ConnectionSettings s) => s.CredentialProfile is null ? services.GetRequiredService<AmazonApiClient>() : Get(s).Amazon!;
+    public TrendyolOperationRunner Trendyol(ConnectionSettings s) {CredentialProfiles.CheckRealConnections(root,s);return s.CredentialProfile is null ? services.GetRequiredService<TrendyolOperationRunner>() : Get(s).Runner!;}
+    public TicimaxSoap Ticimax(ConnectionSettings s) {CredentialProfiles.CheckRealConnections(root,s);return s.CredentialProfile is null ? services.GetRequiredService<TicimaxSoap>() : Get(s).Soap!;}
+    public AmazonApiClient Amazon(ConnectionSettings s) {CredentialProfiles.CheckRealConnections(root,s);return s.CredentialProfile is null ? services.GetRequiredService<AmazonApiClient>() : Get(s).Amazon!;}
     public IConfiguration Configuration(ConnectionSettings s) => CredentialProfiles.For(root, s);
     public static IMarketplaceAdapter Resolve(IServiceProvider sp, ConnectionSettings s) =>
         sp.GetService<MarketplaceClients>()?.Adapter(s) ?? sp.GetServices<IMarketplaceAdapter>().First(a => a.Marketplace == s.Marketplace);

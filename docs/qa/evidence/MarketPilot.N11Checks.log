@@ -1,0 +1,1 @@
+PASS n11 official-doc fixtures: REST header auth, native paging, long identifiers, seller/depot sender, invoice versus order amounts, SOAP claim read/escaping/DTD rejection, task read-only POST, category leaves/cache and safe errors. No external writes or live account used.

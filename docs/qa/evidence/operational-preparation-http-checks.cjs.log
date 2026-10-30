@@ -1,0 +1,15 @@
+AssertionError [ERR_ASSERTION]: {"error":"Ürünün aktif, fiyatlı ve yeterli kullanılabilir stoğu olmalı."}
+
+400 !== 200
+
+    at ok (C:\Users\ayse0\Desktop\MarketPilot_4_0_Complete_Frontend\tests\operational-preparation-http-checks.cjs:22:35)
+    at newOrder (C:\Users\ayse0\Desktop\MarketPilot_4_0_Complete_Frontend\tests\operational-preparation-http-checks.cjs:27:56)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\ayse0\Desktop\MarketPilot_4_0_Complete_Frontend\tests\operational-preparation-http-checks.cjs:37:15 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 400,
+  expected: 200,
+  operator: 'strictEqual',
+  diff: 'simple'
+}

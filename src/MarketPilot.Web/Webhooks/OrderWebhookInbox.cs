@@ -23,14 +23,17 @@ public sealed class OrderHookEvent
 }
 public sealed class OrderWebhookInbox
 {
+    private const int MaxAttempts = QueueResiliencePolicy.MaxAttempts;
     private readonly object gate = new();
     private readonly SemaphoreSlim processing = new(1, 1);
     private readonly string file;
+    private readonly TimeProvider clock;
     private readonly JsonSerializerOptions json = new(JsonSerializerDefaults.Web);
     private Dictionary<string, OrderHookEvent> events;
     private string persisted;
-    public OrderWebhookInbox(IWebHostEnvironment env)
+    public OrderWebhookInbox(IWebHostEnvironment env, TimeProvider? clock = null)
     {
+        this.clock = clock ?? TimeProvider.System;
         var dir = Path.Combine(env.ContentRootPath, "Data");
         Directory.CreateDirectory(dir);
         file = Path.Combine(dir, "order-webhook-inbox.json");
@@ -52,7 +55,7 @@ public sealed class OrderWebhookInbox
     {
         lock (gate)
         {
-            var now = DateTimeOffset.UtcNow;
+            var now = clock.GetUtcNow();
             var identities = items.Select(i => (Item: i, Id: Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(CatalogHub.Source(binding.Store) + "|" + binding.SellerId + "|" + i.Order.PackageId + "|" + i.Version + "|" + i.Fingerprint))).ToLowerInvariant())).ToArray();
             var added = identities.Where(i => !events.ContainsKey(i.Id)).DistinctBy(i => i.Id).ToArray();
             if (added.Length == 0)
@@ -97,6 +100,8 @@ public sealed class OrderWebhookInbox
                 processed = events.Values.Count(e => e.State == "processed"),
                 ignored = events.Values.Count(e => e.State == "ignored"),
                 failed = events.Values.Count(e => e.State == "failed"),
+                deadLetter = events.Values.Count(e => e.State == "failed"),
+                oldestPendingAt = events.Values.Where(e => e.State == "pending").Min(e => (DateTimeOffset?)e.ReceivedAt),
                 lastReceivedAt = events.Values.Max(e => (DateTimeOffset?)e.ReceivedAt),
                 recent = events.Values.OrderByDescending(e => e.ReceivedAt).Take(25).Select(e => new { e.Id, e.EndpointId, e.State, e.Attempts, e.ReceivedAt, e.FinishedAt, e.Error }).ToArray()
             };
@@ -111,12 +116,13 @@ public sealed class OrderWebhookInbox
                 throw new IntegrationException("invalid_state", "Yalnızca başarısız bildirim tekrar denenebilir.", 409);
             e.State = "pending";
             e.Attempts = 0;
-            e.DueAt = DateTimeOffset.UtcNow;
+            e.DueAt = clock.GetUtcNow();
             e.Error = null;
+            e.FinishedAt = null;
             Save();
         }
     }
-    public async Task Process(OrderWebhookReceiver receiver, OperationsHub operations, CancellationToken ct)
+    public async Task Process(OrderWebhookReceiver receiver, OperationsHub operations, CancellationToken ct, MarketPilot.Web.Enterprise.IntegrationOrchestrator? orchestrator = null)
     {
         if (!await processing.WaitAsync(0, ct))
             return;
@@ -124,7 +130,7 @@ public sealed class OrderWebhookInbox
         {
             OrderHookEvent[] due;
             lock (gate)
-                due = events.Values.Where(e => e.State == "pending" && e.DueAt <= DateTimeOffset.UtcNow).OrderBy(e => e.ReceivedAt).Take(25).Select(e => JsonSerializer.Deserialize<OrderHookEvent>(JsonSerializer.Serialize(e, json), json)!).ToArray();
+                due = events.Values.Where(e => e.State == "pending" && e.DueAt <= clock.GetUtcNow()).OrderBy(e => e.ReceivedAt).Take(25).Select(e => JsonSerializer.Deserialize<OrderHookEvent>(JsonSerializer.Serialize(e, json), json)!).ToArray();
             foreach (var item in due)
             {
                 ct.ThrowIfCancellationRequested();
@@ -141,20 +147,36 @@ public sealed class OrderWebhookInbox
                     else
                     {
                         var applied = operations.Observe(binding.Store, new MarketplacePage<MarketplaceOrder>([item.Order], 0, 1, 1, 1, null));
+                        orchestrator?.ObserveOrders(binding.Store,[item.Order]);
                         if (applied == 0)
                             state = "ignored";
                     }
                 }
-                catch (Exception e) when (e is not OperationCanceledException) { state = "pending"; error = "Sipariş kaydedilemedi; otomatik tekrar denenecek."; }
+                catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
+                catch(IntegrationException e)when(e.Code=="order_stale")
+                {
+                    state="ignored";error=e.Message;
+                }
+                catch(Exception e)
+                {
+                    state="pending";
+                    error=e switch {
+                        TimeoutException or OperationCanceledException=>"Sipariş işleme zaman aşımına uğradı; otomatik tekrar denenecek.",
+                        IOException or UnauthorizedAccessException=>"Sipariş kalıcı depoya yazılamadı; depolama erişimini kontrol edin. Otomatik tekrar denenecek.",
+                        IntegrationException integration=>integration.Message,
+                        _=>"Sipariş kaydedilemedi; otomatik tekrar denenecek."
+                    };
+                }
                 lock (gate)
                 {
                     var stored = events[item.Id];
                     stored.Attempts++;
-                    stored.State = state == "pending" && stored.Attempts >= 8 ? "failed" : state;
+                    stored.State = state == "pending" && stored.Attempts >= MaxAttempts ? "failed" : state;
                     stored.Error = error;
-                    stored.DueAt = DateTimeOffset.UtcNow.AddSeconds(Math.Min(300, Math.Pow(2, stored.Attempts)));
+                    stored.DueAt = clock.GetUtcNow().Add(QueueResiliencePolicy.RetryDelay(
+                        stored.Attempts, TimeSpan.FromSeconds(1), TimeSpan.FromMinutes(5)));
                     if (stored.State != "pending")
-                        stored.FinishedAt = DateTimeOffset.UtcNow;
+                        stored.FinishedAt = clock.GetUtcNow();
                     Save();
                 }
             }
@@ -162,7 +184,7 @@ public sealed class OrderWebhookInbox
         finally { processing.Release(); }
     }
 }
-public sealed class OrderWebhookWorker(OrderWebhookInbox inbox, OrderWebhookReceiver receiver, OperationsHub operations, ILogger<OrderWebhookWorker> log) : BackgroundService
+public sealed class OrderWebhookWorker(OrderWebhookInbox inbox, OrderWebhookReceiver receiver, OperationsHub operations, ILogger<OrderWebhookWorker> log, MarketPilot.Web.Enterprise.IntegrationOrchestrator? orchestrator = null) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -172,7 +194,7 @@ public sealed class OrderWebhookWorker(OrderWebhookInbox inbox, OrderWebhookRece
             while (await timer.WaitForNextTickAsync(stoppingToken))
                 try
                 {
-                    await inbox.Process(receiver, operations, stoppingToken);
+                    await inbox.Process(receiver, operations, stoppingToken, orchestrator);
                 }
                 catch (Exception e) when (e is not OperationCanceledException || !stoppingToken.IsCancellationRequested) { log.LogWarning("Webhook inbox processing failed: {Type}", e.GetType().Name); }
         }

@@ -1,0 +1,1 @@
+PASS synchronization regressions: all pages, alias deduplication, demo/real isolation, unmatched retry, cancellation/return idempotency, source failure, repeated pages, duplicate source rows, two-day window, legacy migration, recovery, disk rollback, pre-watch orders, split packages and FBA lines. Mock transports only.

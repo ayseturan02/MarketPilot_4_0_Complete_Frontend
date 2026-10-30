@@ -1,0 +1,1 @@
+PASS: 100k metadata with bounded fetch, product/order cursors, filter cursor reset, variant subpages without refetch and bounded page cache. No network used.

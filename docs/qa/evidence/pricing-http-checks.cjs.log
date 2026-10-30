@@ -1,0 +1,1 @@
+PASS ERP pricing HTTP/browser: six mock marketplaces, protected approval and publication, idempotency, pricing screen actions, viewer guards and restart.

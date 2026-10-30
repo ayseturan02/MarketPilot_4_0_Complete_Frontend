@@ -1,0 +1,1 @@
+PASS shared catalogue domain: legacy preservation, exact store links, atomic import rollback, demo/live separation, decimal/unknown values, live-write guard, stale queued versions, restart recovery, 100k products with 25-row response (598 ms including fixture persistence), encrypted backup coverage.

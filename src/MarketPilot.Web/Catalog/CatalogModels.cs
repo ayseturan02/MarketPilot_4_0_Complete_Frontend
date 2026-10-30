@@ -3,6 +3,8 @@ using MarketPilot.Web.Integrations;
 namespace MarketPilot.Web.Catalog;
 public sealed class CatalogState
 {
+    public DateTimeOffset? LastErpSyncAt{get;set;}
+    public Dictionary<string,string> ErpReviews{get;set;}=[];
     public Dictionary<string, ObservedOrder> Orders { get; set; } = new();
     public long OrderRevision { get; set; }
     public int Version { get; set; }

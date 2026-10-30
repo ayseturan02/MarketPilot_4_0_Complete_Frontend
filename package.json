@@ -3,7 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "check:stock-actions": "dotnet run --project tests/MarketPilot.SynchronizationChecks && dotnet run --project tests/MarketPilot.HepsiburadaChecks && node tests/catalog-stock-actions-http-checks.cjs",
+    "check:security": "dotnet run --project tests/MarketPilot.SecurityChecks && node tests/security-hardening-http-checks.cjs && node tests/tenant-security-http-checks.cjs && node tests/webhook-http-checks.cjs && node tests/deployment-http-checks.cjs",
+    "check:tenancy": "dotnet build src/MarketPilot.Web && node tests/tenant-security-http-checks.cjs && node tests/tenant-isolation-audit.cjs && node tests/local-access-http-checks.cjs",
+    "check:erp-transfer": "dotnet run --project tests/MarketPilot.ErpTransferChecks && node tests/integration-orchestrator-http-checks.cjs",
+    "check:fulfillment": "dotnet run --project tests/MarketPilot.WmsChecks && node tests/fulfillment-http-checks.cjs && node tests/integration-orchestrator-http-checks.cjs",
+    "check:wms": "dotnet run --project tests/MarketPilot.WmsChecks && dotnet run --project tests/MarketPilot.WmsLogisticsChecks && node tests/wms-inventory-http-checks.cjs && node tests/wms-logistics-http-checks.cjs",
+    "check:orchestration": "dotnet run --project tests/MarketPilot.OrchestratorChecks && node tests/integration-orchestrator-http-checks.cjs && node tests/webhook-http-checks.cjs",
+    "check:channels": "dotnet run --project tests/MarketPilot.ChannelContractChecks",
     "check": "node scripts/check.mjs",
+    "check:pricing": "dotnet run --project tests/MarketPilot.PricingChecks && node tests/pricing-http-checks.cjs",
     "check:sync": "dotnet build src/MarketPilot.Web && dotnet run --project tests/MarketPilot.SynchronizationChecks -p:BuildProjectReferences=false && node tests/synchronization-http-checks.cjs"
   },
   "devDependencies": {

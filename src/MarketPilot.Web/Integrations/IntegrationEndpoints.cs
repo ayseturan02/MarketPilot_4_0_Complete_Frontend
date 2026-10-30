@@ -13,12 +13,14 @@ namespace MarketPilot.Web.Integrations;
 
 public sealed class IntegrationRegistry
 {
+    private long revision;
+    public long Revision => Interlocked.Read(ref revision);
     public ConcurrentDictionary<string, ConnectionState> Connections { get; } = new();
     public ConcurrentDictionary<string, SemaphoreSlim> Gates { get; } = new();
     public ConcurrentDictionary<string, CachedAccount> Accounts { get; } = new();
     private readonly string file;
     private readonly object saveGate = new();
-    public void Save() { lock(saveGate) { var temp=file+".tmp"; System.IO.File.WriteAllText(temp,System.Text.Json.JsonSerializer.Serialize(Connections.Values.ToArray(),new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))); System.IO.File.Move(temp,file,true); } }
+    public void Save() { lock(saveGate) { var temp=file+".tmp"; System.IO.File.WriteAllText(temp,System.Text.Json.JsonSerializer.Serialize(Connections.Values.ToArray(),new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))); System.IO.File.Move(temp,file,true);Interlocked.Increment(ref revision); } }
     public IntegrationRegistry(IWebHostEnvironment env)
     {
         var folder=System.IO.Path.Combine(env.ContentRootPath,"Data");System.IO.Directory.CreateDirectory(folder);file=System.IO.Path.Combine(folder,"integration-connections.json");

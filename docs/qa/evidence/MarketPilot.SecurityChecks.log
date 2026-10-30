@@ -1,0 +1,1 @@
+PASS security: SSRF/private/mapped/metadata/URL checks, exact private target approvals, production real/TLS guards, redirect refusal, DNS-pinned handler, secret/PII/log masking, audit storage and JSON credential rejection. Loopback fixtures only.

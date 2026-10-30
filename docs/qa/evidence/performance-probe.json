@@ -1,0 +1,40 @@
+{
+  "exitCode": 0,
+  "test": "bounded-synthetic-performance",
+  "metrics": [
+    {
+      "size": 100,
+      "writeMs": 2.946,
+      "p50Ms": 0.7669,
+      "p95Ms": 0.958,
+      "maxMs": 15.8846,
+      "workingSetBytes": 47542272,
+      "privateBytes": 19165184,
+      "cpuMs": 46.875,
+      "fileBytes": 159991
+    },
+    {
+      "size": 1000,
+      "writeMs": 9.4965,
+      "p50Ms": 1.3621,
+      "p95Ms": 1.6874,
+      "maxMs": 6.8964,
+      "workingSetBytes": 58736640,
+      "privateBytes": 31072256,
+      "cpuMs": 46.875,
+      "fileBytes": 1159696
+    },
+    {
+      "size": 10000,
+      "writeMs": 69.9216,
+      "p50Ms": 10.6534,
+      "p95Ms": 13.6292,
+      "maxMs": 17.1734,
+      "workingSetBytes": 126074880,
+      "privateBytes": 102219776,
+      "cpuMs": 468.75,
+      "fileBytes": 11192759
+    }
+  ],
+  "serverContentRoot": "C:\\Users\\ayse0\\AppData\\Local\\Temp\\marketpilot-qa-probe-e65e65c34eef4dd39e09b4c21f20eb83\\size-10000"
+}

@@ -1,0 +1,1 @@
+PASS public deployment HTTP: proxy trust, first-admin bootstrap, HTTPS cookie, login gate, authenticated local-only APIs and CSRF.

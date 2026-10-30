@@ -25,11 +25,11 @@ try
  accounts.Create("throttle-target","Throttle-Only-Password-2026","viewer");for(var attempt=0;attempt<10;attempt++)Check(accounts.Authenticate("throttle-target","wrong-password-"+attempt) is null,"Wrong password accepted");
  try{accounts.Authenticate("throttle-target","Throttle-Only-Password-2026");throw new Exception("Account throttle did not engage");}catch(LoginThrottledException){}
  Check(accounts.Authenticate("test-admin","Test-Only-Password-2026") is not null,"Throttling one account must not lock out another");
- var workspace=new DemoWorkspace(env);var store=new ConnectionSettings("Background test","trendyol","demo","stage");var initial=workspace.Snapshot(store);workspace.Enqueue(store,new("stock","persisted-job",initial.Products[0].Barcode,47,499m));
+ var workspace=new DemoWorkspace(env);var store=new ConnectionSettings("Background test","trendyol","demo","stage");var initial=workspace.Snapshot(store);workspace.Enqueue(store,new("stock","persisted-job",initial.Products[0].Barcode,47,initial.Products[0].SalePrice));
  // Reconstruct the service before the due time; process without calling Snapshot or a browser.
  workspace=new DemoWorkspace(env);await Task.Delay(2200);Check(workspace.ProcessPendingJobs()==1,"Background processor did not complete resumed job");
  Check(workspace.ProcessPendingJobs()==0,"Job processed twice");Check(new DemoWorkspace(env).Snapshot(store).Products[0].Stock==47,"Processed job not persisted");
- Reject(()=>workspace.Enqueue(store,new("stock","persisted-job",initial.Products[0].Barcode,48,499m)));
+ Reject(()=>workspace.Enqueue(store,new("stock","persisted-job",initial.Products[0].Barcode,48,initial.Products[0].SalePrice)));
  var backups=new LocalBackups(env);var backup=backups.Create();Check(backups.List().Count==1,"Backup not listed");backups.Verify(backup.Name);
  var archive=backups.Download(backup.Name);Check(!System.Text.Encoding.UTF8.GetString(archive).Contains("test-admin"),"Archive not encrypted");
  var envelope=JsonSerializer.Deserialize<BackupEnvelope>(archive)!;var cipher=Convert.FromBase64String(envelope.Cipher);cipher[0]^=1;var altered=envelope with{Cipher=Convert.ToBase64String(cipher)};var archivePath=Path.Combine(folder,"Data","Backups",backup.Name);File.WriteAllText(archivePath,JsonSerializer.Serialize(altered));Reject(()=>backups.Verify(backup.Name));
@@ -74,8 +74,9 @@ try
  await queueWorker.StartAsync(default);
  try
  {
-     for(var attempt=0;attempt<100&&queueState.LastQueueError is null;attempt++)await Task.Delay(25);
-     Check(queueState.LastQueueError is not null&&queueLog.Messages.Any(m=>m.Contains("NullReferenceException")),"Unexpected queue error was not recorded");
+     for(var attempt=0;attempt<100&&queueState.LastQueueTick is null;attempt++)await Task.Delay(25);
+     var failedQueue=JsonSerializer.Deserialize<Dictionary<string,DemoWorkspaceState>>(File.ReadAllText(Path.Combine(workerEnv.ContentRootPath,"Data","integration-demo.json")),new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+     Check(failedQueue.Values.Single().Jobs[0].State=="failed"&&!string.IsNullOrWhiteSpace(failedQueue.Values.Single().Jobs[0].Error),"Unexpected job error was not quarantined and recorded");
      Check(backupState.LastBackupError is not null&&backupLog.Messages.Any(m=>m.Contains("XmlException")),"Unexpected backup XML error was not recorded");
      Check(queueWorker.ExecuteTask is{IsCompleted:false}&&backupWorker.ExecuteTask is{IsCompleted:false},"Unexpected fault stopped a worker");
      Check(backupState.LastBackupSuccess is null,"A failed backup was reported as successful");

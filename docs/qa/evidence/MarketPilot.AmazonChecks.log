@@ -1,0 +1,1 @@
+PASS Amazon official-schema fixtures: LWA cached token, EU/TR host, seller participation, ASIN/SKU/issues, FBM versus FBA stock, Orders 2026 privacy and native cursors, finance empty-page continuation, report-token-only requests and safe errors/cooldowns. No live API used.

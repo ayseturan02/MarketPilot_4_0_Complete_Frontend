@@ -1,10 +1,12 @@
-# MarketPilot 5.1 — Gerçek Trendyol entegrasyonu
+# MarketPilot 5.1 — Giyim ve pazaryeri operasyonları
+
+MarketPilot, Nebim V3 ERP, WMS/depo ve pazaryerleri arasında veri alışverişi yapan bir entegrasyon ve orkestrasyon platformudur. Giyim ürün kataloğu Nebim V3’ten salt okunur alınır; ürün, fiyat ve barkod ana verisi uygulamadan oluşturulamaz veya değiştirilemez. Demo akışları JSON fixture’ları kullanır; gerçek ERP/WMS bağlantıları bu sürümde yoktur.
+
+İşletme bazında kullanıcı/veri ayrımı desteklenir. Mevcut veriler `default` işletmesinde korunur.
 
 .NET 8 uygulaması. Mevcut 39 ekran, beyaz tema ve yerel demo işlemleri korunur. Satış Kanalları ile Trendyol Merkezi gerçek Trendyol verilerini salt okunur görüntüleyebilir.
 
-Güncel ön yüz/arka uç senkronizasyon akışları ve testler: [SENKRONIZASYON_DOGRULAMA.md](SENKRONIZASYON_DOGRULAMA.md).
-
-Otomatik sipariş çekme, kalıcı stok gönderim kuyruğu ve webhook alıcısı: [OTOMATIK_SENKRONIZASYON.md](OTOMATIK_SENKRONIZASYON.md).
+Güncel veri sahipliği, provider katmanları, WMS topolojileri, akış diyagramları ve gerçek bağlantılar için backlog [mimari belgesinde](docs/architecture/README.md) açıklanmıştır.
 
 ## Başlatma
 
@@ -160,16 +162,30 @@ Gerçek mağaza bağlantısı, ayrı satıcı kimlik profilleri, kimlik doğrula
 
 Kontrol: `dotnet run --project tests/MarketPilot.DemoChecks`.
 
-Yerel giriş/roller, arka plan kuyruğu ve şifreli yedek kurulumu: [YEREL_GUVENLIK_VE_YEDEK.md](YEREL_GUVENLIK_VE_YEDEK.md).
+Yerel giriş/roller, arka plan kuyruğu ve şifreli yedek desteği mevcuttur.
 
 
 ## Ortak katalog ve mağaza akışı
 
-Ürün & Katalog ekranları ortak backend kayıtlarına bağlandı. Mağaza eşleştirmeleri, stok/fiyat önizleme ve demo iş sırası, genel sipariş/gönderi bağlantıları ve sınırlar için [ortak katalog raporunu](ORTAK_KATALOG_KAPSAM.md) okuyun. Gerçek mağazaya yazma kapalıdır; veritabanı bu aşamada kurulmadı.
+Ürün ve katalog ekranları ortak backend kayıtlarına bağlanır. Giyim kategorileri mağaza kategorileriyle eşleştirilebilir; stok/fiyat gönderimleri mağaza izinlerine bağlıdır. Gerçek mağazaya yazma varsayılan olarak kapalıdır.
 
 
 ## Gelen sipariş bildirimleri
 
-Trendyol için ayrı kimlik doğrulamalı `/hooks/orders/{endpointId}` alıcısı, kalıcı bildirim sırası ve ortak sipariş güncellemesi eklendi. Varsayılan olarak kapalıdır; canlı HTTPS adresi/hesap/abonelik tanımlanmadı. Kurulum ve sınırlar: [WEBHOOK_KURULUM.md](WEBHOOK_KURULUM.md).
+Trendyol için ayrı kimlik doğrulamalı `/hooks/orders/{endpointId}` alıcısı, kalıcı bildirim sırası ve ortak sipariş güncellemesi eklendi. Varsayılan olarak kapalıdır; canlı HTTPS adresi/hesap/abonelik tanımlanmadı.
 
-Mağaza başına ayrı API kimliği, iki satıcı hesabı ve altı kanalda stok/fiyat yazma kapsamı: [MAGAZA_HESAPLARI_VE_YAZMA.md](MAGAZA_HESAPLARI_VE_YAZMA.md).
+## Bağlantılı Analiz ve Sistem ekranları
+
+Analiz & Sistem menüsü sipariş, merkezi katalog, mağaza bağlantıları ve arka plan servisleriyle aynı kalıcı verileri kullanır. Raporlar tüm siparişleri tarih, kanal, kaynak ve para birimine göre hesaplar; bilinmeyen tutarlar ortalamaya eklenmez ve farklı para birimleri birleştirilmez.
+
+Kârlılık ekranındaki ürün maliyetlerini yönetici kaydeder. Alış, komisyon oranı, birim kargo ve diğer maliyetler `demo-store.json` içinde saklanır ve mevcut şifreli yedeklere dahildir. Güncel katalog fiyatı değiştiğinde birim katkı yeniden hesaplanır. Maliyet/fiyat eksikse hesap gösterilmez; bu hesap dönem net kârı veya hakediş hesabı değildir.
+
+Bildirimler stok eşiği ve servis/kuyruk durumlarından üretilir. İşlem kayıtlarında operasyon geçmişi, yöneticiler için ayrıca sistem olayları bulunur. Otomasyon ekranı Senkronizasyon ekranıyla aynı zamanlayıcı ve gönderim kuyruğunu yönetir. Genel ayarlardaki stok eşiği ve senkronizasyon bildirim tercihi ilgili ekranlara yansır; e-posta gönderim servisi yapılandırılmış değildir.
+
+Uçlar: `/api/analytics/reports`, `/api/analytics/profit`, `/api/analytics/workspace`, yönetici yazması için `PUT /api/analytics/costs/{id}`. `node tests/analytics-system-http-checks.cjs` geçici verilerle hesap tutarlılığını, yeniden başlatmada kalıcılığı, ekranların birlikte güncellenmesini, mobil görünümü ve rol sınırlarını sınar.
+
+
+Ortak ERP/WMS/pazaryeri veri sözleşmeleri, JSON kayıt API’si ve testler: [sözleşme belgesi](docs/contracts/README.md).
+
+
+Nebim V3 mock sağlayıcısı, yetenekler ve gerçek adaptör backlog’u: [Nebim katmanı](docs/contracts/NEBIM_PROVIDER.md). Gerçek Nebim teknik sözleşmesi henüz tanımlı değildir.

@@ -1,0 +1,1 @@
+PASS central orchestrator: existing durable queue, all 12 event envelopes, exact replay/conflict, stale-after-intake protection, tenant/account ordering isolation, execution timestamps/results/errors and restart persistence. No provider/network access.

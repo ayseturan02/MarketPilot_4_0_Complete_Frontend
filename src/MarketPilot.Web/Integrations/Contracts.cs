@@ -6,17 +6,21 @@ public record MarketplaceProduct(
     string Id, string ContentId, string ProductMainId, string Sku, string Barcode, string Name,
     string CategoryId, string CategoryName, string BrandName, decimal? ListPrice, decimal? SalePrice,
     decimal? CustomerPrice, int? Stock, string Currency, bool? OnSale, string ProductUrl, IReadOnlyList<string> Images,
-    string ApprovalStatus, IReadOnlyList<string> RejectReasons);
+    string ApprovalStatus, IReadOnlyList<string> RejectReasons,string? FulfilledBy=null,decimal? VatRate=null,bool? VatIncluded=null);
 public record MarketplaceOrderLine(
     string Id, string Sku, string Barcode, string Name, int Quantity, decimal? UnitPrice,
     decimal? GrossAmount, decimal? VatRate, string Currency, string Status, string CategoryId);
 public record MarketplaceCargo(string Provider, string TrackingNumber, string TrackingLink, string SenderNumber, string ShipmentNumber, decimal? Deci, int? BoxQuantity);
 public record MarketplaceInvoice(string Number, string Status, string Link, bool Commercial, string Company, string TaxOffice, string TaxNumber, bool? EInvoiceAvailable, IReadOnlyList<string> RejectedReasons);
+public record MarketplacePromotion(string Id,string Description,decimal Amount,string Currency,string? FundedBy=null,string? LineId=null);
+public record MarketplaceOrderPackage(string Id,string Carrier,string TrackingNumber,string? NativeStatus,DateTimeOffset? ShippedAt=null);
 public record MarketplaceOrder(
     string PackageId, string OrderNumber, string Status, DateTimeOffset? OrderDate, string CustomerName,
     string CustomerEmail, decimal? Total, decimal? GrossTotal, decimal? Discount, string Currency,
     string PaymentMethod, string DeliveryAddressType, MarketplaceAddress? ShipmentAddress,
-    IReadOnlyList<MarketplaceOrderLine> Lines, MarketplaceCargo Cargo, MarketplaceInvoice Invoice,long? LastModifiedDate=null,string? FulfilledBy=null);
+    IReadOnlyList<MarketplaceOrderLine> Lines, MarketplaceCargo Cargo, MarketplaceInvoice Invoice,long? LastModifiedDate=null,string? FulfilledBy=null,
+    IReadOnlyList<MarketplacePromotion>? Promotions=null,IReadOnlyList<MarketplaceOrderPackage>? Packages=null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? SourceView=null);
 public record MarketplacePage<T>(IReadOnlyList<T> Items, int Page, int Size, long? TotalElements, int? TotalPages, string? NextPageToken, bool? HasMore = null, string? NextCursor = null);
 public record ProductQuery(int Page = 0, int Size = 50, string? Barcode = null, string? StockCode = null, string? Status = null, string? NextPageToken = null, string Approval = "approved");
 public record OrderQuery(int Page = 0, int Size = 50, string? Status = null, string? OrderNumber = null, string? Barcode = null, long? StartDate = null, long? EndDate = null, string OrderByDirection = "DESC", bool Stream = false, string? NextCursor = null);
@@ -34,10 +38,20 @@ public interface IMarketplaceAdapter
     Task<MarketplacePage<MarketplaceOrder>> OrdersAsync(ConnectionSettings settings, OrderQuery query, CancellationToken ct);
 }
 
-public sealed class IntegrationException(string code, string message, int status = 502) : Exception(message)
+public sealed class IntegrationException(string code, string message, int status = 502, TimeSpan? retryAfter = null) : Exception(message)
 {
     public string Code { get; } = code;
     public int Status { get; } = status;
+    public TimeSpan? RetryAfter { get; } = retryAfter;
+    public static TimeSpan? ReadRetryAfter(HttpResponseMessage response)
+    {
+        var retry = response.Headers.RetryAfter;
+        if (retry?.Delta is { } delta)
+            return delta > TimeSpan.Zero ? delta : TimeSpan.Zero;
+        if (retry?.Date is { } date)
+            return date - DateTimeOffset.UtcNow is { } remaining && remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+        return null;
+    }
 }
 
 public abstract class PlannedAdapter(string marketplace) : IMarketplaceAdapter

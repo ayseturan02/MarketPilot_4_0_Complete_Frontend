@@ -59,8 +59,9 @@ public sealed partial class AmazonApiClient(IHttpClientFactory factory, IConfigu
         {
             var code=(int)response.StatusCode;
             if(code==401)tokens.TryRemove(environment,out _);
-            if(code==429){var delay=response.Headers.RetryAfter?.Delta??TimeSpan.FromSeconds(30);cooldowns[key]=DateTimeOffset.UtcNow.AddSeconds(Math.Clamp(delay.TotalSeconds,1,300));}
-            throw new IntegrationException(code==429?"rate_limited":"amazon_error",code switch { 401 or 403=>"Amazon bu işleme erişim vermedi. Mağaza yetkilerini kontrol edin.",404=>"Amazon kaydı bulunamadı.",429=>"Amazon istek sınırına ulaşıldı. Biraz sonra yeniden deneyin.",_=>"Amazon verileri alınamadı. Daha sonra yeniden deneyin."},code is 401 or 403?409:code is 400 or 404 or 409 or 422 or 429?(code==422?400:code):502);
+            var retryAfter=code==429?IntegrationException.ReadRetryAfter(response):null;
+            if(code==429){var delay=retryAfter??TimeSpan.FromSeconds(30);cooldowns[key]=DateTimeOffset.UtcNow.AddSeconds(Math.Clamp(delay.TotalSeconds,1,300));}
+            throw new IntegrationException(code==429?"rate_limited":"amazon_error",code switch { 401 or 403=>"Amazon bu işleme erişim vermedi. Mağaza yetkilerini kontrol edin.",404=>"Amazon kaydı bulunamadı.",429=>"Amazon istek sınırına ulaşıldı. Biraz sonra yeniden deneyin.",_=>"Amazon verileri alınamadı. Daha sonra yeniden deneyin."},code is 401 or 403?409:code is 400 or 404 or 409 or 422 or 429?(code==422?400:code):502,retryAfter);
         }
         return JsonDocument.Parse(await Read(response,ct));
     }

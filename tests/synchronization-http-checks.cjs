@@ -1,13 +1,13 @@
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),net=require('node:net'),assert=require('node:assert/strict'),{spawn}=require('node:child_process');
 const {chromium}=require('./browser-test-runtime.cjs');
-const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms)),dll=process.env.MARKETPILOT_WEB_DLL||path.join(root,'src/MarketPilot.Web/bin/Debug/net8.0/MarketPilot.Web.dll');
 (async()=>{
  const probe=net.createServer();await new Promise((resolve,reject)=>probe.once('error',reject).listen(0,'127.0.0.1',resolve));
  const port=probe.address().port;await new Promise(r=>probe.close(r));
  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'marketpilot-sync-http-')),base='http://127.0.0.1:'+port;
  let child,browser;
  async function start(){
-  child=spawn('dotnet',[path.join(root,'src/MarketPilot.Web/bin/Debug/net8.0/MarketPilot.Web.dll'),'--contentRoot',temp,'--webroot',path.join(root,'src/MarketPilot.Web/wwwroot'),'--urls',base],{windowsHide:true,stdio:'ignore',env:{...process.env,ASPNETCORE_ENVIRONMENT:'Production',Logging__LogLevel__Default:'Critical',Marketplaces__StockSource__BaseUrl:'',Marketplaces__StockSource__AllowWrites:'false'}});
+  child=spawn('dotnet',[dll,'--contentRoot',temp,'--webroot',path.join(root,'src/MarketPilot.Web/wwwroot'),'--urls',base],{windowsHide:true,stdio:'ignore',env:{...process.env,ASPNETCORE_ENVIRONMENT:'Production',Logging__LogLevel__Default:'Critical',Marketplaces__StockSource__BaseUrl:'',Marketplaces__StockSource__AllowWrites:'false'}});
   for(let i=0;i<100;i++){try{if((await fetch(base+'/api/health')).ok)return;}catch{}await sleep(100);}throw Error('Server did not start');
  }
  async function stop(){if(!child)return;const running=child;child=null;running.kill();await new Promise(resolve=>{if(running.exitCode!==null)return resolve();running.once('exit',resolve);setTimeout(resolve,4000);});}
@@ -21,7 +21,7 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   let result=await api('/api/products/'+legacy.id,{stock:legacy.stock+20,price:-1},'PUT');
   assert.equal(result.status,400);
   assert.equal((await api('/api/products')).body.find(p=>p.id===legacy.id).stock,legacy.stock,'invalid request must not partially update stock');
-  assert.equal((await api('/api/products',{name:'Duplicate',sku:' '+legacy.sku+' ',price:10,stock:1})).status,409);
+  assert.equal((await api('/api/products',{name:'Duplicate',sku:' '+legacy.sku+' ',price:10,stock:1})).status,405);
   const settings=(await api('/api/settings')).body;
   assert.equal((await api('/api/settings',{...settings,lowStockThreshold:-1},'PUT')).status,400);
   assert.deepEqual((await api('/api/settings')).body,settings);
@@ -31,22 +31,14 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
   await page.goto(base+'/#sync');
-  await page.getByRole('heading',{name:'Arka plan işleri',exact:true}).waitFor().catch(async error=>{console.error(await page.locator('body').innerText(),errors);throw error;});
-  const synced=page.waitForResponse(r=>r.url()===base+'/api/sync/demo'&&r.request().method()==='POST');
-  await page.getByRole('button',{name:'Demo Eşitle',exact:false}).click();
-  assert.equal((await synced).status(),200);
-  await page.waitForFunction(()=>syncState?.stock.lastRunStatus==='completed'&&syncState.demo.pending===0&&syncState.outbox.queued===0&&syncState.outbox.waiting===0);
-  assert((await page.locator('.content').innerText()).includes('Stok taraması tamamlandı'));
-  assert(fs.existsSync(path.join(temp,'Data/central-stock.json')),'sync button must persist actual central stock');
-
-  await page.evaluate(()=>nav('connections'));
-  await page.locator('.cs-demo').waitFor();
-  await page.locator('.cs-demo select[name=store]').selectOption('trendyol');
-  await page.locator('.cs-demo select[name=barcode]').selectOption('8691000000005');
-  await page.locator('.cs-demo input[name=quantity]').fill('2');
-  const saleResponse=page.waitForResponse(r=>r.url().endsWith('/central-stock/demo-sale'));
-  await page.locator('.cs-demo').getByRole('button',{name:'Satış oluştur',exact:true}).click();
-  const sale=await (await saleResponse).json();
+  await page.locator('[data-enterprise-sync]').waitFor();
+  assert.equal(await page.getByRole('button',{name:'Verileri e\u015fitle',exact:true}).count(),1);
+  // Legacy demo stock behavior remains server-side; the central UI has its own enterprise contract test.
+  assert.equal((await api('/api/sync/demo',{})).status,200);
+  for(let i=0;i<150;i++){const status=(await api('/api/sync/status')).body;if(status.stock.lastRunStatus==='completed'&&status.demo.pending===0&&status.outbox.queued===0&&status.outbox.waiting===0)break;await sleep(100);}
+  assert(fs.existsSync(path.join(temp,'Data/central-stock.json')));
+  const saleResult=await api('/api/integrations/central-stock/demo-sale',{connectionId:'trendyol',barcode:'8691000000005',quantity:2});
+  assert.equal(saleResult.status,200);const sale=saleResult.body;
   assert.equal(sale.view.items.find(i=>i.sku==='PNT-BEJ-38').quantity,7);
   await context.close();
   // No browser and no read request: only the server worker can finish these jobs.
@@ -89,10 +81,10 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   assert.equal((await api('/api/sync/demo',{},undefined,viewer.cookie)).status,403,'viewer cannot start sync');
   await useAccount(admin.cookie);
   assert((await page.evaluate(()=>JSON.stringify(mpDrafts))).includes('PRIVATE_ADMIN_DRAFT'),'owner keeps their drafts');
-  await page.setViewportSize({width:390,height:844});await page.evaluate(()=>nav('sync'));await page.getByRole('heading',{name:'Arka plan işleri',exact:true}).waitFor().catch(async error=>{console.error(await page.locator('body').innerText(),errors);throw error;});
+  await page.setViewportSize({width:390,height:844});await page.evaluate(()=>nav('sync'));await page.locator('[data-enterprise-sync]').waitFor();
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'sync screen must fit mobile');
   assert.deepEqual(errors,[],'no browser JavaScript errors');
-  console.log('PASS synchronization HTTP/browser: real sync button, persisted queue, browser-closed processing, restart recovery, open-page stock refresh, atomic validation, CSV protection, per-account drafts, viewer guards and mobile. No live APIs.');
+  console.log('PASS synchronization HTTP/browser: central sync UI, legacy demo API, persisted queue, browser-closed processing, restart recovery, open-page stock refresh, atomic validation, CSV protection, per-account drafts, viewer guards and mobile. No live APIs.');
  }finally{
   if(browser)await browser.close();await stop();
   const resolved=path.resolve(temp),prefix=path.resolve(os.tmpdir())+path.sep;

@@ -1,0 +1,4785 @@
+{
+  "files": {
+    "src/MarketPilot.Web/appsettings.Accounts.example.json": {
+      "bytes": 1656
+    },
+    "src/MarketPilot.Web/appsettings.Webhooks.example.json": {
+      "bytes": 429
+    },
+    "src/MarketPilot.Web/ListingFilters.cs": {
+      "bytes": 9324,
+      "lines": 99
+    },
+    "src/MarketPilot.Web/MarketPilot.Web.csproj": {
+      "bytes": 390
+    },
+    "src/MarketPilot.Web/Program.cs": {
+      "bytes": 26573,
+      "lines": 235
+    },
+    "src/MarketPilot.Web/Analytics/AnalyticsEndpoints.cs": {
+      "bytes": 10204,
+      "lines": 117
+    },
+    "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs": {
+      "bytes": 6070,
+      "lines": 66
+    },
+    "src/MarketPilot.Web/Catalog/CatalogHub.cs": {
+      "bytes": 25288,
+      "lines": 427
+    },
+    "src/MarketPilot.Web/Catalog/CatalogModels.cs": {
+      "bytes": 4070,
+      "lines": 65
+    },
+    "src/MarketPilot.Web/Catalog/CatalogOperations.cs": {
+      "bytes": 3543,
+      "lines": 38
+    },
+    "src/MarketPilot.Web/Catalog/CatalogSource.cs": {
+      "bytes": 5885,
+      "lines": 103
+    },
+    "src/MarketPilot.Web/Catalog/CatalogStore.cs": {
+      "bytes": 317,
+      "lines": 11
+    },
+    "src/MarketPilot.Web/Catalog/DataOwnershipPolicy.cs": {
+      "bytes": 13094,
+      "lines": 186
+    },
+    "src/MarketPilot.Web/Catalog/ErpCatalogReadModel.cs": {
+      "bytes": 11104,
+      "lines": 104
+    },
+    "src/MarketPilot.Web/Catalog/OperationsHub.cs": {
+      "bytes": 10382,
+      "lines": 104
+    },
+    "src/MarketPilot.Web/Catalog/OrderObservations.cs": {
+      "bytes": 5328,
+      "lines": 71
+    },
+    "src/MarketPilot.Web/Catalog/ProductionRules.cs": {
+      "bytes": 1887,
+      "lines": 32
+    },
+    "src/MarketPilot.Web/Catalog/ProductOwnershipPolicy.cs": {
+      "bytes": 369,
+      "lines": 11
+    },
+    "src/MarketPilot.Web/Contracts/CanonicalEndpoints.cs": {
+      "bytes": 1887,
+      "lines": 26
+    },
+    "src/MarketPilot.Web/Contracts/CanonicalModels.cs": {
+      "bytes": 5338,
+      "lines": 41
+    },
+    "src/MarketPilot.Web/Contracts/CanonicalStore.cs": {
+      "bytes": 20999,
+      "lines": 199
+    },
+    "src/MarketPilot.Web/Enterprise/DemoErpCatalogFixture.cs": {
+      "bytes": 5370,
+      "lines": 82
+    },
+    "src/MarketPilot.Web/Enterprise/EnterpriseBridge.cs": {
+      "bytes": 8178,
+      "lines": 87
+    },
+    "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs": {
+      "bytes": 7940,
+      "lines": 75
+    },
+    "src/MarketPilot.Web/Enterprise/EnterpriseModels.cs": {
+      "bytes": 5722,
+      "lines": 87
+    },
+    "src/MarketPilot.Web/Enterprise/EnterpriseProviders.cs": {
+      "bytes": 2393,
+      "lines": 43
+    },
+    "src/MarketPilot.Web/Enterprise/EnterpriseReadiness.cs": {
+      "bytes": 4168,
+      "lines": 47
+    },
+    "src/MarketPilot.Web/Enterprise/EnterpriseSync.cs": {
+      "bytes": 43723,
+      "lines": 392
+    },
+    "src/MarketPilot.Web/Enterprise/EnterpriseSync.Integration.cs": {
+      "bytes": 8954,
+      "lines": 117
+    },
+    "src/MarketPilot.Web/Enterprise/ErpCatalog.cs": {
+      "bytes": 13722,
+      "lines": 199
+    },
+    "src/MarketPilot.Web/Enterprise/ErpOrderTransferService.cs": {
+      "bytes": 11901,
+      "lines": 135
+    },
+    "src/MarketPilot.Web/Enterprise/IntegrationMonitoring.cs": {
+      "bytes": 14133,
+      "lines": 309
+    },
+    "src/MarketPilot.Web/Enterprise/IntegrationOrchestrator.cs": {
+      "bytes": 18959,
+      "lines": 222
+    },
+    "src/MarketPilot.Web/Enterprise/Nebim/Contracts.cs": {
+      "bytes": 3390,
+      "lines": 42
+    },
+    "src/MarketPilot.Web/Enterprise/Nebim/MockNebimProvider.cs": {
+      "bytes": 11458,
+      "lines": 72
+    },
+    "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs": {
+      "bytes": 6127,
+      "lines": 65
+    },
+    "src/MarketPilot.Web/Integrations/ChannelContracts.cs": {
+      "bytes": 15064,
+      "lines": 155
+    },
+    "src/MarketPilot.Web/Integrations/Contracts.cs": {
+      "bytes": 5744,
+      "lines": 65
+    },
+    "src/MarketPilot.Web/Integrations/CredentialProfiles.cs": {
+      "bytes": 10385,
+      "lines": 131
+    },
+    "src/MarketPilot.Web/Integrations/IntegrationEndpoints.cs": {
+      "bytes": 19470,
+      "lines": 219
+    },
+    "src/MarketPilot.Web/Integrations/MarketplaceWrites.cs": {
+      "bytes": 8883,
+      "lines": 113
+    },
+    "src/MarketPilot.Web/Integrations/QueueResiliencePolicy.cs": {
+      "bytes": 873,
+      "lines": 20
+    },
+    "src/MarketPilot.Web/Integrations/Amazon/AmazonApiClient.cs": {
+      "bytes": 8049,
+      "lines": 85
+    },
+    "src/MarketPilot.Web/Integrations/Amazon/AmazonDemo.cs": {
+      "bytes": 5629,
+      "lines": 45
+    },
+    "src/MarketPilot.Web/Integrations/Amazon/AmazonEndpoints.cs": {
+      "bytes": 3517,
+      "lines": 35
+    },
+    "src/MarketPilot.Web/Integrations/Amazon/AmazonSpApiAdapter.cs": {
+      "bytes": 17256,
+      "lines": 150
+    },
+    "src/MarketPilot.Web/Integrations/Boyner/BoynerAdapter.cs": {
+      "bytes": 19304,
+      "lines": 113
+    },
+    "src/MarketPilot.Web/Integrations/Boyner/BoynerEndpoints.cs": {
+      "bytes": 6014,
+      "lines": 33
+    },
+    "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs": {
+      "bytes": 50770,
+      "lines": 985
+    },
+    "src/MarketPilot.Web/Integrations/CentralStock/CentralStockSource.cs": {
+      "bytes": 8333,
+      "lines": 106
+    },
+    "src/MarketPilot.Web/Integrations/Demo/DemoListingSearch.cs": {
+      "bytes": 1866,
+      "lines": 25
+    },
+    "src/MarketPilot.Web/Integrations/Demo/DemoMarketplaceAdapter.cs": {
+      "bytes": 4280,
+      "lines": 39
+    },
+    "src/MarketPilot.Web/Integrations/Demo/DemoPolicyPrices.cs": {
+      "bytes": 1975,
+      "lines": 25
+    },
+    "src/MarketPilot.Web/Integrations/Demo/DemoSales.cs": {
+      "bytes": 2134,
+      "lines": 31
+    },
+    "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs": {
+      "bytes": 26019,
+      "lines": 303
+    },
+    "src/MarketPilot.Web/Integrations/Hepsiburada/HepsiburadaAdapter.cs": {
+      "bytes": 16401,
+      "lines": 174
+    },
+    "src/MarketPilot.Web/Integrations/Hepsiburada/HepsiburadaEndpoints.cs": {
+      "bytes": 5495,
+      "lines": 58
+    },
+    "src/MarketPilot.Web/Integrations/N11/N11Adapter.cs": {
+      "bytes": 20059,
+      "lines": 142
+    },
+    "src/MarketPilot.Web/Integrations/N11/N11Endpoints.cs": {
+      "bytes": 5986,
+      "lines": 37
+    },
+    "src/MarketPilot.Web/Integrations/Ticimax/TicimaxAdapter.cs": {
+      "bytes": 14377,
+      "lines": 99
+    },
+    "src/MarketPilot.Web/Integrations/Ticimax/TicimaxEndpoints.cs": {
+      "bytes": 6163,
+      "lines": 37
+    },
+    "src/MarketPilot.Web/Integrations/Ticimax/TicimaxSoap.cs": {
+      "bytes": 16233,
+      "lines": 124
+    },
+    "src/MarketPilot.Web/Integrations/Ticimax/TicimaxWrites.cs": {
+      "bytes": 2498,
+      "lines": 33
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/TrendyolAdapter.cs": {
+      "bytes": 13578,
+      "lines": 163
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/TrendyolEndpoints.cs": {
+      "bytes": 4481,
+      "lines": 66
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/Addresses/TrendyolAddressesPanel.cs": {
+      "bytes": 1759,
+      "lines": 20
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/Catalog/TrendyolCatalogPanel.cs": {
+      "bytes": 2073,
+      "lines": 20
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/Claims/TrendyolClaimsPanel.cs": {
+      "bytes": 2262,
+      "lines": 22
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/Core/TrendyolApiClient.cs": {
+      "bytes": 8987,
+      "lines": 148
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/Core/TrendyolCatalog.cs": {
+      "bytes": 976,
+      "lines": 25
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/Core/TrendyolOperation.cs": {
+      "bytes": 1292,
+      "lines": 27
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/Core/TrendyolOperationRunner.cs": {
+      "bytes": 10179,
+      "lines": 174
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/Finance/TrendyolFinancePanel.cs": {
+      "bytes": 1957,
+      "lines": 20
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/Inventory/TrendyolInventoryPanel.cs": {
+      "bytes": 924,
+      "lines": 17
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/Invoices/TrendyolInvoicesPanel.cs": {
+      "bytes": 1848,
+      "lines": 20
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/Labels/TrendyolLabelsPanel.cs": {
+      "bytes": 1256,
+      "lines": 17
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/Orders/TrendyolOrdersPanel.cs": {
+      "bytes": 6099,
+      "lines": 51
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/Products/TrendyolProductsPanel.cs": {
+      "bytes": 5578,
+      "lines": 44
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/Questions/TrendyolQuestionsPanel.cs": {
+      "bytes": 1154,
+      "lines": 17
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/TestEnvironment/TrendyolTestEnvironmentPanel.cs": {
+      "bytes": 3262,
+      "lines": 24
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/Videos/TrendyolVideosPanel.cs": {
+      "bytes": 1128,
+      "lines": 20
+    },
+    "src/MarketPilot.Web/Integrations/Trendyol/Webhooks/TrendyolWebhooksPanel.cs": {
+      "bytes": 1623,
+      "lines": 20
+    },
+    "src/MarketPilot.Web/Local/BusinessWorkspaces.cs": {
+      "bytes": 8758,
+      "lines": 150
+    },
+    "src/MarketPilot.Web/Local/LocalAccess.cs": {
+      "bytes": 24248,
+      "lines": 308
+    },
+    "src/MarketPilot.Web/Local/LocalReliability.cs": {
+      "bytes": 19019,
+      "lines": 235
+    },
+    "src/MarketPilot.Web/Local/OutboundTargets.cs": {
+      "bytes": 4889,
+      "lines": 72
+    },
+    "src/MarketPilot.Web/Local/ProductCsv.cs": {
+      "bytes": 941,
+      "lines": 20
+    },
+    "src/MarketPilot.Web/Local/RetiredChannelCleanup.cs": {
+      "bytes": 1224,
+      "lines": 26
+    },
+    "src/MarketPilot.Web/Local/SecurityHardening.cs": {
+      "bytes": 4696,
+      "lines": 64
+    },
+    "src/MarketPilot.Web/Local/TenantBoundary.cs": {
+      "bytes": 9274,
+      "lines": 117
+    },
+    "src/MarketPilot.Web/Local/TenantSecurity.cs": {
+      "bytes": 8680,
+      "lines": 96
+    },
+    "src/MarketPilot.Web/Pricing/ErpPricingService.cs": {
+      "bytes": 14277,
+      "lines": 104
+    },
+    "src/MarketPilot.Web/Pricing/PricingEndpoints.cs": {
+      "bytes": 2273,
+      "lines": 24
+    },
+    "src/MarketPilot.Web/Pricing/PricingModels.cs": {
+      "bytes": 5201,
+      "lines": 59
+    },
+    "src/MarketPilot.Web/Pricing/PricingProjection.cs": {
+      "bytes": 773,
+      "lines": 16
+    },
+    "src/MarketPilot.Web/Pricing/RealPriceWrites.cs": {
+      "bytes": 657,
+      "lines": 12
+    },
+    "src/MarketPilot.Web/Synchronization/MarketplaceOrderReader.cs": {
+      "bytes": 3970,
+      "lines": 57
+    },
+    "src/MarketPilot.Web/Synchronization/MarketplaceStockWriter.cs": {
+      "bytes": 4662,
+      "lines": 58
+    },
+    "src/MarketPilot.Web/Synchronization/OrderSynchronization.cs": {
+      "bytes": 11110,
+      "lines": 169
+    },
+    "src/MarketPilot.Web/Synchronization/StockOutbox.cs": {
+      "bytes": 25920,
+      "lines": 368
+    },
+    "src/MarketPilot.Web/Synchronization/SynchronizationEndpoints.cs": {
+      "bytes": 2684,
+      "lines": 33
+    },
+    "src/MarketPilot.Web/Webhooks/OrderWebhookEndpoints.cs": {
+      "bytes": 2735,
+      "lines": 43
+    },
+    "src/MarketPilot.Web/Webhooks/OrderWebhookInbox.cs": {
+      "bytes": 10248,
+      "lines": 203
+    },
+    "src/MarketPilot.Web/Webhooks/OrderWebhookReadiness.cs": {
+      "bytes": 4133,
+      "lines": 58
+    },
+    "src/MarketPilot.Web/Webhooks/OrderWebhookReceiver.cs": {
+      "bytes": 12067,
+      "lines": 257
+    },
+    "src/MarketPilot.Web/Wms/Contracts.cs": {
+      "bytes": 6108,
+      "lines": 164
+    },
+    "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs": {
+      "bytes": 55612,
+      "lines": 1183
+    },
+    "src/MarketPilot.Web/Wms/MockWmsProvider.cs": {
+      "bytes": 18263,
+      "lines": 359
+    },
+    "src/MarketPilot.Web/Wms/WmsEndpoints.cs": {
+      "bytes": 8781,
+      "lines": 147
+    },
+    "src/MarketPilot.Web/Wms/WmsInventoryService.cs": {
+      "bytes": 23734,
+      "lines": 502
+    },
+    "src/MarketPilot.Web/Wms/WmsLogistics.cs": {
+      "bytes": 11134,
+      "lines": 167
+    },
+    "src/MarketPilot.Web/Workspace/OperationalEndpoints.cs": {
+      "bytes": 2537,
+      "lines": 28
+    },
+    "src/MarketPilot.Web/Workspace/OperationalInventory.cs": {
+      "bytes": 6309,
+      "lines": 68
+    },
+    "src/MarketPilot.Web/Workspace/OperationalModels.cs": {
+      "bytes": 4091,
+      "lines": 46
+    },
+    "src/MarketPilot.Web/Workspace/OperationalService.cs": {
+      "bytes": 30244,
+      "lines": 256
+    },
+    "src/MarketPilot.Web/Workspace/WorkspaceEndpoints.cs": {
+      "bytes": 2353,
+      "lines": 33
+    },
+    "src/MarketPilot.Web/Workspace/WorkspaceHub.cs": {
+      "bytes": 19766,
+      "lines": 186
+    },
+    "src/MarketPilot.Web/Workspace/WorkspaceModels.cs": {
+      "bytes": 1893,
+      "lines": 28
+    },
+    "src/MarketPilot.Web/wwwroot/index.html": {
+      "bytes": 4294,
+      "lines": 65
+    },
+    "src/MarketPilot.Web/wwwroot/assets/analytics-system.css": {
+      "bytes": 2863,
+      "lines": 2
+    },
+    "src/MarketPilot.Web/wwwroot/assets/analytics-system.js": {
+      "bytes": 23229,
+      "lines": 151
+    },
+    "src/MarketPilot.Web/wwwroot/assets/app.js": {
+      "bytes": 69023,
+      "lines": 144
+    },
+    "src/MarketPilot.Web/wwwroot/assets/automatic-synchronization.css": {
+      "bytes": 995,
+      "lines": 1
+    },
+    "src/MarketPilot.Web/wwwroot/assets/automatic-synchronization.js": {
+      "bytes": 5326,
+      "lines": 42
+    },
+    "src/MarketPilot.Web/wwwroot/assets/central-stock.css": {
+      "bytes": 1912,
+      "lines": 30
+    },
+    "src/MarketPilot.Web/wwwroot/assets/central-stock.js": {
+      "bytes": 10585,
+      "lines": 58
+    },
+    "src/MarketPilot.Web/wwwroot/assets/enterprise-sync.css": {
+      "bytes": 2319,
+      "lines": 1
+    },
+    "src/MarketPilot.Web/wwwroot/assets/enterprise-sync.js": {
+      "bytes": 14148,
+      "lines": 54
+    },
+    "src/MarketPilot.Web/wwwroot/assets/integrations.js": {
+      "bytes": 31327,
+      "lines": 201
+    },
+    "src/MarketPilot.Web/wwwroot/assets/listing-filters.css": {
+      "bytes": 1724,
+      "lines": 1
+    },
+    "src/MarketPilot.Web/wwwroot/assets/listing-filters.js": {
+      "bytes": 23521,
+      "lines": 128
+    },
+    "src/MarketPilot.Web/wwwroot/assets/local-access-ui.css": {
+      "bytes": 2853,
+      "lines": 3
+    },
+    "src/MarketPilot.Web/wwwroot/assets/local-access-ui.js": {
+      "bytes": 16797,
+      "lines": 39
+    },
+    "src/MarketPilot.Web/wwwroot/assets/marketplace-stock.css": {
+      "bytes": 289,
+      "lines": 1
+    },
+    "src/MarketPilot.Web/wwwroot/assets/marketplace-stock.js": {
+      "bytes": 2667,
+      "lines": 27
+    },
+    "src/MarketPilot.Web/wwwroot/assets/modern-polish.css": {
+      "bytes": 5418,
+      "lines": 158
+    },
+    "src/MarketPilot.Web/wwwroot/assets/operational-preparation.js": {
+      "bytes": 16955,
+      "lines": 40
+    },
+    "src/MarketPilot.Web/wwwroot/assets/operations-live.js": {
+      "bytes": 5173,
+      "lines": 72
+    },
+    "src/MarketPilot.Web/wwwroot/assets/product-store-stocks.css": {
+      "bytes": 3028,
+      "lines": 8
+    },
+    "src/MarketPilot.Web/wwwroot/assets/product-store-stocks.js": {
+      "bytes": 13584,
+      "lines": 51
+    },
+    "src/MarketPilot.Web/wwwroot/assets/style.css": {
+      "bytes": 34576,
+      "lines": 51
+    },
+    "src/MarketPilot.Web/wwwroot/assets/webhook-receiver.css": {
+      "bytes": 999,
+      "lines": 1
+    },
+    "src/MarketPilot.Web/wwwroot/assets/webhook-receiver.js": {
+      "bytes": 4836,
+      "lines": 52
+    },
+    "src/MarketPilot.Web/wwwroot/assets/wms-fulfillment.css": {
+      "bytes": 2981,
+      "lines": 33
+    },
+    "src/MarketPilot.Web/wwwroot/assets/wms-fulfillment.js": {
+      "bytes": 18292,
+      "lines": 279
+    },
+    "src/MarketPilot.Web/wwwroot/assets/wms-inventory.css": {
+      "bytes": 2449,
+      "lines": 31
+    },
+    "src/MarketPilot.Web/wwwroot/assets/wms-inventory.js": {
+      "bytes": 15355,
+      "lines": 227
+    },
+    "src/MarketPilot.Web/wwwroot/assets/wms-logistics.js": {
+      "bytes": 5420,
+      "lines": 55
+    },
+    "src/MarketPilot.Web/wwwroot/assets/workspace-workflows.css": {
+      "bytes": 1931,
+      "lines": 1
+    },
+    "src/MarketPilot.Web/wwwroot/assets/workspace-workflows.js": {
+      "bytes": 21198,
+      "lines": 103
+    },
+    "src/MarketPilot.Web/wwwroot/assets/amazon/amazon-center.css": {
+      "bytes": 1038,
+      "lines": 1
+    },
+    "src/MarketPilot.Web/wwwroot/assets/amazon/amazon-center.js": {
+      "bytes": 29265,
+      "lines": 70
+    },
+    "src/MarketPilot.Web/wwwroot/assets/amazon/amazon-demo-details.js": {
+      "bytes": 3080,
+      "lines": 9
+    },
+    "src/MarketPilot.Web/wwwroot/assets/boyner/boyner-center.css": {
+      "bytes": 890,
+      "lines": 1
+    },
+    "src/MarketPilot.Web/wwwroot/assets/boyner/boyner-center.js": {
+      "bytes": 27084,
+      "lines": 56
+    },
+    "src/MarketPilot.Web/wwwroot/assets/catalog/catalog-erp.js": {
+      "bytes": 2551,
+      "lines": 21
+    },
+    "src/MarketPilot.Web/wwwroot/assets/catalog/catalog.css": {
+      "bytes": 2640,
+      "lines": 7
+    },
+    "src/MarketPilot.Web/wwwroot/assets/catalog/catalog.js": {
+      "bytes": 34862,
+      "lines": 82
+    },
+    "src/MarketPilot.Web/wwwroot/assets/catalog/erp-pricing.js": {
+      "bytes": 10844,
+      "lines": 30
+    },
+    "src/MarketPilot.Web/wwwroot/assets/hepsiburada/hepsiburada-center.css": {
+      "bytes": 1105,
+      "lines": 1
+    },
+    "src/MarketPilot.Web/wwwroot/assets/hepsiburada/hepsiburada-center.js": {
+      "bytes": 23866,
+      "lines": 65
+    },
+    "src/MarketPilot.Web/wwwroot/assets/hepsiburada/hepsiburada-details.css": {
+      "bytes": 2496,
+      "lines": 1
+    },
+    "src/MarketPilot.Web/wwwroot/assets/hepsiburada/hepsiburada-details.js": {
+      "bytes": 19734,
+      "lines": 41
+    },
+    "src/MarketPilot.Web/wwwroot/assets/mock-erp/ekru.svg": {
+      "bytes": 382
+    },
+    "src/MarketPilot.Web/wwwroot/assets/n11/n11-center.css": {
+      "bytes": 859,
+      "lines": 1
+    },
+    "src/MarketPilot.Web/wwwroot/assets/n11/n11-center.js": {
+      "bytes": 27483,
+      "lines": 59
+    },
+    "src/MarketPilot.Web/wwwroot/assets/ticimax/ticimax-center.css": {
+      "bytes": 905,
+      "lines": 1
+    },
+    "src/MarketPilot.Web/wwwroot/assets/ticimax/ticimax-center.js": {
+      "bytes": 26967,
+      "lines": 63
+    },
+    "src/MarketPilot.Web/wwwroot/assets/trendyol/trendyol-api.css": {
+      "bytes": 5953,
+      "lines": 37
+    },
+    "src/MarketPilot.Web/wwwroot/assets/trendyol/trendyol-api.js": {
+      "bytes": 16224,
+      "lines": 82
+    },
+    "src/MarketPilot.Web/wwwroot/assets/trendyol/trendyol-demo-workspace.css": {
+      "bytes": 6755,
+      "lines": 13
+    },
+    "src/MarketPilot.Web/wwwroot/assets/trendyol/trendyol-demo-workspace.js": {
+      "bytes": 20210,
+      "lines": 51
+    },
+    "src/MarketPilot.Web/wwwroot/assets/trendyol/trendyol-workflows.js": {
+      "bytes": 27949,
+      "lines": 85
+    }
+  },
+  "types": [
+    {
+      "file": "src/MarketPilot.Web/ListingFilters.cs",
+      "line": 4,
+      "name": "ListingQuery"
+    },
+    {
+      "file": "src/MarketPilot.Web/ListingFilters.cs",
+      "line": 19,
+      "name": "ListingPage"
+    },
+    {
+      "file": "src/MarketPilot.Web/ListingFilters.cs",
+      "line": 20,
+      "name": "ListingFilters"
+    },
+    {
+      "file": "src/MarketPilot.Web/ListingFilters.cs",
+      "line": 52,
+      "name": "DemoStore"
+    },
+    {
+      "file": "src/MarketPilot.Web/ListingFilters.cs",
+      "line": 91,
+      "name": "ListingSearchEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 194,
+      "name": "BarcodePatch"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 195,
+      "name": "StockMovementDraft"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 196,
+      "name": "ShipmentDraft"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 197,
+      "name": "ShipmentStatusPatch"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 198,
+      "name": "StockMovement"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 199,
+      "name": "Shipment"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 200,
+      "name": "Product"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 201,
+      "name": "ProductPatch"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 202,
+      "name": "Order"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 203,
+      "name": "OrderPatch"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 204,
+      "name": "Connection"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 205,
+      "name": "ConnectionPatch"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 206,
+      "name": "Activity"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 207,
+      "name": "Settings"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 208,
+      "name": "Database"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 209,
+      "name": "DemoStore"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 211,
+      "name": "in"
+    },
+    {
+      "file": "src/MarketPilot.Web/Analytics/AnalyticsEndpoints.cs",
+      "line": 9,
+      "name": "ProductCost"
+    },
+    {
+      "file": "src/MarketPilot.Web/Analytics/AnalyticsEndpoints.cs",
+      "line": 10,
+      "name": "ReportQuery"
+    },
+    {
+      "file": "src/MarketPilot.Web/Analytics/AnalyticsEndpoints.cs",
+      "line": 18,
+      "name": "WorkspaceAlert"
+    },
+    {
+      "file": "src/MarketPilot.Web/Analytics/AnalyticsEndpoints.cs",
+      "line": 20,
+      "name": "AnalyticsEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 4,
+      "name": "CatalogEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 63,
+      "name": "CatalogSelection"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 65,
+      "name": "ErpPreviewApply"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogHub.cs",
+      "line": 9,
+      "name": "CatalogHub"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogHub.cs",
+      "line": 404,
+      "name": "CatalogWorker"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogModels.cs",
+      "line": 4,
+      "name": "CatalogState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogModels.cs",
+      "line": 16,
+      "name": "CatalogListing"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogModels.cs",
+      "line": 17,
+      "name": "CategoryBinding"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogModels.cs",
+      "line": 18,
+      "name": "CatalogJob"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogModels.cs",
+      "line": 28,
+      "name": "CatalogJobTarget"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogModels.cs",
+      "line": 44,
+      "name": "CatalogQuery"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogModels.cs",
+      "line": 57,
+      "name": "CatalogProductRow"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogModels.cs",
+      "line": 58,
+      "name": "CatalogEdit"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogModels.cs",
+      "line": 59,
+      "name": "SourceQuery"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogModels.cs",
+      "line": 60,
+      "name": "CatalogCandidate"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogModels.cs",
+      "line": 61,
+      "name": "CandidateBatch"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogModels.cs",
+      "line": 62,
+      "name": "CatalogImport"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogModels.cs",
+      "line": 63,
+      "name": "CatalogRemap"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogModels.cs",
+      "line": 64,
+      "name": "CatalogPublish"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogModels.cs",
+      "line": 65,
+      "name": "PublishLine"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogOperations.cs",
+      "line": 3,
+      "name": "CatalogHub"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogSource.cs",
+      "line": 7,
+      "name": "CatalogSource"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogStore.cs",
+      "line": 3,
+      "name": "DemoStore"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/DataOwnershipPolicy.cs",
+      "line": 6,
+      "name": "SourceSystem"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/DataOwnershipPolicy.cs",
+      "line": 17,
+      "name": "SyncDirection"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/DataOwnershipPolicy.cs",
+      "line": 31,
+      "name": "ConflictResolution"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/DataOwnershipPolicy.cs",
+      "line": 45,
+      "name": "OwnershipField"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/DataOwnershipPolicy.cs",
+      "line": 64,
+      "name": "StockValueState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/DataOwnershipPolicy.cs",
+      "line": 71,
+      "name": "StockValue"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/DataOwnershipPolicy.cs",
+      "line": 85,
+      "name": "ExternalReference"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/DataOwnershipPolicy.cs",
+      "line": 95,
+      "name": "DataOwnershipPolicy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/DataOwnershipPolicy.cs",
+      "line": 179,
+      "name": "OwnershipDecision"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/ErpCatalogReadModel.cs",
+      "line": 11,
+      "name": "ErpMasterRow"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/ErpCatalogReadModel.cs",
+      "line": 12,
+      "name": "ErpCatalogDifference"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/ErpCatalogReadModel.cs",
+      "line": 13,
+      "name": "ErpReadPreview"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/ErpCatalogReadModel.cs",
+      "line": 14,
+      "name": "ErpCatalogReadModel"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/OperationsHub.cs",
+      "line": 8,
+      "name": "OperationLine"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/OperationsHub.cs",
+      "line": 9,
+      "name": "OperationsHub"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/OrderObservations.cs",
+      "line": 10,
+      "name": "ObservedOrder"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/OrderObservations.cs",
+      "line": 11,
+      "name": "OperationsHub"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/ProductionRules.cs",
+      "line": 9,
+      "name": "ProductionRules"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/ProductOwnershipPolicy.cs",
+      "line": 5,
+      "name": "ProductOwnershipPolicy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalEndpoints.cs",
+      "line": 5,
+      "name": "CanonicalEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalEndpoints.cs",
+      "line": 25,
+      "name": "ResolveMapping"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 5,
+      "name": "RecordContext"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 7,
+      "name": "CanonicalRecord"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 8,
+      "name": "CanonicalProduct"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 9,
+      "name": "ProductVariant"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 11,
+      "name": "UnitConversion"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 12,
+      "name": "Barcode"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 13,
+      "name": "ExternalProductMapping"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 14,
+      "name": "Warehouse"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 15,
+      "name": "StockPosition"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 16,
+      "name": "StockReservation"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 18,
+      "name": "AvailableToSell"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 19,
+      "name": "PriceEntry"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 20,
+      "name": "PriceList"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 21,
+      "name": "OrderLine"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 22,
+      "name": "MarketplaceOrder"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 23,
+      "name": "FulfillmentLine"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 24,
+      "name": "FulfillmentRequest"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 25,
+      "name": "Shipment"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 26,
+      "name": "ReturnLine"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 27,
+      "name": "ReturnRequest"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 28,
+      "name": "InvoiceReference"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 29,
+      "name": "IntegrationEvent"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 30,
+      "name": "SyncCheckpoint"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 32,
+      "name": "ContractReceipt"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 33,
+      "name": "MappingReview"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 34,
+      "name": "ContractResult"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalModels.cs",
+      "line": 35,
+      "name": "ContractState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalStore.cs",
+      "line": 10,
+      "name": "CanonicalStore"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalStore.cs",
+      "line": 198,
+      "name": "StoredRecord"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/DemoErpCatalogFixture.cs",
+      "line": 5,
+      "name": "DemoErpCatalogFixture"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseBridge.cs",
+      "line": 11,
+      "name": "EnterpriseBridge"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 14,
+      "name": "EnterpriseEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 75,
+      "name": "EnterpriseRun"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseModels.cs",
+      "line": 5,
+      "name": "ErpItem"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseModels.cs",
+      "line": 9,
+      "name": "ErpCatalogBatch"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseModels.cs",
+      "line": 10,
+      "name": "WmsReservationSnapshot"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseModels.cs",
+      "line": 11,
+      "name": "ErpReceipt"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseModels.cs",
+      "line": 16,
+      "name": "SyncTarget"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseModels.cs",
+      "line": 17,
+      "name": "SyncSchedule"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseModels.cs",
+      "line": 18,
+      "name": "EnterprisePlan"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseModels.cs",
+      "line": 31,
+      "name": "EnterpriseTask"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseModels.cs",
+      "line": 42,
+      "name": "EnterpriseJob"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseModels.cs",
+      "line": 68,
+      "name": "EnterpriseState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseModels.cs",
+      "line": 83,
+      "name": "BridgeReceipt"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseModels.cs",
+      "line": 84,
+      "name": "BridgeShipment"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseModels.cs",
+      "line": 86,
+      "name": "WmsPackingLine"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseModels.cs",
+      "line": 87,
+      "name": "WmsDispatch"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseProviders.cs",
+      "line": 3,
+      "name": "IErpCatalogProvider"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseProviders.cs",
+      "line": 8,
+      "name": "IWmsProvider"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseProviders.cs",
+      "line": 15,
+      "name": "ICargoProvider"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseProviders.cs",
+      "line": 21,
+      "name": "MarketPilotErpBridgeProvider"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseProviders.cs",
+      "line": 27,
+      "name": "WmsBridgeProvider"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseProviders.cs",
+      "line": 39,
+      "name": "CargoBridgeProvider"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseReadiness.cs",
+      "line": 7,
+      "name": "EnterpriseReadiness"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseReadiness.cs",
+      "line": 47,
+      "name": "ReadinessCheck"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseSync.cs",
+      "line": 12,
+      "name": "EnterpriseSync"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseSync.cs",
+      "line": 384,
+      "name": "EnterpriseSyncWorker"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseSync.Integration.cs",
+      "line": 7,
+      "name": "EnterpriseSync"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/ErpCatalog.cs",
+      "line": 10,
+      "name": "ErpCatalog"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/ErpOrderTransferService.cs",
+      "line": 6,
+      "name": "ErpVariantLink"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/ErpOrderTransferService.cs",
+      "line": 7,
+      "name": "ErpTransferPolicy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/ErpOrderTransferService.cs",
+      "line": 10,
+      "name": "ErpTransferLine"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/ErpOrderTransferService.cs",
+      "line": 12,
+      "name": "ErpTransferRequest"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/ErpOrderTransferService.cs",
+      "line": 16,
+      "name": "ErpTransferPlan"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/ErpOrderTransferService.cs",
+      "line": 19,
+      "name": "MockErpTransferReceipt"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/ErpOrderTransferService.cs",
+      "line": 23,
+      "name": "ErpTransferOutcome"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/ErpOrderTransferService.cs",
+      "line": 27,
+      "name": "IErpOrderTransferProvider"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/ErpOrderTransferService.cs",
+      "line": 33,
+      "name": "MockErpOrderTransferProvider"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/ErpOrderTransferService.cs",
+      "line": 47,
+      "name": "ErpOrderTransferService"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/IntegrationMonitoring.cs",
+      "line": 6,
+      "name": "IntegrationTrace"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/IntegrationMonitoring.cs",
+      "line": 22,
+      "name": "AuditLog"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/IntegrationMonitoring.cs",
+      "line": 38,
+      "name": "OperationTimeline"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/IntegrationMonitoring.cs",
+      "line": 54,
+      "name": "SyncCheckpoint"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/IntegrationMonitoring.cs",
+      "line": 68,
+      "name": "IntegrationMonitoringState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/IntegrationMonitoring.cs",
+      "line": 76,
+      "name": "IntegrationMonitoring"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/IntegrationOrchestrator.cs",
+      "line": 11,
+      "name": "IntegrationEnvelope"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/IntegrationOrchestrator.cs",
+      "line": 13,
+      "name": "IntegrationStockCommand"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/IntegrationOrchestrator.cs",
+      "line": 14,
+      "name": "IntegrationOrchestrator"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/Contracts.cs",
+      "line": 5,
+      "name": "ErpReadCapability"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/Contracts.cs",
+      "line": 6,
+      "name": "ErpWriteCapability"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/Contracts.cs",
+      "line": 7,
+      "name": "ErpConnectionProfile"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/Contracts.cs",
+      "line": 8,
+      "name": "ErpCapabilities"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/Contracts.cs",
+      "line": 9,
+      "name": "ErpError"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/Contracts.cs",
+      "line": 10,
+      "name": "ErpProviderException"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/Contracts.cs",
+      "line": 11,
+      "name": "ErpSyncResult"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/Contracts.cs",
+      "line": 12,
+      "name": "ErpIdentifiers"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/Contracts.cs",
+      "line": 13,
+      "name": "ErpOrderStatus"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/Contracts.cs",
+      "line": 14,
+      "name": "ErpSyncStatus"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/Contracts.cs",
+      "line": 15,
+      "name": "INebimErpProvider"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/Contracts.cs",
+      "line": 34,
+      "name": "MockOrderEntry"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/Contracts.cs",
+      "line": 35,
+      "name": "MockNebimState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/MockNebimProvider.cs",
+      "line": 7,
+      "name": "MockNebimProvider"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 6,
+      "name": "NebimEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 40,
+      "name": "NebimCanonicalSync"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/ChannelContracts.cs",
+      "line": 5,
+      "name": "ChannelCapabilityMatrix"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/ChannelContracts.cs",
+      "line": 12,
+      "name": "CentralProductProjection"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/ChannelContracts.cs",
+      "line": 16,
+      "name": "CentralOrderLineProjection"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/ChannelContracts.cs",
+      "line": 18,
+      "name": "CentralOrderProjection"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/ChannelContracts.cs",
+      "line": 22,
+      "name": "CentralPackageProjection"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/ChannelContracts.cs",
+      "line": 23,
+      "name": "CentralOperationReceipt"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/ChannelContracts.cs",
+      "line": 24,
+      "name": "ChannelContractError"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/ChannelContracts.cs",
+      "line": 25,
+      "name": "ChannelProductPreparation"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/ChannelContracts.cs",
+      "line": 26,
+      "name": "ChannelOrderPreparation"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/ChannelContracts.cs",
+      "line": 29,
+      "name": "ChannelContracts"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/ChannelContracts.cs",
+      "line": 63,
+      "name": "ChannelContractMapper"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 3,
+      "name": "MarketplaceAddress"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 4,
+      "name": "MarketplaceAccount"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 5,
+      "name": "MarketplaceProduct"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 10,
+      "name": "MarketplaceOrderLine"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 13,
+      "name": "MarketplaceCargo"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 14,
+      "name": "MarketplaceInvoice"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 15,
+      "name": "MarketplacePromotion"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 16,
+      "name": "MarketplaceOrderPackage"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 17,
+      "name": "MarketplaceOrder"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 24,
+      "name": "MarketplacePage"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 25,
+      "name": "ProductQuery"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 26,
+      "name": "OrderQuery"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 27,
+      "name": "StockPriceDraft"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 28,
+      "name": "UpdatePreview"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 29,
+      "name": "ConnectionSettings"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 30,
+      "name": "ConnectionState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 32,
+      "name": "IMarketplaceAdapter"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 41,
+      "name": "IntegrationException"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Contracts.cs",
+      "line": 57,
+      "name": "PlannedAdapter"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CredentialProfiles.cs",
+      "line": 15,
+      "name": "CredentialProfiles"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CredentialProfiles.cs",
+      "line": 94,
+      "name": "MarketplaceClients"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CredentialProfiles.cs",
+      "line": 97,
+      "name": "Bundle"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/IntegrationEndpoints.cs",
+      "line": 14,
+      "name": "IntegrationRegistry"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/IntegrationEndpoints.cs",
+      "line": 35,
+      "name": "CachedAccount"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/IntegrationEndpoints.cs",
+      "line": 37,
+      "name": "IntegrationEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/IntegrationEndpoints.cs",
+      "line": 219,
+      "name": "MarketplaceStockRequest"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/MarketplaceWrites.cs",
+      "line": 8,
+      "name": "HepsiburadaAdapter"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/MarketplaceWrites.cs",
+      "line": 29,
+      "name": "N11Adapter"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/MarketplaceWrites.cs",
+      "line": 55,
+      "name": "BoynerAdapter"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/MarketplaceWrites.cs",
+      "line": 82,
+      "name": "AmazonApiClient"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/QueueResiliencePolicy.cs",
+      "line": 3,
+      "name": "QueueResiliencePolicy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Amazon/AmazonApiClient.cs",
+      "line": 9,
+      "name": "AmazonApiClient"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Amazon/AmazonApiClient.cs",
+      "line": 76,
+      "name": "Aj"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Amazon/AmazonDemo.cs",
+      "line": 6,
+      "name": "AmazonDemo"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Amazon/AmazonEndpoints.cs",
+      "line": 3,
+      "name": "AmazonEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Amazon/AmazonSpApiAdapter.cs",
+      "line": 6,
+      "name": "AmazonIssue"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Amazon/AmazonSpApiAdapter.cs",
+      "line": 7,
+      "name": "AmazonListing"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Amazon/AmazonSpApiAdapter.cs",
+      "line": 8,
+      "name": "AmazonPackage"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Amazon/AmazonSpApiAdapter.cs",
+      "line": 9,
+      "name": "AmazonOrder"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Amazon/AmazonSpApiAdapter.cs",
+      "line": 10,
+      "name": "AmazonPage"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Amazon/AmazonSpApiAdapter.cs",
+      "line": 11,
+      "name": "AmazonQuery"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Amazon/AmazonSpApiAdapter.cs",
+      "line": 22,
+      "name": "AmazonSpApiAdapter"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Boyner/BoynerAdapter.cs",
+      "line": 7,
+      "name": "BoynerQuery"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Boyner/BoynerAdapter.cs",
+      "line": 8,
+      "name": "BoynerProduct"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Boyner/BoynerAdapter.cs",
+      "line": 9,
+      "name": "BoynerHistory"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Boyner/BoynerAdapter.cs",
+      "line": 10,
+      "name": "BoynerOrder"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Boyner/BoynerAdapter.cs",
+      "line": 11,
+      "name": "BoynerClaimLine"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Boyner/BoynerAdapter.cs",
+      "line": 12,
+      "name": "BoynerClaim"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Boyner/BoynerAdapter.cs",
+      "line": 13,
+      "name": "BoynerPage"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Boyner/BoynerAdapter.cs",
+      "line": 15,
+      "name": "BoynerAdapter"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Boyner/BoynerAdapter.cs",
+      "line": 109,
+      "name": "Bj"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Boyner/BoynerEndpoints.cs",
+      "line": 3,
+      "name": "BoynerEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Boyner/BoynerEndpoints.cs",
+      "line": 18,
+      "name": "BoynerDemo"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 7,
+      "name": "CentralStockItem"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 16,
+      "name": "CentralSale"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 31,
+      "name": "PendingStockPush"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 38,
+      "name": "CentralStockSettings"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 39,
+      "name": "CentralStockEvent"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 40,
+      "name": "CentralStoreStatus"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 41,
+      "name": "DemoSaleRequest"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 42,
+      "name": "UnmatchedIgnore"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 43,
+      "name": "CentralStockState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 74,
+      "name": "CentralStockService"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 510,
+      "name": "it"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 906,
+      "name": "CentralStockWorker"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 931,
+      "name": "CentralStockEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockSource.cs",
+      "line": 8,
+      "name": "SourceStockItem"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockSource.cs",
+      "line": 13,
+      "name": "CentralStockSource"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoListingSearch.cs",
+      "line": 5,
+      "name": "DemoWorkspace"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoMarketplaceAdapter.cs",
+      "line": 3,
+      "name": "DemoMarketplaceAdapter"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoPolicyPrices.cs",
+      "line": 3,
+      "name": "DemoWorkspace"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoSales.cs",
+      "line": 4,
+      "name": "DemoWorkspace"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs",
+      "line": 5,
+      "name": "DemoProductInfo"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs",
+      "line": 13,
+      "name": "DemoEvent"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs",
+      "line": 14,
+      "name": "DemoClaim"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs",
+      "line": 25,
+      "name": "DemoQuestion"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs",
+      "line": 34,
+      "name": "DemoAnswer"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs",
+      "line": 35,
+      "name": "DemoFinancial"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs",
+      "line": 36,
+      "name": "DemoJob"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs",
+      "line": 52,
+      "name": "DemoWorkspaceState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs",
+      "line": 65,
+      "name": "DemoQueueStatus"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs",
+      "line": 66,
+      "name": "DemoAction"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs",
+      "line": 69,
+      "name": "DemoWorkspace"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs",
+      "line": 278,
+      "name": "DemoWorkspaceEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Hepsiburada/HepsiburadaAdapter.cs",
+      "line": 9,
+      "name": "HepsiburadaAdapter"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Hepsiburada/HepsiburadaEndpoints.cs",
+      "line": 3,
+      "name": "HepsiburadaEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/N11/N11Adapter.cs",
+      "line": 9,
+      "name": "N11Query"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/N11/N11Adapter.cs",
+      "line": 21,
+      "name": "N11Product"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/N11/N11Adapter.cs",
+      "line": 22,
+      "name": "N11History"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/N11/N11Adapter.cs",
+      "line": 23,
+      "name": "N11Amount"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/N11/N11Adapter.cs",
+      "line": 24,
+      "name": "N11Order"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/N11/N11Adapter.cs",
+      "line": 25,
+      "name": "N11Page"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/N11/N11Adapter.cs",
+      "line": 28,
+      "name": "N11Adapter"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/N11/N11Adapter.cs",
+      "line": 134,
+      "name": "Nj"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/N11/N11Endpoints.cs",
+      "line": 4,
+      "name": "N11Endpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/N11/N11Endpoints.cs",
+      "line": 20,
+      "name": "N11Demo"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Ticimax/TicimaxAdapter.cs",
+      "line": 5,
+      "name": "TicimaxQuery"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Ticimax/TicimaxAdapter.cs",
+      "line": 6,
+      "name": "TicimaxVariant"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Ticimax/TicimaxAdapter.cs",
+      "line": 7,
+      "name": "TicimaxCard"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Ticimax/TicimaxAdapter.cs",
+      "line": 8,
+      "name": "TicimaxPayment"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Ticimax/TicimaxAdapter.cs",
+      "line": 9,
+      "name": "TicimaxOrder"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Ticimax/TicimaxAdapter.cs",
+      "line": 10,
+      "name": "TicimaxPackage"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Ticimax/TicimaxAdapter.cs",
+      "line": 11,
+      "name": "TicimaxPage"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Ticimax/TicimaxAdapter.cs",
+      "line": 12,
+      "name": "TicimaxAdapter"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Ticimax/TicimaxAdapter.cs",
+      "line": 96,
+      "name": "Tx"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Ticimax/TicimaxEndpoints.cs",
+      "line": 3,
+      "name": "TicimaxEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Ticimax/TicimaxEndpoints.cs",
+      "line": 18,
+      "name": "TicimaxDemo"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Ticimax/TicimaxSoap.cs",
+      "line": 11,
+      "name": "TicimaxSoap"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Ticimax/TicimaxSoap.cs",
+      "line": 70,
+      "name": "TicimaxContract"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Ticimax/TicimaxSoap.cs",
+      "line": 124,
+      "name": "XmlExtensions"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Ticimax/TicimaxWrites.cs",
+      "line": 3,
+      "name": "TicimaxSoap"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/TrendyolAdapter.cs",
+      "line": 6,
+      "name": "TrendyolAdapter"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/TrendyolEndpoints.cs",
+      "line": 6,
+      "name": "TrendyolEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Addresses/TrendyolAddressesPanel.cs",
+      "line": 4,
+      "name": "TrendyolAddressesPanel"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Catalog/TrendyolCatalogPanel.cs",
+      "line": 4,
+      "name": "TrendyolCatalogPanel"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Claims/TrendyolClaimsPanel.cs",
+      "line": 4,
+      "name": "TrendyolClaimsPanel"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Core/TrendyolApiClient.cs",
+      "line": 7,
+      "name": "TrendyolCredentials"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Core/TrendyolApiClient.cs",
+      "line": 15,
+      "name": "TrendyolRawResponse"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Core/TrendyolApiClient.cs",
+      "line": 18,
+      "name": "TrendyolApiClient"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Core/TrendyolCatalog.cs",
+      "line": 4,
+      "name": "TrendyolCatalog"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Core/TrendyolOperation.cs",
+      "line": 5,
+      "name": "TrendyolBodyKind"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Core/TrendyolOperation.cs",
+      "line": 8,
+      "name": "TrendyolOperation"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Core/TrendyolOperation.cs",
+      "line": 27,
+      "name": "TrendyolPanel"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Core/TrendyolOperationRunner.cs",
+      "line": 8,
+      "name": "TrendyolFileInput"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Core/TrendyolOperationRunner.cs",
+      "line": 9,
+      "name": "TrendyolOperationRequest"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Core/TrendyolOperationRunner.cs",
+      "line": 12,
+      "name": "TrendyolOperationResult"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Core/TrendyolOperationRunner.cs",
+      "line": 17,
+      "name": "TrendyolOperationRunner"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Finance/TrendyolFinancePanel.cs",
+      "line": 4,
+      "name": "TrendyolFinancePanel"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Inventory/TrendyolInventoryPanel.cs",
+      "line": 4,
+      "name": "TrendyolInventoryPanel"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Invoices/TrendyolInvoicesPanel.cs",
+      "line": 4,
+      "name": "TrendyolInvoicesPanel"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Labels/TrendyolLabelsPanel.cs",
+      "line": 4,
+      "name": "TrendyolLabelsPanel"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Orders/TrendyolOrdersPanel.cs",
+      "line": 4,
+      "name": "TrendyolOrdersPanel"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Products/TrendyolProductsPanel.cs",
+      "line": 4,
+      "name": "TrendyolProductsPanel"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Questions/TrendyolQuestionsPanel.cs",
+      "line": 4,
+      "name": "TrendyolQuestionsPanel"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/TestEnvironment/TrendyolTestEnvironmentPanel.cs",
+      "line": 4,
+      "name": "TrendyolTestEnvironmentPanel"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Videos/TrendyolVideosPanel.cs",
+      "line": 4,
+      "name": "TrendyolVideosPanel"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/Webhooks/TrendyolWebhooksPanel.cs",
+      "line": 4,
+      "name": "TrendyolWebhooksPanel"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/BusinessWorkspaces.cs",
+      "line": 18,
+      "name": "BusinessWorkspaces"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/BusinessWorkspaces.cs",
+      "line": 73,
+      "name": "BusinessEnvironment"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/BusinessWorkspaces.cs",
+      "line": 80,
+      "name": "BusinessWorkspace"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/BusinessWorkspaces.cs",
+      "line": 108,
+      "name": "BusinessWorkspaceWorker"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/BusinessWorkspaces.cs",
+      "line": 121,
+      "name": "BusinessWorkspaceMiddleware"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/BusinessWorkspaces.cs",
+      "line": 140,
+      "name": "WorkspaceServices"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 13,
+      "name": "LocalUser"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 24,
+      "name": "LoginThrottledException"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 25,
+      "name": "UserSummary"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 26,
+      "name": "LocalCredentials"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 30,
+      "name": "SetupToken"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 45,
+      "name": "NewLocalUser"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 46,
+      "name": "ChangeLocalUser"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 47,
+      "name": "ChangePasswordInput"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 49,
+      "name": "LocalAccountStore"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 154,
+      "name": "LocalAccess"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 10,
+      "name": "LocalAuditEvent"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 11,
+      "name": "LocalAudit"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 26,
+      "name": "ReliabilityState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 33,
+      "name": "BackupInfo"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 34,
+      "name": "BackupEnvelope"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 35,
+      "name": "BackupManifest"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 36,
+      "name": "LocalBackups"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 128,
+      "name": "RestoreEnvironment"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 135,
+      "name": "DemoQueueWorker"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 173,
+      "name": "LocalBackupWorker"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 204,
+      "name": "VerifyBackupRequest"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 206,
+      "name": "DataDirectoryLock"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 216,
+      "name": "LocalReliability"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/OutboundTargets.cs",
+      "line": 7,
+      "name": "OutboundTargets"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/ProductCsv.cs",
+      "line": 6,
+      "name": "ProductCsv"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/RetiredChannelCleanup.cs",
+      "line": 6,
+      "name": "RetiredChannelCleanup"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/SecurityHardening.cs",
+      "line": 6,
+      "name": "SecurityHardening"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantBoundary.cs",
+      "line": 7,
+      "name": "TenantSwitch"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantBoundary.cs",
+      "line": 8,
+      "name": "TenantBoundary"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantBoundary.cs",
+      "line": 84,
+      "name": "CredentialReferenceData"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantBoundary.cs",
+      "line": 90,
+      "name": "CredentialReferenceStore"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantSecurity.cs",
+      "line": 7,
+      "name": "Tenant"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantSecurity.cs",
+      "line": 8,
+      "name": "Organization"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantSecurity.cs",
+      "line": 9,
+      "name": "User"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantSecurity.cs",
+      "line": 10,
+      "name": "Membership"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantSecurity.cs",
+      "line": 11,
+      "name": "Role"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantSecurity.cs",
+      "line": 12,
+      "name": "MarketplaceAccount"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantSecurity.cs",
+      "line": 13,
+      "name": "ErpConnection"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantSecurity.cs",
+      "line": 14,
+      "name": "WmsConnection"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantSecurity.cs",
+      "line": 15,
+      "name": "CredentialReference"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantSecurity.cs",
+      "line": 16,
+      "name": "TenantRegistration"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantSecurity.cs",
+      "line": 17,
+      "name": "TenantDirectoryData"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantSecurity.cs",
+      "line": 23,
+      "name": "TenantRoles"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantSecurity.cs",
+      "line": 55,
+      "name": "TenantAccessDirectory"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantSecurity.cs",
+      "line": 92,
+      "name": "so"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/ErpPricingService.cs",
+      "line": 12,
+      "name": "ErpPricingService"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingEndpoints.cs",
+      "line": 5,
+      "name": "PricingEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingEndpoints.cs",
+      "line": 23,
+      "name": "PricingPreviewRequest"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingModels.cs",
+      "line": 4,
+      "name": "PricingPolicy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingModels.cs",
+      "line": 5,
+      "name": "PriceCampaign"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingModels.cs",
+      "line": 7,
+      "name": "ChannelPriceRule"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingModels.cs",
+      "line": 10,
+      "name": "PriceCalculation"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingModels.cs",
+      "line": 11,
+      "name": "PricingState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingModels.cs",
+      "line": 21,
+      "name": "PriceProposal"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingModels.cs",
+      "line": 31,
+      "name": "PriceCalculator"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingProjection.cs",
+      "line": 3,
+      "name": "PricingProjection"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/RealPriceWrites.cs",
+      "line": 4,
+      "name": "RealPriceWrites"
+    },
+    {
+      "file": "src/MarketPilot.Web/Synchronization/MarketplaceOrderReader.cs",
+      "line": 3,
+      "name": "MarketplaceOrderReader"
+    },
+    {
+      "file": "src/MarketPilot.Web/Synchronization/MarketplaceStockWriter.cs",
+      "line": 12,
+      "name": "MarketplaceStockWriter"
+    },
+    {
+      "file": "src/MarketPilot.Web/Synchronization/OrderSynchronization.cs",
+      "line": 9,
+      "name": "AutomationSettings"
+    },
+    {
+      "file": "src/MarketPilot.Web/Synchronization/OrderSynchronization.cs",
+      "line": 10,
+      "name": "StorePullState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Synchronization/OrderSynchronization.cs",
+      "line": 23,
+      "name": "AutomationState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Synchronization/OrderSynchronization.cs",
+      "line": 31,
+      "name": "OrderSynchronization"
+    },
+    {
+      "file": "src/MarketPilot.Web/Synchronization/OrderSynchronization.cs",
+      "line": 161,
+      "name": "OrderSynchronizationWorker"
+    },
+    {
+      "file": "src/MarketPilot.Web/Synchronization/StockOutbox.cs",
+      "line": 11,
+      "name": "StockWriteJob"
+    },
+    {
+      "file": "src/MarketPilot.Web/Synchronization/StockOutbox.cs",
+      "line": 39,
+      "name": "StockOutbox"
+    },
+    {
+      "file": "src/MarketPilot.Web/Synchronization/StockOutbox.cs",
+      "line": 360,
+      "name": "StockOutboxWorker"
+    },
+    {
+      "file": "src/MarketPilot.Web/Synchronization/SynchronizationEndpoints.cs",
+      "line": 5,
+      "name": "SynchronizationEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Webhooks/OrderWebhookEndpoints.cs",
+      "line": 7,
+      "name": "OrderWebhookEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Webhooks/OrderWebhookInbox.cs",
+      "line": 9,
+      "name": "OrderHookEvent"
+    },
+    {
+      "file": "src/MarketPilot.Web/Webhooks/OrderWebhookInbox.cs",
+      "line": 24,
+      "name": "OrderWebhookInbox"
+    },
+    {
+      "file": "src/MarketPilot.Web/Webhooks/OrderWebhookInbox.cs",
+      "line": 187,
+      "name": "OrderWebhookWorker"
+    },
+    {
+      "file": "src/MarketPilot.Web/Webhooks/OrderWebhookReadiness.cs",
+      "line": 5,
+      "name": "OrderHookReadiness"
+    },
+    {
+      "file": "src/MarketPilot.Web/Webhooks/OrderWebhookReadiness.cs",
+      "line": 9,
+      "name": "OrderWebhookReceiver"
+    },
+    {
+      "file": "src/MarketPilot.Web/Webhooks/OrderWebhookReceiver.cs",
+      "line": 11,
+      "name": "OrderHookBinding"
+    },
+    {
+      "file": "src/MarketPilot.Web/Webhooks/OrderWebhookReceiver.cs",
+      "line": 12,
+      "name": "OrderWebhookReceiver"
+    },
+    {
+      "file": "src/MarketPilot.Web/Webhooks/OrderWebhookReceiver.cs",
+      "line": 135,
+      "name": "OrderWebhookPayload"
+    },
+    {
+      "file": "src/MarketPilot.Web/Webhooks/OrderWebhookReceiver.cs",
+      "line": 153,
+      "name": "Item"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 4,
+      "name": "WmsCapability"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 21,
+      "name": "WmsConnectionProfile"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 29,
+      "name": "WmsCapabilities"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 34,
+      "name": "WmsError"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 36,
+      "name": "WmsProviderException"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 41,
+      "name": "WmsResult"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 43,
+      "name": "WmsWarehouse"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 45,
+      "name": "WmsStockSnapshot"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 61,
+      "name": "WmsStockMovement"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 70,
+      "name": "WmsFulfillmentLine"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 72,
+      "name": "WmsFulfillmentOrder"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 80,
+      "name": "WmsFulfillmentAcceptance"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 82,
+      "name": "WmsReservationLine"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 84,
+      "name": "WmsReservation"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 92,
+      "name": "WmsFulfillmentProgress"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 94,
+      "name": "WmsShipmentStatus"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 103,
+      "name": "WmsShipmentPackage"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 111,
+      "name": "WmsRequestType"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 117,
+      "name": "WmsRequestEligibility"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 124,
+      "name": "IWmsProvider"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 141,
+      "name": "WmsMockBehavior"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/Contracts.cs",
+      "line": 149,
+      "name": "WmsMockOperations"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs",
+      "line": 11,
+      "name": "FulfillmentWriteSteps"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs",
+      "line": 17,
+      "name": "FulfillmentUpdateTargets"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs",
+      "line": 23,
+      "name": "FulfillmentWorkflowPolicy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs",
+      "line": 30,
+      "name": "FulfillmentWorkflowOrderLine"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs",
+      "line": 38,
+      "name": "FulfillmentWorkflowOrder"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs",
+      "line": 48,
+      "name": "FulfillmentWorkflowEvent"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs",
+      "line": 55,
+      "name": "FulfillmentWarehouseTask"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs",
+      "line": 68,
+      "name": "FulfillmentWorkflowPublication"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs",
+      "line": 77,
+      "name": "FulfillmentWorkflowRecord"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs",
+      "line": 101,
+      "name": "FulfillmentWorkflowState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs",
+      "line": 108,
+      "name": "FulfillmentStatusUpdate"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs",
+      "line": 116,
+      "name": "FulfillmentStatusReceipt"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs",
+      "line": 124,
+      "name": "IFulfillmentStatusPublisher"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs",
+      "line": 134,
+      "name": "MockFulfillmentStatusPublisher"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs",
+      "line": 180,
+      "name": "FulfillmentOrchestrationService"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/FulfillmentOrchestration.cs",
+      "line": 1164,
+      "name": "could"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/MockWmsProvider.cs",
+      "line": 3,
+      "name": "WmsMockProviderState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/MockWmsProvider.cs",
+      "line": 6,
+      "name": "MockWmsProvider"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 3,
+      "name": "WmsEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsInventoryService.cs",
+      "line": 7,
+      "name": "WmsInventoryState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsInventoryService.cs",
+      "line": 16,
+      "name": "WmsInventoryPolicy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsInventoryService.cs",
+      "line": 25,
+      "name": "WmsInventoryPolicyUpdate"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsInventoryService.cs",
+      "line": 30,
+      "name": "WmsSnapshotHistoryEntry"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsInventoryService.cs",
+      "line": 42,
+      "name": "WmsInventoryRow"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsInventoryService.cs",
+      "line": 50,
+      "name": "WmsChannelStock"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsInventoryService.cs",
+      "line": 59,
+      "name": "WmsStockDiscrepancy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsInventoryService.cs",
+      "line": 69,
+      "name": "WmsInventoryOverview"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsInventoryService.cs",
+      "line": 84,
+      "name": "WmsMarketplaceAccount"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsInventoryService.cs",
+      "line": 86,
+      "name": "WmsInventoryService"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsLogistics.cs",
+      "line": 5,
+      "name": "WmsLogisticsEvent"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsLogistics.cs",
+      "line": 9,
+      "name": "WmsChannelMapping"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsLogistics.cs",
+      "line": 10,
+      "name": "WmsLabelPolicy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsLogistics.cs",
+      "line": 11,
+      "name": "WmsLogisticsPackage"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsLogistics.cs",
+      "line": 15,
+      "name": "WmsLogisticsData"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsLogistics.cs",
+      "line": 23,
+      "name": "WmsLogisticsService"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalEndpoints.cs",
+      "line": 4,
+      "name": "OperationalEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalEndpoints.cs",
+      "line": 28,
+      "name": "ReturnReceipt"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalInventory.cs",
+      "line": 7,
+      "name": "OperationalInventory"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalModels.cs",
+      "line": 3,
+      "name": "OperationalState"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalModels.cs",
+      "line": 15,
+      "name": "SettlementDraft"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalModels.cs",
+      "line": 16,
+      "name": "SettlementRecord"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalModels.cs",
+      "line": 17,
+      "name": "OperationalPolicy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalModels.cs",
+      "line": 18,
+      "name": "InventoryHold"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalModels.cs",
+      "line": 26,
+      "name": "HoldDraft"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalModels.cs",
+      "line": 27,
+      "name": "StockAcknowledgement"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalModels.cs",
+      "line": 28,
+      "name": "OperationQuantity"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalModels.cs",
+      "line": 29,
+      "name": "OperationPackage"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalModels.cs",
+      "line": 30,
+      "name": "OperationDraft"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalModels.cs",
+      "line": 31,
+      "name": "OperationalRequest"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalModels.cs",
+      "line": 40,
+      "name": "OperationalFinding"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalModels.cs",
+      "line": 41,
+      "name": "OperationalDelivery"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalService.cs",
+      "line": 10,
+      "name": "OperationalService"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalService.cs",
+      "line": 253,
+      "name": "OperationalWorker"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/WorkspaceEndpoints.cs",
+      "line": 5,
+      "name": "WorkspaceEndpoints"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/WorkspaceHub.cs",
+      "line": 11,
+      "name": "WorkspaceHub"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/WorkspaceHub.cs",
+      "line": 177,
+      "name": "LocalOrderStock"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/WorkspaceModels.cs",
+      "line": 5,
+      "name": "WorkspaceRecord"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/WorkspaceModels.cs",
+      "line": 22,
+      "name": "WorkspaceRecordDraft"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/WorkspaceModels.cs",
+      "line": 23,
+      "name": "WorkspaceAction"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/WorkspaceModels.cs",
+      "line": 24,
+      "name": "LocalOrderLine"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/WorkspaceModels.cs",
+      "line": 25,
+      "name": "LocalOrderDraft"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/WorkspaceModels.cs",
+      "line": 26,
+      "name": "WorkspaceRow"
+    }
+  ],
+  "endpoints": [
+    {
+      "file": "src/MarketPilot.Web/ListingFilters.cs",
+      "line": 95,
+      "method": "GET",
+      "path": "/api/shipments/search"
+    },
+    {
+      "file": "src/MarketPilot.Web/ListingFilters.cs",
+      "line": 96,
+      "method": "GET",
+      "path": "/api/products/search"
+    },
+    {
+      "file": "src/MarketPilot.Web/ListingFilters.cs",
+      "line": 97,
+      "method": "GET",
+      "path": "/api/orders/search"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 115,
+      "method": "GET",
+      "path": "/api/health"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 121,
+      "method": "GET",
+      "path": "/api/sync/status"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 125,
+      "method": "GET",
+      "path": "/api/overview"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 126,
+      "method": "GET",
+      "path": "/api/products"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 127,
+      "method": "DELETE",
+      "path": "/api/products/{id}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 128,
+      "method": "PATCH",
+      "path": "/api/products/{id}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 129,
+      "method": "POST",
+      "path": "/api/products"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 130,
+      "method": "PUT",
+      "path": "/api/products/{id}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 137,
+      "method": "GET",
+      "path": "/api/orders"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 138,
+      "method": "PUT",
+      "path": "/api/orders/{id}/status"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 149,
+      "method": "GET",
+      "path": "/api/connections"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 150,
+      "method": "PUT",
+      "path": "/api/connections/{id}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 153,
+      "method": "POST",
+      "path": "/api/sync/demo"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 160,
+      "method": "GET",
+      "path": "/api/activity"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 161,
+      "method": "GET",
+      "path": "/api/settings"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 162,
+      "method": "PUT",
+      "path": "/api/settings"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 163,
+      "method": "GET",
+      "path": "/api/export/products.csv"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 167,
+      "method": "GET",
+      "path": "/api/stock/movements"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 168,
+      "method": "POST",
+      "path": "/api/stock/movements"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 169,
+      "method": "GET",
+      "path": "/api/shipments"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 170,
+      "method": "POST",
+      "path": "/api/shipments"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 180,
+      "method": "PUT",
+      "path": "/api/shipments/{id}/status"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 185,
+      "method": "GET",
+      "path": "/api/barcodes"
+    },
+    {
+      "file": "src/MarketPilot.Web/Program.cs",
+      "line": 186,
+      "method": "PUT",
+      "path": "/api/products/{id}/barcode"
+    },
+    {
+      "file": "src/MarketPilot.Web/Analytics/AnalyticsEndpoints.cs",
+      "line": 24,
+      "method": "GET",
+      "path": "/api/analytics/reports"
+    },
+    {
+      "file": "src/MarketPilot.Web/Analytics/AnalyticsEndpoints.cs",
+      "line": 52,
+      "method": "GET",
+      "path": "/api/analytics/profit"
+    },
+    {
+      "file": "src/MarketPilot.Web/Analytics/AnalyticsEndpoints.cs",
+      "line": 66,
+      "method": "PUT",
+      "path": "/api/analytics/costs/{id}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Analytics/AnalyticsEndpoints.cs",
+      "line": 84,
+      "method": "GET",
+      "path": "/api/analytics/workspace"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 35,
+      "method": "GET",
+      "path": "/erp/status"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 36,
+      "method": "POST",
+      "path": "/erp/preview"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 37,
+      "method": "POST",
+      "path": "/erp/apply"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 38,
+      "method": "DELETE",
+      "path": "/products/{id}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 39,
+      "method": "PATCH",
+      "path": "/products/{id}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 40,
+      "method": "GET",
+      "path": "/lookup"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 41,
+      "method": "GET",
+      "path": "/products"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 42,
+      "method": "GET",
+      "path": "/products/{id}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 43,
+      "method": "POST",
+      "path": "/products"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 44,
+      "method": "PUT",
+      "path": "/products/{id}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 45,
+      "method": "GET",
+      "path": "/listings"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 46,
+      "method": "GET",
+      "path": "/stores/{id}/candidates"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 47,
+      "method": "GET",
+      "path": "/candidates/{token}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 48,
+      "method": "POST",
+      "path": "/import"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 55,
+      "method": "PUT",
+      "path": "/mapping"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 56,
+      "method": "GET",
+      "path": "/categories"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 57,
+      "method": "PUT",
+      "path": "/categories"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 58,
+      "method": "POST",
+      "path": "/preview"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 59,
+      "method": "POST",
+      "path": "/publish"
+    },
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 60,
+      "method": "GET",
+      "path": "/jobs"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalEndpoints.cs",
+      "line": 18,
+      "method": "GET",
+      "path": "/schema"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalEndpoints.cs",
+      "line": 19,
+      "method": "GET",
+      "path": "/manual-mappings"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalEndpoints.cs",
+      "line": 20,
+      "method": "POST",
+      "path": "/manual-mappings/{id}/resolve"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalEndpoints.cs",
+      "line": 21,
+      "method": "GET",
+      "path": "/available-to-sell"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalEndpoints.cs",
+      "line": 22,
+      "method": "GET",
+      "path": "/{kind}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalEndpoints.cs",
+      "line": 23,
+      "method": "POST",
+      "path": "/{kind}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 33,
+      "method": "GET",
+      "path": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 34,
+      "method": "GET",
+      "path": "/integration/events"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 35,
+      "method": "POST",
+      "path": "/integration/events"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 36,
+      "method": "POST",
+      "path": "/integration/events/{id}/retry"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 37,
+      "method": "GET",
+      "path": "/erp-transfer/policy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 38,
+      "method": "PUT",
+      "path": "/erp-transfer/policy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 39,
+      "method": "POST",
+      "path": "/erp-transfer/preview"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 40,
+      "method": "GET",
+      "path": "/channel-contracts"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 41,
+      "method": "POST",
+      "path": "/channel-contracts/{channel}/products/preview"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 43,
+      "method": "POST",
+      "path": "/channel-contracts/{channel}/orders/preview"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 45,
+      "method": "GET",
+      "path": "/readiness"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 47,
+      "method": "PUT",
+      "path": "/plan"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 48,
+      "method": "POST",
+      "path": "/run"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 49,
+      "method": "POST",
+      "path": "/jobs/{id}/retry"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 50,
+      "method": "POST",
+      "path": "/hooks/erp/catalog"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 51,
+      "method": "POST",
+      "path": "/hooks/businesses/{businessId}/erp/catalog"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 24,
+      "method": "GET",
+      "path": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 25,
+      "method": "GET",
+      "path": "/products"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 26,
+      "method": "GET",
+      "path": "/variants"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 27,
+      "method": "GET",
+      "path": "/identifiers"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 28,
+      "method": "GET",
+      "path": "/prices"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 29,
+      "method": "GET",
+      "path": "/warehouses"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 30,
+      "method": "GET",
+      "path": "/stock"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 31,
+      "method": "POST",
+      "path": "/orders"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 32,
+      "method": "GET",
+      "path": "/orders/{id}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 33,
+      "method": "GET",
+      "path": "/documents"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 34,
+      "method": "GET",
+      "path": "/events"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 35,
+      "method": "POST",
+      "path": "/events"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 36,
+      "method": "GET",
+      "path": "/sync-status"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 37,
+      "method": "POST",
+      "path": "/sync"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/IntegrationEndpoints.cs",
+      "line": 79,
+      "method": "GET",
+      "path": "/readiness"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/IntegrationEndpoints.cs",
+      "line": 95,
+      "method": "GET",
+      "path": "/credential-profiles"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/IntegrationEndpoints.cs",
+      "line": 96,
+      "method": "GET",
+      "path": "/connections"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/IntegrationEndpoints.cs",
+      "line": 97,
+      "method": "POST",
+      "path": "/connections"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/IntegrationEndpoints.cs",
+      "line": 123,
+      "method": "POST",
+      "path": "/connections/{id}/{operation}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/IntegrationEndpoints.cs",
+      "line": 192,
+      "method": "POST",
+      "path": "/connections/{id}/stock-price"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/IntegrationEndpoints.cs",
+      "line": 210,
+      "method": "POST",
+      "path": "/preview/{marketplace}/stock-price"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Amazon/AmazonEndpoints.cs",
+      "line": 12,
+      "method": "GET",
+      "path": "/amazon/connections/{id}/search/{kind}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Boyner/BoynerEndpoints.cs",
+      "line": 8,
+      "method": "GET",
+      "path": "/boyner/connections/{id}/search/{kind}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 944,
+      "method": "GET",
+      "path": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 945,
+      "method": "POST",
+      "path": "/run"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 946,
+      "method": "POST",
+      "path": "/settings"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 960,
+      "method": "POST",
+      "path": "/unmatched/ignore"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 972,
+      "method": "POST",
+      "path": "/demo-sale"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs",
+      "line": 282,
+      "method": "GET",
+      "path": "/demo/connections/{id}/search/{kind}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs",
+      "line": 289,
+      "method": "GET",
+      "path": "/demo/connections/{id}/workspace"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Demo/DemoWorkspace.cs",
+      "line": 295,
+      "method": "POST",
+      "path": "/demo/connections/{id}/actions"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Hepsiburada/HepsiburadaEndpoints.cs",
+      "line": 13,
+      "method": "GET",
+      "path": "/hepsiburada/connections/{id}/search/{kind}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/N11/N11Endpoints.cs",
+      "line": 9,
+      "method": "GET",
+      "path": "/n11/connections/{id}/search/{kind}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Ticimax/TicimaxEndpoints.cs",
+      "line": 8,
+      "method": "GET",
+      "path": "/ticimax/connections/{id}/search/{kind}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/TrendyolEndpoints.cs",
+      "line": 22,
+      "method": "GET",
+      "path": "/operations"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/TrendyolEndpoints.cs",
+      "line": 32,
+      "method": "POST",
+      "path": "/connections/{id}/operations/{key}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 249,
+      "method": "GET",
+      "path": "/api/access/status"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 250,
+      "method": "POST",
+      "path": "/api/access/setup"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 262,
+      "method": "POST",
+      "path": "/api/access/login"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 270,
+      "method": "POST",
+      "path": "/api/access/password"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 275,
+      "method": "POST",
+      "path": "/api/access/logout"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 276,
+      "method": "GET",
+      "path": "/api/access/users"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 277,
+      "method": "POST",
+      "path": "/api/access/users"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalAccess.cs",
+      "line": 284,
+      "method": "POST",
+      "path": "/api/access/users/{id}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 224,
+      "method": "GET",
+      "path": "/api/system/status"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 225,
+      "method": "GET",
+      "path": "/api/system/events"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 226,
+      "method": "POST",
+      "path": "/api/system/backups/restore-check"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 230,
+      "method": "GET",
+      "path": "/api/system/backups"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 231,
+      "method": "POST",
+      "path": "/api/system/backups"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 232,
+      "method": "POST",
+      "path": "/api/system/backups/verify"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/LocalReliability.cs",
+      "line": 233,
+      "method": "GET",
+      "path": "/api/system/backups/{name}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantBoundary.cs",
+      "line": 51,
+      "method": "GET",
+      "path": "/api/tenancy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantBoundary.cs",
+      "line": 52,
+      "method": "GET",
+      "path": "/api/access/memberships"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantBoundary.cs",
+      "line": 53,
+      "method": "POST",
+      "path": "/api/tenancy/tenants"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantBoundary.cs",
+      "line": 58,
+      "method": "POST",
+      "path": "/api/tenancy/memberships"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantBoundary.cs",
+      "line": 64,
+      "method": "POST",
+      "path": "/api/access/switch-tenant"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantBoundary.cs",
+      "line": 78,
+      "method": "GET",
+      "path": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantBoundary.cs",
+      "line": 79,
+      "method": "PUT",
+      "path": "/credentials"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantBoundary.cs",
+      "line": 80,
+      "method": "PUT",
+      "path": "/erp"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantBoundary.cs",
+      "line": 81,
+      "method": "PUT",
+      "path": "/wms"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingEndpoints.cs",
+      "line": 15,
+      "method": "GET",
+      "path": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingEndpoints.cs",
+      "line": 16,
+      "method": "POST",
+      "path": "/source/refresh"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingEndpoints.cs",
+      "line": 17,
+      "method": "PUT",
+      "path": "/policy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingEndpoints.cs",
+      "line": 18,
+      "method": "PUT",
+      "path": "/rules"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingEndpoints.cs",
+      "line": 19,
+      "method": "POST",
+      "path": "/preview"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingEndpoints.cs",
+      "line": 20,
+      "method": "POST",
+      "path": "/proposals/{id}/approve"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingEndpoints.cs",
+      "line": 21,
+      "method": "POST",
+      "path": "/proposals/{id}/publish"
+    },
+    {
+      "file": "src/MarketPilot.Web/Synchronization/SynchronizationEndpoints.cs",
+      "line": 15,
+      "method": "GET",
+      "path": "/api/sync/automation"
+    },
+    {
+      "file": "src/MarketPilot.Web/Synchronization/SynchronizationEndpoints.cs",
+      "line": 16,
+      "method": "POST",
+      "path": "/api/sync/automation"
+    },
+    {
+      "file": "src/MarketPilot.Web/Synchronization/SynchronizationEndpoints.cs",
+      "line": 27,
+      "method": "POST",
+      "path": "/api/sync/outbox/{id}/retry"
+    },
+    {
+      "file": "src/MarketPilot.Web/Webhooks/OrderWebhookEndpoints.cs",
+      "line": 19,
+      "method": "METHODS",
+      "path": "/hooks/orders/{endpointId}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Webhooks/OrderWebhookEndpoints.cs",
+      "line": 24,
+      "method": "POST",
+      "path": "/hooks/orders/{endpointId}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Webhooks/OrderWebhookEndpoints.cs",
+      "line": 25,
+      "method": "POST",
+      "path": "/hooks/businesses/{businessId}/orders/{endpointId}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Webhooks/OrderWebhookEndpoints.cs",
+      "line": 26,
+      "method": "GET",
+      "path": "/api/operations/revision"
+    },
+    {
+      "file": "src/MarketPilot.Web/Webhooks/OrderWebhookEndpoints.cs",
+      "line": 27,
+      "method": "GET",
+      "path": "/api/system/webhooks"
+    },
+    {
+      "file": "src/MarketPilot.Web/Webhooks/OrderWebhookEndpoints.cs",
+      "line": 28,
+      "method": "POST",
+      "path": "/api/system/webhooks/{id}/retry"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 69,
+      "method": "GET",
+      "path": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 71,
+      "method": "GET",
+      "path": "/logistics"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 72,
+      "method": "GET",
+      "path": "/logistics/policies"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 73,
+      "method": "PUT",
+      "path": "/logistics/mapping"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 74,
+      "method": "PUT",
+      "path": "/logistics/label-policy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 75,
+      "method": "POST",
+      "path": "/logistics/mock/events"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 76,
+      "method": "POST",
+      "path": "/logistics/mock/scenarios"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 77,
+      "method": "GET",
+      "path": "/inventory"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 79,
+      "method": "GET",
+      "path": "/inventory/movements"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 81,
+      "method": "GET",
+      "path": "/inventory/history"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 83,
+      "method": "PUT",
+      "path": "/inventory/policy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 86,
+      "method": "GET",
+      "path": "/warehouses"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 88,
+      "method": "GET",
+      "path": "/warehouses/{warehouseId}/stock"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 90,
+      "method": "GET",
+      "path": "/warehouses/{warehouseId}/stock-movements"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 93,
+      "method": "POST",
+      "path": "/fulfillment-orders"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 96,
+      "method": "GET",
+      "path": "/fulfillment-orders/{id}/acceptance"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 99,
+      "method": "GET",
+      "path": "/fulfillment-orders/{id}/reservation"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 102,
+      "method": "GET",
+      "path": "/fulfillment-orders/{id}/picking"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 105,
+      "method": "GET",
+      "path": "/fulfillment-orders/{id}/packing"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 108,
+      "method": "GET",
+      "path": "/fulfillment-orders/{id}/shipment"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 111,
+      "method": "GET",
+      "path": "/fulfillment-orders/{id}/eligibility"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 119,
+      "method": "GET",
+      "path": "/fulfillment/policy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 121,
+      "method": "PUT",
+      "path": "/fulfillment/policy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 125,
+      "method": "GET",
+      "path": "/fulfillment/workflows"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 127,
+      "method": "GET",
+      "path": "/fulfillment/workflows/{id}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 131,
+      "method": "POST",
+      "path": "/fulfillment/orders"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 136,
+      "method": "POST",
+      "path": "/fulfillment/workflows/{id}/advance"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 141,
+      "method": "POST",
+      "path": "/fulfillment/workflows/{id}/retry-validation"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalEndpoints.cs",
+      "line": 15,
+      "method": "GET",
+      "path": ""
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalEndpoints.cs",
+      "line": 16,
+      "method": "PUT",
+      "path": "/policy"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalEndpoints.cs",
+      "line": 17,
+      "method": "POST",
+      "path": "/scan"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalEndpoints.cs",
+      "line": 18,
+      "method": "POST",
+      "path": "/settlements"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalEndpoints.cs",
+      "line": 19,
+      "method": "POST",
+      "path": "/holds"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalEndpoints.cs",
+      "line": 20,
+      "method": "POST",
+      "path": "/holds/{id}/release"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalEndpoints.cs",
+      "line": 21,
+      "method": "POST",
+      "path": "/requests"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalEndpoints.cs",
+      "line": 22,
+      "method": "POST",
+      "path": "/requests/{id}/approve"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalEndpoints.cs",
+      "line": 23,
+      "method": "POST",
+      "path": "/requests/{id}/cancel"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalEndpoints.cs",
+      "line": 24,
+      "method": "POST",
+      "path": "/requests/{id}/receive"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalEndpoints.cs",
+      "line": 25,
+      "method": "POST",
+      "path": "/deliveries/{id}/retry"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/WorkspaceEndpoints.cs",
+      "line": 16,
+      "method": "GET",
+      "path": "/views/{module}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/WorkspaceEndpoints.cs",
+      "line": 17,
+      "method": "GET",
+      "path": "/orders/{id}"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/WorkspaceEndpoints.cs",
+      "line": 18,
+      "method": "POST",
+      "path": "/orders"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/WorkspaceEndpoints.cs",
+      "line": 19,
+      "method": "POST",
+      "path": "/records"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/WorkspaceEndpoints.cs",
+      "line": 20,
+      "method": "POST",
+      "path": "/views/{module}/{id}/actions"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/WorkspaceEndpoints.cs",
+      "line": 21,
+      "method": "GET",
+      "path": "/options/{kind}"
+    }
+  ],
+  "groups": [
+    {
+      "file": "src/MarketPilot.Web/Catalog/CatalogEndpoints.cs",
+      "line": 16,
+      "path": "/api/catalog"
+    },
+    {
+      "file": "src/MarketPilot.Web/Contracts/CanonicalEndpoints.cs",
+      "line": 10,
+      "path": "/api/contracts"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/EnterpriseEndpoints.cs",
+      "line": 28,
+      "path": "/api/sync/enterprise"
+    },
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/NebimEndpoints.cs",
+      "line": 17,
+      "path": "/api/erp/nebim"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/IntegrationEndpoints.cs",
+      "line": 58,
+      "path": "/api/integrations"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/CentralStock/CentralStockService.cs",
+      "line": 943,
+      "path": "/central-stock"
+    },
+    {
+      "file": "src/MarketPilot.Web/Integrations/Trendyol/TrendyolEndpoints.cs",
+      "line": 20,
+      "path": "/trendyol"
+    },
+    {
+      "file": "src/MarketPilot.Web/Local/TenantBoundary.cs",
+      "line": 72,
+      "path": "/api/security/connections"
+    },
+    {
+      "file": "src/MarketPilot.Web/Pricing/PricingEndpoints.cs",
+      "line": 10,
+      "path": "/api/pricing"
+    },
+    {
+      "file": "src/MarketPilot.Web/Wms/WmsEndpoints.cs",
+      "line": 34,
+      "path": "/api/wms"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/OperationalEndpoints.cs",
+      "line": 9,
+      "path": "/api/operations/preparation"
+    },
+    {
+      "file": "src/MarketPilot.Web/Workspace/WorkspaceEndpoints.cs",
+      "line": 9,
+      "path": "/api/workspace"
+    }
+  ],
+  "frontendApiLiterals": [
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/analytics-system.js",
+      "line": 21,
+      "path": "analytics/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/analytics-system.js",
+      "line": 104,
+      "path": "analytics/costs/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/analytics-system.js",
+      "line": 123,
+      "path": "settings"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/analytics-system.js",
+      "line": 141,
+      "path": "system/status"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/analytics-system.js",
+      "line": 141,
+      "path": "system/backups"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/analytics-system.js",
+      "line": 141,
+      "path": "system/events"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/analytics-system.js",
+      "line": 141,
+      "path": "access/users"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/app.js",
+      "line": 31,
+      "path": "sync/status"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/app.js",
+      "line": 48,
+      "path": "shipments"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/app.js",
+      "line": 52,
+      "path": "stock/movements"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/app.js",
+      "line": 143,
+      "path": "products/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/app.js",
+      "line": 143,
+      "path": "orders/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/app.js",
+      "line": 143,
+      "path": "connections/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/app.js",
+      "line": 143,
+      "path": "sync/demo"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/app.js",
+      "line": 143,
+      "path": "settings"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/automatic-synchronization.js",
+      "line": 6,
+      "path": "sync/automation"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/automatic-synchronization.js",
+      "line": 14,
+      "path": "sync/automation"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/automatic-synchronization.js",
+      "line": 21,
+      "path": "sync/outbox/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/central-stock.js",
+      "line": 9,
+      "path": "integrations/central-stock"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/central-stock.js",
+      "line": 13,
+      "path": "integrations/central-stock"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/enterprise-sync.js",
+      "line": 11,
+      "path": "sync/enterprise"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/enterprise-sync.js",
+      "line": 22,
+      "path": "sync/enterprise/plan"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/enterprise-sync.js",
+      "line": 31,
+      "path": "sync/enterprise/run"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/enterprise-sync.js",
+      "line": 34,
+      "path": "sync/enterprise/jobs/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/integrations.js",
+      "line": 21,
+      "path": "integrations/readiness"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/integrations.js",
+      "line": 129,
+      "path": "integrations/connections"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/integrations.js",
+      "line": 130,
+      "path": "integrations/connections"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/integrations.js",
+      "line": 182,
+      "path": "integrations/credential-profiles"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/operational-preparation.js",
+      "line": 5,
+      "path": "operations/preparation"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/operational-preparation.js",
+      "line": 6,
+      "path": "operations/preparation/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/operational-preparation.js",
+      "line": 8,
+      "path": "operations/preparation/policy"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/operational-preparation.js",
+      "line": 30,
+      "path": "workspace/orders/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/operational-preparation.js",
+      "line": 37,
+      "path": "system/backups"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/operational-preparation.js",
+      "line": 37,
+      "path": "system/backups/restore-check"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/operations-live.js",
+      "line": 27,
+      "path": "operations/revision"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/operations-live.js",
+      "line": 29,
+      "path": "access/status"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/operations-live.js",
+      "line": 31,
+      "path": "analytics/workspace"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/operations-live.js",
+      "line": 32,
+      "path": "analytics/reports"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/operations-live.js",
+      "line": 33,
+      "path": "analytics/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/operations-live.js",
+      "line": 34,
+      "path": "integrations/central-stock"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/operations-live.js",
+      "line": 35,
+      "path": "sync/status"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/webhook-receiver.js",
+      "line": 7,
+      "path": "system/webhooks"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/webhook-receiver.js",
+      "line": 18,
+      "path": "system/webhooks/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/wms-fulfillment.js",
+      "line": 34,
+      "path": "wms/fulfillment/policy"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/wms-fulfillment.js",
+      "line": 35,
+      "path": "wms/warehouses"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/wms-fulfillment.js",
+      "line": 36,
+      "path": "wms/fulfillment/workflows"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/wms-fulfillment.js",
+      "line": 89,
+      "path": "wms/fulfillment/policy"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/wms-fulfillment.js",
+      "line": 128,
+      "path": "wms/fulfillment/orders"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/wms-inventory.js",
+      "line": 10,
+      "path": "wms/inventory"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/wms-inventory.js",
+      "line": 71,
+      "path": "wms/inventory/policy"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/wms-logistics.js",
+      "line": 6,
+      "path": "wms/logistics"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/wms-logistics.js",
+      "line": 6,
+      "path": "wms/logistics/policies"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/wms-logistics.js",
+      "line": 13,
+      "path": "wms/logistics/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/workspace-workflows.js",
+      "line": 11,
+      "path": "workspace/views/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/workspace-workflows.js",
+      "line": 45,
+      "path": "workspace/views/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/workspace-workflows.js",
+      "line": 50,
+      "path": "workspace/orders/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/workspace-workflows.js",
+      "line": 54,
+      "path": "workspace/orders/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/workspace-workflows.js",
+      "line": 59,
+      "path": "workspace/options/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/workspace-workflows.js",
+      "line": 77,
+      "path": "workspace/records"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/workspace-workflows.js",
+      "line": 92,
+      "path": "workspace/orders"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog-erp.js",
+      "line": 8,
+      "path": "erp/preview"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog-erp.js",
+      "line": 20,
+      "path": "erp/apply"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog.js",
+      "line": 11,
+      "path": "catalog/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog.js",
+      "line": 35,
+      "path": "products/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog.js",
+      "line": 37,
+      "path": "stores/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog.js",
+      "line": 37,
+      "path": "import"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog.js",
+      "line": 43,
+      "path": "stores/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog.js",
+      "line": 44,
+      "path": "candidates/"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog.js",
+      "line": 46,
+      "path": "import"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog.js",
+      "line": 47,
+      "path": "preview"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog.js",
+      "line": 48,
+      "path": "publish"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog.js",
+      "line": 52,
+      "path": "products?"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog.js",
+      "line": 53,
+      "path": "mapping"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog.js",
+      "line": 56,
+      "path": "categories"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/catalog.js",
+      "line": 75,
+      "path": "lookup?"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/erp-pricing.js",
+      "line": 4,
+      "path": "pricing"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/erp-pricing.js",
+      "line": 4,
+      "path": "listings?size=100"
+    },
+    {
+      "file": "src/MarketPilot.Web/wwwroot/assets/catalog/erp-pricing.js",
+      "line": 6,
+      "path": "pricing/"
+    }
+  ],
+  "markers": [
+    {
+      "file": "src/MarketPilot.Web/Enterprise/Nebim/Contracts.cs",
+      "line": 17,
+      "marker": "TODO"
+    }
+  ],
+  "testProjects": [
+    "MarketPilot.AccountWriteChecks",
+    "MarketPilot.AmazonChecks",
+    "MarketPilot.AutomationChecks",
+    "MarketPilot.BoynerChecks",
+    "MarketPilot.CanonicalChecks",
+    "MarketPilot.CatalogChecks",
+    "MarketPilot.ChannelContractChecks",
+    "MarketPilot.DemoChecks",
+    "MarketPilot.ErpReadModelChecks",
+    "MarketPilot.ErpTransferChecks",
+    "MarketPilot.HepsiburadaChecks",
+    "MarketPilot.IntegrationChecks",
+    "MarketPilot.ListingChecks",
+    "MarketPilot.LocalReliabilityChecks",
+    "MarketPilot.N11Checks",
+    "MarketPilot.NebimChecks",
+    "MarketPilot.OrchestratorChecks",
+    "MarketPilot.PricingChecks",
+    "MarketPilot.SecurityChecks",
+    "MarketPilot.SynchronizationChecks",
+    "MarketPilot.TicimaxChecks",
+    "MarketPilot.WmsChecks",
+    "MarketPilot.WmsLogisticsChecks",
+    "MarketPilot.WorkerIsolationAudit"
+  ],
+  "testScripts": [
+    "accounts-http-checks.cjs",
+    "amazon-http-checks.cjs",
+    "amazon-protocol-checks.cjs",
+    "analytics-system-http-checks.cjs",
+    "automation-http-checks.cjs",
+    "boyner-http-checks.cjs",
+    "canonical-http-checks.cjs",
+    "catalog-http-checks.cjs",
+    "catalog-stock-actions-http-checks.cjs",
+    "central-stock-http-checks.cjs",
+    "clothing-catalog-http-checks.cjs",
+    "deployment-http-checks.cjs",
+    "enterprise-sync-http-checks.cjs",
+    "erp-read-model-http-checks.cjs",
+    "erp-webhook-resilience-http-checks.cjs",
+    "frontend-checks.cjs",
+    "fulfillment-http-checks.cjs",
+    "hepsiburada-http-checks.cjs",
+    "integration-orchestrator-http-checks.cjs",
+    "listing-protocol-checks.cjs",
+    "local-access-http-checks.cjs",
+    "n11-http-checks.cjs",
+    "nebim-http-checks.cjs",
+    "operational-preparation-http-checks.cjs",
+    "pricing-http-checks.cjs",
+    "product-store-stocks-checks.cjs",
+    "retired-channel-http-checks.cjs",
+    "security-hardening-http-checks.cjs",
+    "shared-workspace-http-checks.cjs",
+    "synchronization-http-checks.cjs",
+    "tenant-security-http-checks.cjs",
+    "ticimax-http-checks.cjs",
+    "trendyol-workflows-checks.cjs",
+    "webhook-http-checks.cjs",
+    "wms-inventory-http-checks.cjs",
+    "wms-logistics-http-checks.cjs"
+  ]
+}

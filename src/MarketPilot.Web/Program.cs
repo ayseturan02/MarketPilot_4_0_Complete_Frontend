@@ -1,4 +1,8 @@
+using MarketPilot.Web.Contracts;
 using System.Text.Json;
+using MarketPilot.Web.Enterprise;
+using MarketPilot.Web.Workspace;
+using MarketPilot.Web.Analytics;
 using System.Text.Json.Serialization;
 using System.Net;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -9,11 +13,13 @@ using MarketPilot.Web.Webhooks;
 using MarketPilot.Web.Integrations.CentralStock;
 using MarketPilot.Web.Integrations.Demo;
 using MarketPilot.Web.Synchronization;
+using MarketPilot.Web.Wms;
 
 var builder = WebApplication.CreateBuilder(args);
 // Docker/compose secrets: one file per key under /run/secrets (e.g. Marketplaces__Trendyol__production__ApiKey), so API keys
 // need not be container environment variables that docker inspect would reveal.
 builder.Configuration.AddKeyPerFile(builder.Configuration["Secrets:Directory"] ?? "/run/secrets", optional: true);
+builder.ConfigureSecurity();
 var configuredDeploymentMode = builder.Configuration["Deployment:Mode"];
 if (configuredDeploymentMode is not null &&
     configuredDeploymentMode is not ("local" or "public"))
@@ -55,6 +61,13 @@ builder.Services.AddMarketplaceIntegrations(builder.Configuration);
 builder.AddLocalAccess();
 builder.Services.AddLocalReliability();
 builder.Services.AddBackgroundSynchronization();
+builder.Services.AddEnterprise();
+builder.Services.AddWmsProviders(builder.Configuration);
+builder.Services.AddSingleton<WorkspaceHub>();
+builder.Services.AddOperationalPreparation();
+builder.Services.AddCanonicalContracts();
+builder.Services.AddSingleton<BusinessWorkspaces>();builder.Services.AddHostedService<BusinessWorkspaceWorker>();
+builder.Services.AddSingleton<CredentialReferenceStore>();
 var app = builder.Build();
 if (publicDeployment)
 {
@@ -64,15 +77,18 @@ if (publicDeployment)
 app.Services.GetRequiredService<CatalogHub>().Ensure();
 app.Use(async(context,next)=>
 {
-    var h=context.Response.Headers;
-    h.XContentTypeOptions="nosniff";h.XFrameOptions="DENY";h["Referrer-Policy"]="no-referrer";h["Cross-Origin-Opener-Policy"]="same-origin";
-    h.ContentSecurityPolicy="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+    SecurityHardening.SecurityHeaders(context);
+    context.Response.OnStarting(()=>{SecurityHardening.SecurityHeaders(context);return Task.CompletedTask;});
+    if(context.Request.ContentLength>8*1024*1024)
+    {context.Response.StatusCode=413;await context.Response.WriteAsJsonAsync(new{error="İstek boyut sınırını aşıyor."});return;}
     await next();
 });
 app.Use(async(context,next)=>
 {
     try{await next();}
     catch(OperationCanceledException)when(context.RequestAborted.IsCancellationRequested){}
+    catch(BadHttpRequestException error) when(error.StatusCode is 400 or 413 or 431)
+    {if(!context.Response.HasStarted){context.Response.Clear();context.Response.StatusCode=error.StatusCode;await context.Response.WriteAsJsonAsync(new{error="İstek biçimi veya boyut sınırı geçersiz."});}else context.Abort();}
     catch(Exception)
     {
         try{context.RequestServices.GetRequiredService<LocalAudit>().Add("error","request","Bir sunucu isteği tamamlanamadı.");}catch(Exception){}
@@ -80,6 +96,9 @@ app.Use(async(context,next)=>
     }
 });
 app.UseLocalAccess();
+app.UseTenantBoundary();
+app.UseBusinessWorkspaces();
+app.MapTenantSecurity();
 app.MapLocalReliability();
 app.UseDefaultFiles(); app.UseStaticFiles();
 app.MapMarketplaceIntegrations();
@@ -87,6 +106,11 @@ app.MapListingSearch();
 app.MapCatalog();
 app.MapOrderWebhooks();
 app.MapBackgroundSynchronization();
+app.MapAnalyticsWorkspace();
+app.MapSharedWorkspace();
+app.MapOperationalPreparation();
+app.MapCanonicalContracts();
+app.MapEnterprise();
 
 app.MapGet("/api/health", (IWebHostEnvironment env, ReliabilityState reliability, IConfiguration configuration) => {
     var storage = File.Exists(Path.Combine(env.ContentRootPath, "Data", "demo-store.json"));
@@ -100,30 +124,27 @@ app.MapGet("/api/sync/status", (DemoWorkspace demo, CentralStockService stock, D
 }));
 app.MapGet("/api/overview", (OperationsHub hub) => Results.Ok(hub.Overview()));
 app.MapGet("/api/products", (DemoStore db) => Results.Ok(db.SearchProducts(new ListingQuery(Size:50)).Items));
-app.MapPost("/api/products", (DemoStore db, ProductDraft draft) => {
-    if(string.IsNullOrWhiteSpace(draft.Name) || string.IsNullOrWhiteSpace(draft.Sku) || draft.Name.Length > 300 || draft.Sku.Length > 100 || draft.Price is < 0 or > 10000000 || draft.Stock is < 0 or > 10000000) return Results.BadRequest(new {error="Ürün adı, SKU, pozitif fiyat ve stok gerekli."});
-    if(MarketPilot.Web.Catalog.ProductionRules.CompositionHasPolyamide(draft.Name, draft.Category)) return Results.Json(new {error=MarketPilot.Web.Catalog.ProductionRules.PolyamideMessage}, statusCode:422);
-    var p = db.Modify(s => { if(s.Products.Any(x=>x.Sku.Equals(draft.Sku.Trim(),StringComparison.OrdinalIgnoreCase))) return null;
-        var item=new Product {Id=Guid.NewGuid().ToString("N")[..8],Name=draft.Name.Trim(),Sku=draft.Sku.Trim(),Category=draft.Category??"Diğer",Price=draft.Price,Stock=draft.Stock,Image=draft.Image??"📦",Channels=draft.Channels??new(),Status="Aktif"}; s.Products.Insert(0,item); db.Event(s,"Ürün eklendi",item.Name); return item; });
-    return p is null ? Results.Conflict(new {error="Bu SKU zaten kayıtlı."}) : Results.Ok(p);
-});
+app.MapDelete("/api/products/{id}",()=>Results.Json(new{error="ERP product master is read only."},statusCode:405));
+app.MapPatch("/api/products/{id}",()=>Results.Json(new{error="ERP product master is read only."},statusCode:405));
+app.MapPost("/api/products", () => Results.Json(new { error = "Yeni ürün oluşturma kapalı. Ürünler Nebim V3 kaynağından alınır." }, statusCode: 405));
 app.MapPut("/api/products/{id}", (DemoStore db,string id, ProductPatch patch) => {
     if (patch.Price is < 0 or > 10000000 || patch.Stock is < 0 or > 10000000 || patch.Status is not null && patch.Status is not ("Aktif" or "Pasif" or "Arşiv"))
         return Results.BadRequest(new { error = "Fiyat, stok veya ürün durumu geçersiz. Hiçbir alan değiştirilmedi." });
-    var product = db.Modify(s => {
-        var value = s.Products.FirstOrDefault(x => x.Id == id);
-        if (value is null) return null;
-        if (patch.Stock.HasValue) { value.Stock = patch.Stock.Value; value.StockKnown = true; }
-        if (patch.Price.HasValue) { value.Price = patch.Price.Value; value.PriceKnown = true; }
-        if (patch.Status is not null) value.Status = patch.Status;
-        value.Version++; db.Event(s, "Ürün güncellendi", value.Name); return value;
-    });
-    return product is null ? Results.NotFound(new { error = "Ürün bulunamadı." }) : Results.Ok(product);
+    return db.CatalogRead(s=>s.Products.Any(x=>x.Id==id))
+        ? Results.Conflict(new {error="Ürün ana verisi salt okunurdur; değişiklik Nebim V3 kaynağından alınmalıdır."})
+        : Results.NotFound(new {error="Ürün bulunamadı."});
 });
 app.MapGet("/api/orders", (OperationsHub hub)=>Results.Ok(hub.Orders(new ListingQuery(Size:50)).Items));
-app.MapPut("/api/orders/{id}/status", (DemoStore db,string id,OrderPatch patch)=>{
-    var allowed=new[]{"Yeni","Hazırlanıyor","Kargolandı","Tamamlandı","İptal"};if(!allowed.Contains(patch.Status))return Results.BadRequest(new{error="Geçersiz sipariş durumu."});
-    var o=db.Modify(s=>{var v=s.Orders.FirstOrDefault(x=>x.Id==id);if(v==null)return null;v.Status=patch.Status;db.Event(s,"Sipariş durumu",$"{v.Id} → {patch.Status}");return v;});return o is null?Results.NotFound():Results.Ok(o);
+app.MapPut("/api/orders/{id}/status", (DemoStore db,OperationsHub hub,string id,OrderPatch patch)=>{
+    var allowed=new[]{"Yeni","Hazırlanıyor","Kargolandı","Tamamlandı","İptal","İade"};
+    if(!allowed.Contains(patch.Status))return Results.BadRequest(new{error="Geçersiz sipariş durumu."});
+    var existingOrder=hub.AllOrders().FirstOrDefault(x=>x.Id==id);
+    if(existingOrder is null)return Results.NotFound();
+    if(existingOrder.SourceMode!="local")return Results.Conflict(new{error="Pazaryeri sipariş durumu WMS/kargo kaynağından alınmalıdır."});
+    try {
+        var order=db.Modify(s=>{var value=s.Orders.FirstOrDefault(x=>x.Id==id);if(value==null)return null;LocalOrderStock.ChangeStatus(s,value,patch.Status);db.Event(s,"Sipariş durumu",$"{value.Id} → {patch.Status}");return value;});
+        return order is null?Results.NotFound():Results.Ok(order);
+    } catch(ArgumentException error){return Results.BadRequest(new{error=error.Message});}
 });
 app.MapGet("/api/connections", (DemoStore db)=>Results.Ok(db.Read().Connections));
 app.MapPut("/api/connections/{id}",(DemoStore db,string id,ConnectionPatch patch)=>{
@@ -136,34 +157,21 @@ app.MapPost("/api/sync/demo", async (DemoStore db, CentralStockService stock, De
     db.Modify(s => { s.LastSync = DateTimeOffset.UtcNow; db.Event(s, "Demo senkronizasyon", "Kaynak stok okundu ve demo kanalların güncellemeleri arka plan kuyruğuna alındı."); return true; });
     return Results.Ok(new { message = "Kaynak stok okundu. Kanal güncellemeleri arka planda işleniyor.", queue = demo.QueueStatus() });
 });
-app.MapGet("/api/activity",(DemoStore db)=>Results.Ok(db.Read().Activity));
+app.MapGet("/api/activity",(OperationsHub hub)=>Results.Ok(hub.Activities()));
 app.MapGet("/api/settings",(DemoStore db)=>Results.Ok(db.Read().Settings));
 app.MapPut("/api/settings",(DemoStore db,Settings settings)=>{if(string.IsNullOrWhiteSpace(settings.BusinessName)||settings.BusinessName.Length>200||settings.Currency is null||!System.Text.RegularExpressions.Regex.IsMatch(settings.Currency,"^[A-Z]{3}$")||settings.LowStockThreshold is <0 or >10000000)return Results.BadRequest(new{error="İşletme adı, para birimi veya stok eşiği geçersiz."});db.Modify(s=>{s.Settings=settings;db.Event(s,"Ayarlar güncellendi","Tercihler kaydedildi");return true;});return Results.Ok(settings);});
 app.MapGet("/api/export/products.csv", (DemoStore db) =>
-    Results.File(ProductCsv.Create(db.Read().Products), "text/csv", "urunler.csv"));
+    Results.File(db.CatalogRead(s=>ProductCsv.Create(s.Products.Where(p=>p.SourceSystem==ProductOwnershipPolicy.ErpSource).Select(p=>MarketPilot.Web.Pricing.PricingProjection.Clone(s,p)))), "text/csv", "urunler.csv"));
 
 // MarketPilot 2.0: internal stock ledger, barcodes and demo shipping records.
 app.MapGet("/api/stock/movements", (DemoStore db) => Results.Ok(db.Read().StockMovements));
-app.MapPost("/api/stock/movements", (DemoStore db, StockMovementDraft draft) => {
-    if (draft.Delta == 0 || Math.Abs((long)draft.Delta)>100000 || string.IsNullOrWhiteSpace(draft.Reason))
-        return Results.BadRequest(new {error="Geçerli miktar değişimi ve neden gerekli."});
-    var result = db.Modify(s => {
-        var product=s.Products.FirstOrDefault(p=>p.Id==draft.ProductId);
-        if(product is null || (long)product.Stock+draft.Delta<0) return null;
-        if(!product.StockKnown)return null;product.Stock+=draft.Delta;product.Version++;
-        var item=new StockMovement {Id=Guid.NewGuid().ToString("N")[..10],ProductId=product.Id,ProductName=product.Name,Delta=draft.Delta,Balance=product.Stock,Reason=draft.Reason.Trim(),At=DateTimeOffset.UtcNow};
-        s.StockMovements.Insert(0,item);
-        db.Event(s,"Stok hareketi",$"{product.Sku}: {draft.Delta:+#;-#;0} / {draft.Reason}");
-        return item;
-    });
-    return result is null?Results.BadRequest(new {error="Ürün bulunamadı veya stok negatife düşer."}):Results.Ok(result);
-});
+app.MapPost("/api/stock/movements", () => Results.Conflict(new {error="Stok hareketleri WMS/depo kaynağından alınmalıdır; yerel stok yazımı kapalıdır."}));
 app.MapGet("/api/shipments",(OperationsHub hub)=>Results.Ok(hub.Shipments(new ListingQuery(Size:50)).Items));
 app.MapPost("/api/shipments",(DemoStore db,ShipmentDraft draft)=>{
     if(string.IsNullOrWhiteSpace(draft.OrderId)||string.IsNullOrWhiteSpace(draft.Carrier)||string.IsNullOrWhiteSpace(draft.TrackingNumber))
         return Results.BadRequest(new {error="Sipariş, kargo firması ve takip numarası gerekli."});
     var item=db.Modify(s=>{
-        if(!s.Orders.Any(o=>o.Id==draft.OrderId)||s.Shipments.Any(x=>x.OrderId==draft.OrderId))return null;
+        if(!s.Orders.Any(o=>o.Id==draft.OrderId&&o.SourceMode=="local")||s.Shipments.Any(x=>x.OrderId==draft.OrderId))return null;
         var sh=new Shipment{Id=Guid.NewGuid().ToString("N")[..10],OrderId=draft.OrderId,Carrier=draft.Carrier.Trim(),TrackingNumber=draft.TrackingNumber.Trim(),Status="Hazırlanıyor",CreatedAt=DateTimeOffset.UtcNow};
         s.Shipments.Insert(0,sh);db.Event(s,"Gönderi oluşturuldu",$"{sh.OrderId} · {sh.Carrier}");return sh;
     });
@@ -171,17 +179,15 @@ app.MapPost("/api/shipments",(DemoStore db,ShipmentDraft draft)=>{
 });
 app.MapPut("/api/shipments/{id}/status",(DemoStore db,string id,ShipmentStatusPatch patch)=>{
     if(!new[]{"Hazırlanıyor","Kargoya verildi","Teslim edildi","İptal"}.Contains(patch.Status))return Results.BadRequest(new{error="Geçersiz durum."});
-    var item=db.Modify(s=>{var sh=s.Shipments.FirstOrDefault(x=>x.Id==id);if(sh is null)return null;sh.Status=patch.Status;db.Event(s,"Gönderi güncellendi",$"{sh.OrderId}: {patch.Status}");return sh;});
+    var item=db.Modify(s=>{var sh=s.Shipments.FirstOrDefault(x=>x.Id==id);if(sh is null)return null;var linked=s.Orders.FirstOrDefault(o=>o.Id==sh.OrderId);if(linked is null||linked.SourceMode!="local")return null;sh.Status=patch.Status;if(patch.Status is "Kargoya verildi" or "Teslim edildi")LocalOrderStock.ChangeStatus(s,linked,patch.Status=="Teslim edildi"?"Tamamlandı":"Kargolandı");db.Event(s,"Gönderi güncellendi",$"{sh.OrderId}: {patch.Status}");return sh;});
     return item is null?Results.NotFound():Results.Ok(item);
 });
-app.MapGet("/api/barcodes",(DemoStore db)=>Results.Ok(db.Read().Products.Select(p=>new {p.Id,p.Name,p.Sku,p.Barcode})));
-app.MapPut("/api/products/{id}/barcode",(DemoStore db,string id,BarcodePatch patch)=>{
-    var barcode=(patch.Barcode??"").Trim();
-    if(barcode.Length>40 || (barcode.Length>0 && !System.Text.RegularExpressions.Regex.IsMatch(barcode,@"^[a-zA-Z0-9\-_.]+$")))return Results.BadRequest(new{error="Barkod 40 karakteri geçemez ve harf/rakam/-/_. içermelidir."});
-    var item=db.Modify(s=>{var p=s.Products.FirstOrDefault(x=>x.Id==id);if(p is null || (barcode.Length>0 && s.Products.Any(x=>x.Id!=id && x.Barcode==barcode)))return null;p.Barcode=barcode;p.Version++;db.Event(s,"Barkod güncellendi",$"{p.Sku} → {barcode}");return p;});
-    return item is null?Results.Conflict(new{error="Ürün bulunamadı veya barkod başka bir üründe kullanılıyor."}):Results.Ok(item);
-});
+app.MapGet("/api/barcodes",(DemoStore db)=>Results.Ok(db.Read().Products.Where(p=>p.SourceSystem==ProductOwnershipPolicy.ErpSource).Select(p=>new {p.Id,p.Name,p.Sku,p.Barcode})));
+app.MapPut("/api/products/{id}/barcode",(DemoStore db,string id,BarcodePatch patch)=>db.CatalogRead(s=>s.Products.Any(p=>p.Id==id))
+    ?Results.Conflict(new{error="Barkod ana verisi salt okunurdur; değişiklik Nebim V3 kaynağından alınmalıdır."})
+    :Results.NotFound(new{error="Ürün bulunamadı."}));
 
+app.MapFallback("/api/{**path}",()=>Results.NotFound(new{error="API işlemi bulunamadı."}));
 app.MapFallbackToFile("index.html");
 app.Run();
 
@@ -190,41 +196,40 @@ public record StockMovementDraft(string ProductId,int Delta,string Reason);
 public record ShipmentDraft(string OrderId,string Carrier,string TrackingNumber);
 public record ShipmentStatusPatch(string Status);
 public class StockMovement {public string Id{get;set;}="";public string ProductId{get;set;}="";public string ProductName{get;set;}="";public decimal Delta{get;set;}public decimal Balance{get;set;}public string Reason{get;set;}="";public DateTimeOffset At{get;set;}=DateTimeOffset.UtcNow;}
-public class Shipment {public string StoreId{get;set;}="";public string Id{get;set;}="";public string OrderId{get;set;}="";public string Carrier{get;set;}="";public string TrackingNumber{get;set;}="";public string Status{get;set;}="Hazırlanıyor";public DateTimeOffset CreatedAt{get;set;}=DateTimeOffset.UtcNow;}
-public class Product {public List<string> Images{get;set;}=new();public Dictionary<string,string> Attributes{get;set;}=new();public string Brand{get;set;}="";public string Description{get;set;}="";public string Currency{get;set;}="TRY";public bool StockKnown{get;set;}=true;public bool PriceKnown{get;set;}=true;public bool? VatIncluded{get;set;}=true;public string SourceMode{get;set;}="local";public int Version{get;set;}=1;public DateTimeOffset CreatedAt{get;set;}=DateTimeOffset.UtcNow;public string Barcode{get;set;}="";public string Id{get;set;}="";public string Name{get;set;}="";public string Sku{get;set;}="";public string Category{get;set;}="";public decimal Price{get;set;}public decimal Stock{get;set;}public string Image{get;set;}="📦";public List<string> Channels{get;set;}=new();public string Status{get;set;}="Aktif";}
-public record ProductDraft(string Name,string Sku,string? Category,decimal Price,int Stock,string? Image,List<string>? Channels);
+public class Shipment {public List<ExternalReference> ExternalReferences{get;set;}=[];public string Source{get;set;}="";public string? LabelUrl{get;set;}public DateTimeOffset UpdatedAt{get;set;}=DateTimeOffset.UtcNow;public string StoreId{get;set;}="";public string Id{get;set;}="";public string OrderId{get;set;}="";public string Carrier{get;set;}="";public string TrackingNumber{get;set;}="";public string Status{get;set;}="Hazırlanıyor";public DateTimeOffset CreatedAt{get;set;}=DateTimeOffset.UtcNow;}
+public class Product {public Dictionary<string,long> ErpVersions{get;set;}=[];public string ErpProductId{get;set;}="";public string ErpVariantId{get;set;}="";public string ErpProfileId{get;set;}="";public long ErpSourceVersion{get;set;}public DateTimeOffset? ErpSyncedAt{get;set;}public string ErpReviewReason{get;set;}="";public string ErpContentHash{get;set;}="";public List<ExternalReference> ExternalReferences{get;set;}=[];public StockValueState? StockState{get;set;}public StockValueState ReservationState{get;set;}=StockValueState.NotProvided;public decimal ReservedQuantity{get;set;}public decimal? SellableStock{get;set;}public StockValueState SellableStockState{get;set;}=StockValueState.NotProvided;public string VariantId{get;set;}="";public List<string> Images{get;set;}=new();public Dictionary<string,string> Attributes{get;set;}=new();public string Brand{get;set;}="";public string Description{get;set;}="";public string Currency{get;set;}="TRY";public bool StockKnown{get;set;}=true;public bool PriceKnown{get;set;}=true;public bool? VatIncluded{get;set;}=true;public string SourceSystem{get;set;}="";public string SourceMode{get;set;}="local";public int Version{get;set;}=1;public DateTimeOffset CreatedAt{get;set;}=DateTimeOffset.UtcNow;public string Barcode{get;set;}="";public string Id{get;set;}="";public string Name{get;set;}="";public string Sku{get;set;}="";public string Category{get;set;}="";[JsonIgnore] public decimal Price{get;set;}[JsonPropertyName("price")] public decimal? PriceValue{get=>PriceKnown?Price:null;set{Price=value??0;if(value==null)PriceKnown=false;}}public decimal Stock{get;set;}public string Image{get;set;}="📦";public List<string> Channels{get;set;}=new();public string Status{get;set;}="Aktif";}
 public record ProductPatch(decimal? Price,int? Stock,string? Status);
-public class Order {public bool TotalKnown{get;set;}=true;public string StoreId{get;set;}="";public string PackageId{get;set;}="";public string ChannelOrderNumber{get;set;}="";public string SourceMode{get;set;}="local";public string Currency{get;set;}="TRY";public OperationLine[] Lines{get;set;}=[];public string Id{get;set;}="";public string Customer{get;set;}="";public string Channel{get;set;}="";public string Product{get;set;}="";public decimal Total{get;set;}public int Quantity{get;set;}public string Status{get;set;}="Yeni";public DateTimeOffset Date{get;set;}=DateTimeOffset.Now;}
+public class Order {public List<ExternalReference> ExternalReferences{get;set;}=[];public MarketplaceAddress? ShipmentAddress{get;set;}public string CustomerEmail{get;set;}="";public string SourceIdentity{get;set;}="local";public MarketplaceInvoice? Invoice{get;set;}public MarketplaceCargo? Cargo{get;set;}public int Version{get;set;}=1;public bool StockManaged{get;set;}public bool StockApplied{get;set;}public string RequestId{get;set;}="";public string RequestFingerprint{get;set;}="";public bool TotalKnown{get;set;}=true;public string StoreId{get;set;}="";public string PackageId{get;set;}="";public string ChannelOrderNumber{get;set;}="";public string SourceMode{get;set;}="local";public string Currency{get;set;}="TRY";public OperationLine[] Lines{get;set;}=[];public string Id{get;set;}="";public string Customer{get;set;}="";public string Channel{get;set;}="";public string Product{get;set;}="";public decimal Total{get;set;}public int Quantity{get;set;}public string Status{get;set;}="Yeni";public DateTimeOffset Date{get;set;}=DateTimeOffset.Now;}
 public record OrderPatch(string Status);
 public class Connection {public string Id{get;set;}="";public string Name{get;set;}="";public string Initial{get;set;}="";public string Color{get;set;}="#888";public bool Enabled{get;set;}public bool Available{get;set;}public string Note{get;set;}="";}
 public record ConnectionPatch(bool Enabled);
 public class Activity {public string Title{get;set;}="";public string Detail{get;set;}="";public DateTimeOffset At{get;set;}=DateTimeOffset.Now;}
 public class Settings {public string BusinessName{get;set;}="İnternet Tekstil";public string Currency{get;set;}="TRY";public int LowStockThreshold{get;set;}=10;public bool EmailNotifications{get;set;}=true;public bool SyncNotifications{get;set;}=true;}
-public class Database {public CatalogState Catalog{get;set;}=new();public List<StockMovement> StockMovements{get;set;}=new();public List<Shipment> Shipments{get;set;}=new();public List<Product> Products{get;set;}=new();public List<Order> Orders{get;set;}=new();public List<Connection> Connections{get;set;}=new();public List<Activity> Activity{get;set;}=new();public Settings Settings{get;set;}=new();public DateTimeOffset LastSync{get;set;}=DateTimeOffset.Now.AddMinutes(-18);}
+public class Database {public MarketPilot.Web.Pricing.PricingState Pricing{get;set;}=new();public MarketPilot.Web.Enterprise.Nebim.MockNebimState NebimMock{get;set;}=new();public ContractState Contracts{get;set;}=new();public OperationalState Operations{get;set;}=new();public Dictionary<string,ErpReceipt> ErpReceipts{get;set;}=new();public List<WorkspaceRecord> WorkspaceRecords{get;set;}=new();public Dictionary<string,string> WorkspaceActions{get;set;}=new();public Dictionary<string,ProductCost> ProductCosts{get;set;}=new();public CatalogState Catalog{get;set;}=new();public List<StockMovement> StockMovements{get;set;}=new();public List<Shipment> Shipments{get;set;}=new();public List<Product> Products{get;set;}=new();public List<Order> Orders{get;set;}=new();public List<Connection> Connections{get;set;}=new();public List<Activity> Activity{get;set;}=new();public Settings Settings{get;set;}=new();public DateTimeOffset LastSync{get;set;}=DateTimeOffset.Now.AddMinutes(-18);}
 public partial class DemoStore {
  private readonly object _gate=new();private readonly string _file;private readonly JsonSerializerOptions _json=new(JsonSerializerDefaults.Web){WriteIndented=true}; private Database _data; private long _revision; private readonly string _instance=Guid.NewGuid().ToString("N"); public string Revision => _instance + ":" + Interlocked.Read(ref _revision);
- public DemoStore(IWebHostEnvironment env){var folder=Path.Combine(env.ContentRootPath,"Data");Directory.CreateDirectory(folder);_file=Path.Combine(folder,"demo-store.json");_data=File.Exists(_file)?JsonSerializer.Deserialize<Database>(File.ReadAllText(_file),_json)??throw new InvalidOperationException("Local catalogue file cannot be read."):Seed();Save();}
+ public DemoStore(IWebHostEnvironment env){var folder=Path.Combine(env.ContentRootPath,"Data");Directory.CreateDirectory(folder);_file=Path.Combine(folder,"demo-store.json");_data=File.Exists(_file)?JsonSerializer.Deserialize<Database>(File.ReadAllText(_file),_json)??throw new InvalidOperationException("Local catalogue file cannot be read."):Seed();foreach(var product in _data.Products){product.StockState??=product.StockKnown?StockValueState.Known:StockValueState.Unknown;product.ReservedQuantity=Math.Max(0,product.ReservedQuantity);product.ExternalReferences??=[];}foreach(var order in _data.Orders)order.ExternalReferences??=[];foreach(var shipment in _data.Shipments)shipment.ExternalReferences??=[];foreach(var record in _data.WorkspaceRecords)record.ExternalReferences??=[];DemoErpCatalogFixture.Apply(_data);foreach(var order in _data.Orders.Where(o=>o.SourceMode=="local")){order.StockManaged=false;order.StockApplied=false;}RetiredChannelCleanup.Apply(_data);Save();}
  public Database Read(){lock(_gate){return JsonSerializer.Deserialize<Database>(JsonSerializer.Serialize(_data,_json),_json)!;}}
  public T Modify<T>(Func<Database,T> action){lock(_gate){var before=JsonSerializer.Serialize(_data,_json);try{var r=action(_data);Save();return r;}catch{_data=JsonSerializer.Deserialize<Database>(before,_json)!;throw;}}}
  public void Event(Database s,string title,string detail){s.Activity.Insert(0,new Activity{Title=title,Detail=detail});s.Activity=s.Activity.Take(40).ToList();}
  private void Save(){var temp=_file+".tmp";File.WriteAllText(temp,JsonSerializer.Serialize(_data,_json));File.Move(temp,_file,true);Interlocked.Increment(ref _revision);}
- public object Overview(){var d=Read();var orders=d.Orders.Where(o=>o.Status!="İptal").ToList();return new{revenue=orders.Sum(o=>o.Total),orders=d.Orders.Count,products=d.Products.Count,lowStock=d.Products.Count(p=>p.StockKnown&&p.Stock<=d.Settings.LowStockThreshold),activeConnections=d.Connections.Count(c=>c.Enabled && c.Available),lastSync=d.LastSync,latestOrders=d.Orders.Take(5),activity=d.Activity.Take(5),channels=d.Orders.GroupBy(o=>o.Channel).Select(g=>new{name=g.Key,total=g.Sum(o=>o.Total),count=g.Count()}).OrderByDescending(x=>x.total).ToList()};}
+ public object Overview(){var d=Read();var orders=d.Orders.Where(o=>o.Status!="İptal").ToList();var products=d.Products.Where(p=>p.SourceSystem==ProductOwnershipPolicy.ErpSource).ToArray();return new{revenue=orders.Sum(o=>o.Total),orders=d.Orders.Count,products=products.Length,lowStock=products.Count(p=>p.StockKnown&&p.Stock<=d.Settings.LowStockThreshold),activeConnections=d.Connections.Count(c=>c.Enabled && c.Available),lastSync=d.LastSync,latestOrders=d.Orders.Take(5),activity=d.Activity.Take(5),channels=d.Orders.GroupBy(o=>o.Channel).Select(g=>new{name=g.Key,total=g.Sum(o=>o.Total),count=g.Count()}).OrderByDescending(x=>x.total).ToList()};}
  private static Database Seed(){var d=new Database();
  var items=new (string name,string sku,string category,decimal price,int stock,string icon,string[] channels)[]{
- ("Kablosuz Bluetooth Kulaklık","ELK-1001","Elektronik",1899,124,"🎧",new[]{"Trendyol","Amazon"}),
- ("Minimalist Seramik Vazo","EV-2040","Ev & Yaşam",749,8,"🏺",new[]{"Hepsiburada","n11"}),
- ("Organik Pamuk Oversize Tişört","MOD-3002","Moda",599,86,"👕",new[]{"Trendyol","WooCommerce"}),
- ("Paslanmaz Çelik Termos 500ml","EV-1018","Ev & Yaşam",1099,42,"🥤",new[]{"Amazon","Trendyol","n11"}),
- ("Ergonomik Kablosuz Mouse","ELK-1033","Elektronik",1299,5,"🖱️",new[]{"Hepsiburada","Amazon"}),
- ("Deri Kapaklı Not Defteri","KRT-4512","Kırtasiye",329,235,"📓",new[]{"n11","WooCommerce"}),
- ("Aromaterapi Mum Seti","EV-5551","Ev & Yaşam",429,64,"🕯️",new[]{"Trendyol","Hepsiburada"}),
- ("Akıllı Masa Lambası","ELK-6090","Elektronik",1799,19,"💡",new[]{"Amazon","WooCommerce"}),
- ("Spor Su Matarası","SP-3339","Spor",489,102,"🏃",new[]{"Trendyol","n11"})};
- int i=1;foreach(var t in items)d.Products.Add(new Product{Id=$"p{i++:000}",Name=t.name,Sku=t.sku,Category=t.category,Price=t.price,Stock=t.stock,Image=t.icon,Channels=t.channels.ToList()});
- var customers=new[]{"Zeynep Kaya","Mehmet Yılmaz","Elif Demir","Burak Aydın","Sude Şahin","Ahmet Arslan","Deniz Öztürk","Ceren Koç","Can Yıldız","Merve Öz"};var channels=new[]{"Trendyol","Hepsiburada","Amazon","n11","WooCommerce"};var statuses=new[]{"Yeni","Hazırlanıyor","Kargolandı","Tamamlandı","Tamamlandı","Tamamlandı","İptal"};var rng=new Random(47);
+ ("Organik Pamuk Oversize Tişört","TSH-3002","Giyim / Tişört",599,86,"👕",new[]{"Trendyol"}),
+ ("Keten Gömlek","GML-1018","Giyim / Gömlek",1099,42,"👔",new[]{"Amazon","Trendyol","n11"}),
+ ("Dokuma Pantolon","PNT-1033","Giyim / Pantolon",1299,5,"👖",new[]{"Hepsiburada","Amazon"}),
+ ("Fermuarlı Sweatshirt","SWT-4512","Giyim / Sweatshirt",799,235,"🧥",new[]{"n11"}),
+ ("Triko Hırka","HRK-5551","Giyim / Hırka",1199,64,"🧶",new[]{"Trendyol","Hepsiburada"}),
+ ("Pamuklu Basic Tişört","TSH-6090","Giyim / Tişört",499,19,"👕",new[]{"Amazon"}),
+ ("Kadın Günlük Elbise","ELB-3339","Giyim / Elbise",899,102,"👗",new[]{"Trendyol","n11"}),
+ ("Kapüşonlu Mont","MNT-2040","Giyim / Dış Giyim",1749,8,"🧥",new[]{"Hepsiburada","n11"}),
+ ("Erkek Polo Yaka Tişört","POL-1001","Giyim / Tişört",749,124,"👕",new[]{"Trendyol","Amazon"})};
+ int i=1;foreach(var t in items)d.Products.Add(new Product{Id=$"p{i++:000}",Name=t.name,Sku=t.sku,Category=t.category,Price=t.price,Stock=t.stock,Image=t.icon,Channels=t.channels.ToList(),SourceSystem=ProductOwnershipPolicy.ErpSource,SourceMode="demo"});
+ var customers=new[]{"Zeynep Kaya","Mehmet Yılmaz","Elif Demir","Burak Aydın","Sude Şahin","Ahmet Arslan","Deniz Öztürk","Ceren Koç","Can Yıldız","Merve Öz"};var channels=new[]{"Trendyol","Hepsiburada","Amazon","n11"};var statuses=new[]{"Yeni","Hazırlanıyor","Kargolandı","Tamamlandı","Tamamlandı","Tamamlandı","İptal"};var rng=new Random(47);
  for(int j=0;j<32;j++){var p=d.Products[rng.Next(d.Products.Count)];var qty=rng.Next(1,4);d.Orders.Add(new Order{Id=$"MP-{260000+j}",Customer=customers[j%customers.Length],Channel=channels[j%channels.Length],Product=p.Name,Total=p.Price*qty,Quantity=qty,Status=statuses[j%statuses.Length],Date=DateTimeOffset.Now.AddHours(-j*3-rng.Next(1,3))});}
- var cons=new (string,string,string,bool,string)[]{("Trendyol","T","#ff7c31",true,"Demo bağlantı · Gerçek API bağlı değil"),("Hepsiburada","H","#f49b22",true,"Demo bağlantı · Gerçek API bağlı değil"),("Amazon","a","#252b37",true,"Demo bağlantı · Gerçek API bağlı değil"),("n11","n","#d34a7b",false,"Bağlantı henüz yapılandırılmadı"),("WooCommerce","W","#8558c4",true,"Demo bağlantı · Gerçek API bağlı değil"),("Shopify","S","#76b64c",false,"Adaptör geliştirme aşamasında"),("ÇiçekSepeti","Ç","#ee5a69",false,"Adaptör geliştirme aşamasında"),("PrestaShop","P","#3482c6",false,"Adaptör geliştirme aşamasında"),("eBay","e","#527cda",false,"Adaptör geliştirme aşamasında")};
+ var cons=new (string,string,string,bool,string)[]{("Trendyol","T","#ff7c31",true,"Demo bağlantı · Gerçek API bağlı değil"),("Hepsiburada","H","#f49b22",true,"Demo bağlantı · Gerçek API bağlı değil"),("Amazon","a","#252b37",true,"Demo bağlantı · Gerçek API bağlı değil"),("n11","n","#d34a7b",false,"Bağlantı henüz yapılandırılmadı"),("Shopify","S","#76b64c",false,"Adaptör geliştirme aşamasında"),("ÇiçekSepeti","Ç","#ee5a69",false,"Adaptör geliştirme aşamasında"),("PrestaShop","P","#3482c6",false,"Adaptör geliştirme aşamasında"),("eBay","e","#527cda",false,"Adaptör geliştirme aşamasında")};
  int k=1;foreach(var c in cons)d.Connections.Add(new Connection{Id=$"c{k++}",Name=c.Item1,Initial=c.Item2,Color=c.Item3,Enabled=c.Item4,Available=c.Item4,Note=c.Item5});
- d.Activity=new(){new(){Title="Sipariş alındı",Detail="MP-260000 · Trendyol",At=DateTimeOffset.Now.AddMinutes(-6)},new(){Title="Stok kontrol edildi",Detail="9 ürün · Örnek veri",At=DateTimeOffset.Now.AddMinutes(-18)},new(){Title="Yeni ürün listelendi",Detail="Kablosuz Bluetooth Kulaklık",At=DateTimeOffset.Now.AddHours(-1)},new(){Title="Kargo durumu güncellendi",Detail="MP-260002 · Örnek işlem",At=DateTimeOffset.Now.AddHours(-2)}};return d;
+ d.Activity=new(){new(){Title="Sipariş alındı",Detail="MP-260000 · Trendyol",At=DateTimeOffset.Now.AddMinutes(-6)},new(){Title="Stok kontrol edildi",Detail="9 giyim ürünü · Örnek veri",At=DateTimeOffset.Now.AddMinutes(-18)},new(){Title="Ürün kaynağından alındı",Detail="Organik Pamuk Oversize Tişört",At=DateTimeOffset.Now.AddHours(-1)},new(){Title="Kargo durumu güncellendi",Detail="MP-260002 · Örnek işlem",At=DateTimeOffset.Now.AddHours(-2)}};return d;
  }
 }

@@ -55,12 +55,15 @@ public partial class DemoStore
     {
         lock (_gate)
         {
-            var rows = _data.Products.Where(p => string.IsNullOrWhiteSpace(q.Search) || ListingFilters.Text(p.Name, q.Search) || ListingFilters.Text(p.Sku, q.Search) || ListingFilters.Text(p.Barcode, q.Search))
+            var now=DateTimeOffset.UtcNow;
+            decimal? AuthorityPrice(Product p)=>_data.Pricing.LastSourceReadAt.HasValue&&_data.Pricing.LastSourceReadAt.Value.AddMinutes(_data.Pricing.Policy.SourceMaxAgeMinutes)>now?MarketPilot.Web.Pricing.ErpPricingService.MasterEntry(_data,p,now)?.Amount:null;
+            var rows = _data.Products.Where(p => p.SourceSystem == MarketPilot.Web.Catalog.ProductOwnershipPolicy.ErpSource)
+                .Where(p => string.IsNullOrWhiteSpace(q.Search) || ListingFilters.Text(p.Name, q.Search) || ListingFilters.Text(p.Sku, q.Search) || ListingFilters.Text(p.Barcode, q.Search))
                 .Where(p => ListingFilters.Exact(p.Barcode, q.Barcode) && ListingFilters.Exact(p.Sku, q.Sku) && ListingFilters.Exact(p.Status, q.Status) && ListingFilters.Text(p.Category, q.Category))
                 .Where(p => string.IsNullOrWhiteSpace(q.Channel) || p.Channels.Contains(q.Channel))
-                .Where(p => ListingFilters.Range(p.Stock, q.MinStock, q.MaxStock) && ListingFilters.Range(p.Price, q.MinPrice, q.MaxPrice));
-            rows = q.Sort switch { "name" => rows.OrderBy(p => p.Name).ThenBy(p => p.Id), "stockAsc" => rows.OrderBy(p => p.Stock).ThenBy(p => p.Id), "stockDesc" => rows.OrderByDescending(p => p.Stock).ThenBy(p => p.Id), "priceAsc" => rows.OrderBy(p => p.Price).ThenBy(p => p.Id), "priceDesc" => rows.OrderByDescending(p => p.Price).ThenBy(p => p.Id), "oldest" => rows.OrderBy(p => p.Id), _ => rows.OrderByDescending(p => p.Id) };
-            return JsonSerializer.Deserialize<ListingPage<Product>>(JsonSerializer.Serialize(ListingFilters.Page(rows, q), _json), _json)!;
+                .Where(p => ListingFilters.Range(p.Stock, q.MinStock, q.MaxStock) && ListingFilters.Range(AuthorityPrice(p), q.MinPrice, q.MaxPrice));
+            rows = q.Sort switch { "name" => rows.OrderBy(p => p.Name).ThenBy(p => p.Id), "stockAsc" => rows.OrderBy(p => p.Stock).ThenBy(p => p.Id), "stockDesc" => rows.OrderByDescending(p => p.Stock).ThenBy(p => p.Id), "priceAsc" => rows.OrderBy(p=>AuthorityPrice(p)==null).ThenBy(AuthorityPrice).ThenBy(p => p.Id), "priceDesc" => rows.OrderBy(p=>AuthorityPrice(p)==null).ThenByDescending(AuthorityPrice).ThenBy(p => p.Id), "oldest" => rows.OrderBy(p => p.Id), _ => rows.OrderByDescending(p => p.Id) };
+            var result=JsonSerializer.Deserialize<ListingPage<Product>>(JsonSerializer.Serialize(ListingFilters.Page(rows, q), _json), _json)!;foreach(var item in result.Items)MarketPilot.Web.Pricing.PricingProjection.Apply(_data,item);return result;
         }
     }
     public ListingPage<Order> SearchOrders(ListingQuery q)

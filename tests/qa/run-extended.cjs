@@ -1,0 +1,2 @@
+const path=require('node:path'),{spawnSync}=require('node:child_process'),fs=require('node:fs');const root=path.resolve(__dirname,'../..');
+const r=spawnSync(process.execPath,['tests/qa/extended-checks.cjs',...process.argv.slice(2)],{cwd:root,env:require('./environment.cjs')(root),windowsHide:true,encoding:'utf8',timeout:300000,maxBuffer:8*1024*1024});fs.writeFileSync(path.join(root,'docs/qa/evidence/extended-checks.log'),r.stdout+r.stderr);console.log(r.stdout,r.stderr);process.exitCode=r.status??1;

@@ -1,0 +1,1 @@
+PASS isolated Hepsiburada HTTP/browser: twelve sections with product variants, order progress, labels, category/address cards, financial summaries and job details, bounded lists, exact barcode filter, stock/price edit, order progression, return stock, store form, marketplace isolation, persistence and mobile width. No live account/data changed.

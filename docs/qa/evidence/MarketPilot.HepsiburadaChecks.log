@@ -1,0 +1,1 @@
+PASS Hepsiburada fixtures: environment/authentication, native paging, exact SKU, unknown fields, paid/unpaid orders, packages, missing invoices, claims, safe errors; no external writes.

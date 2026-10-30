@@ -110,18 +110,11 @@ await Reject(()=>writer.Send(Settings("n11"),product,9,null,default),"managed_in
 await Reject(()=>writer.Send(Settings("amazon"),product,9,null,default),"managed_inventory");
 transport.Depot=false;
 transport.Reject=true;
-await Reject(()=>writer.Send(Settings("n11"),product,9,160m,default),"write_rejected");
-await Reject(()=>writer.Send(Settings("amazon"),product,9,160m,default),"write_rejected");
+await Reject(()=>writer.Send(Settings("n11"),product,9,null,default),"write_rejected");
+await Reject(()=>writer.Send(Settings("amazon"),product,9,null,default),"write_rejected");
 transport.Reject=false;
-await writer.Send(Settings("n11"),product,9,160m,default);
-var priced=JsonDocument.Parse(transport.Requests.Last(x=>x.Mutation).Body).RootElement.GetProperty("payload").GetProperty("skus")[0];
-Check(priced.GetProperty("salePrice").GetDecimal()==160m&&priced.GetProperty("listPrice").GetDecimal()==200m,"n11 price pair lost");
-await writer.Send(Settings("amazon"),product,9,160m,default);
-var amazonPrice=JsonDocument.Parse(transport.Requests.Last(x=>x.Mutation).Body).RootElement.GetProperty("patches")[1];
-Check(amazonPrice.GetProperty("value")[0].GetProperty("currency").GetString()=="TRY"&&amazonPrice.GetProperty("value")[0].GetProperty("our_price")[0].GetProperty("schedule")[0].GetProperty("value_with_tax").GetDecimal()==160m,"Amazon price selector/schedule failed");
-await writer.Send(Settings("ticimax"),product,9,160m,default);
-var xml=XDocument.Parse(transport.Requests.Last(x=>x.Mutation).Body);
-Check(xml.Descendants().Single(x=>x.Name.LocalName=="SatisFiyati").Value=="160"&&xml.Descendants().Single(x=>x.Name.LocalName=="IndirimliFiyatiGuncelle").Value=="true","Ticimax explicit sale target failed");
+foreach(var market in new[]{"n11","amazon","ticimax","boyner","hepsiburada","trendyol"})
+ await Reject(()=>writer.Send(Settings(market),product,9,160m,default),"pricing_blocked");
 transport.Status=HttpStatusCode.TooManyRequests;
 await Reject(()=>writer.Send(Settings("hepsiburada"),product,9,null,default),"rate_limited");
 var temp=Path.Combine(Path.GetTempPath(),"marketpilot-account-demo-"+Guid.NewGuid().ToString("N"));

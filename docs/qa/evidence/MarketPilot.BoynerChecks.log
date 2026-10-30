@@ -1,0 +1,1 @@
+PASS Boyner official OpenAPI fixtures: Basic triple/User-Agent, addresses, filters/paging, unapproved versus rejected, package number/id, seconds timestamps, nested claim items, failed batch items, brands/categories/required attributes, safe errors and GET-only remote reads. No live account used.

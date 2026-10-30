@@ -75,6 +75,7 @@ public sealed partial class CentralStockSource(IHttpClientFactory factory, IConf
     private async Task<byte[]> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
         if (!IsConfigured(configuration)) throw new IntegrationException("configuration_missing", "Stok uygulaması adresi ve API anahtarı sunucuda tanımlanmadı.", 409);
+        MarketPilot.Web.Local.OutboundTargets.Authorize(request,configuration,Section);
         var key = configuration[$"{Section}:ApiKey"]!; var header = configuration[$"{Section}:ApiKeyHeader"] ?? "X-Api-Key";
         if (!HeaderName().IsMatch(header)) throw new IntegrationException("configuration_invalid", $"{Section}:ApiKeyHeader geçersiz.", 409);
         if (header.Equals("Authorization", StringComparison.OrdinalIgnoreCase)) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);

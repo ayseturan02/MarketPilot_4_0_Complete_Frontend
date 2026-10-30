@@ -58,6 +58,10 @@ Check(handler.Uri!.AbsolutePath.EndsWith("/sellers/123/addresses") && handler.St
 handler.Status = HttpStatusCode.Unauthorized; handler.Body = "test-secret upstream private content";
 try { await adapter.TestAsync(settings, default); throw new Exception("401 accepted"); }
 catch (IntegrationException e) { Check(e.Code == "upstream_401" && !e.Message.Contains("test-secret"), "Unsafe 401 response"); }
+handler.Status = HttpStatusCode.InternalServerError;
+var callsBeforeServerError = handler.Calls;
+try { await adapter.TestAsync(settings, default); throw new Exception("500 accepted"); }
+catch (IntegrationException e) { Check(e.Code == "upstream_500" && e.Status == 502 && !e.Message.Contains("test-secret") && handler.Calls == callsBeforeServerError + 1, "500 must be sanitized and must not cause an immediate retry storm"); }
 handler.Status = HttpStatusCode.TooManyRequests; handler.RetryAfter = TimeSpan.Zero;
 var callsBeforeRateLimit = handler.Calls;
 try { await adapter.TestAsync(settings, default); throw new Exception("429 accepted"); }

@@ -73,7 +73,8 @@ public sealed class TrendyolApiClient(HttpClient http, IConfiguration configurat
 
             var body = await ReadLimitedAsync(response, ct);
             if (!response.IsSuccessStatusCode)
-                throw Error(code, errorDetails && code is >= 400 and < 500 and not 401 and not 403 ? ValidationMessages(body) : null);
+                throw Error(code, errorDetails && code is >= 400 and < 500 and not 401 and not 403 ? ValidationMessages(body) : null,
+                    code == 429 ? IntegrationException.ReadRetryAfter(response) : null);
             return new(code, response.Content.Headers.ContentType?.ToString() ?? "", body);
         }
     }
@@ -107,7 +108,7 @@ public sealed class TrendyolApiClient(HttpClient http, IConfiguration configurat
         return buffer.ToArray();
     }
 
-    private static IntegrationException Error(int code, string? details)
+    private static IntegrationException Error(int code, string? details, TimeSpan? retryAfter = null)
     {
         var message = code switch
         {
@@ -124,7 +125,7 @@ public sealed class TrendyolApiClient(HttpClient http, IConfiguration configurat
             _ => $"Trendyol isteği başarısız (HTTP {code})."
         };
         if (!string.IsNullOrWhiteSpace(details)) message += " Trendyol: " + details;
-        return new IntegrationException($"upstream_{code}", message, code is 400 or 401 or 403 or 404 or 409 or 429 ? code : 502);
+        return new IntegrationException($"upstream_{code}", message, code is 400 or 401 or 403 or 404 or 409 or 429 ? code : 502, retryAfter);
     }
 
     // Only the human readable "message" fields are surfaced; the raw upstream body never reaches the client.

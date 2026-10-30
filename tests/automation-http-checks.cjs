@@ -20,13 +20,11 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
   await page.goto(base+'/#sync',{waitUntil:'domcontentloaded'});
-  await page.locator('[data-automation] form').waitFor();
-  await page.locator('[data-automation] input[name=enabled]').check();
-  await page.locator('[data-automation] input[name=intervalSeconds]').fill('30');
-  const saved=page.waitForResponse(r=>r.url().endsWith('/api/sync/automation')&&r.request().method()==='POST');
-  await page.locator('[data-automation]').getByRole('button',{name:'Otomasyonu kaydet',exact:true}).click();
-  assert.equal((await saved).status(),200);
-  await page.waitForFunction(()=>auData?.automation.stores.filter(s=>s.state==='completed').length>=7&&auData.outbox.queued===0&&auData.outbox.waiting===0,{},{timeout:30000});
+  await page.locator('[data-enterprise-sync] form').waitFor();
+  assert.equal(await page.getByRole('button',{name:'Verileri e\u015fitle',exact:true}).count(),1);
+  // The legacy timer remains covered through its API until a central plan takes ownership.
+  assert.equal((await api('/api/sync/automation',{enabled:true,intervalSeconds:30,stockEnabled:true,lookbackDays:2})).status,200);
+  for(let i=0;i<300;i++){const status=(await api('/api/sync/automation')).body;if(status.automation.stores.filter(s=>s.state==='completed').length>=7&&status.outbox.queued===0&&status.outbox.waiting===0)break;await sleep(100);}
   const first=read('synchronization.json'),registry=read('integration-connections.json');
   assert(first.settings.enabled&&first.settings.stockEnabled);
   assert.equal(Object.values(first.stores).length,7,'unconnected real store must not be polled');
@@ -69,7 +67,7 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   assert.equal((await api('/api/sync/automation',{enabled:false,intervalSeconds:30,stockEnabled:false,lookbackDays:2},viewer.cookie)).status,403);
   assert.equal((await api('/api/sync/automation',{enabled:false,intervalSeconds:30,stockEnabled:false,lookbackDays:2},admin.cookie)).status,200);
   assert.equal(read('synchronization.json').settings.enabled,false);
-  console.log('PASS automation HTTP/browser: enable from UI, persisted schedule, genuine timer-driven polling and stock distribution after restart with browser closed, durable outbox completion, no duplicate sales, real-store exclusion, validation, roles and mobile.');
+  console.log('PASS automation HTTP/browser: central plan UI, legacy API persisted schedule, genuine timer-driven polling and stock distribution after restart with browser closed, durable outbox completion, no duplicate sales, real-store exclusion, validation, roles and mobile.');
  }finally{
   if(browser)await browser.close();await stop();
   const absolute=path.resolve(temp);if(!absolute.startsWith(path.resolve(os.tmpdir())+path.sep)||!path.basename(absolute).startsWith('marketpilot-auto-http-'))throw Error('Unsafe cleanup');

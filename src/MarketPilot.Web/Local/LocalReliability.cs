@@ -10,17 +10,18 @@ namespace MarketPilot.Web.Local;
 public sealed record LocalAuditEvent(DateTimeOffset Date, string Level, string Category, string Message);
 public sealed class LocalAudit
 {
-    private readonly object gate = new(); private readonly string file; private List<LocalAuditEvent> events;
-    public LocalAudit(IWebHostEnvironment env)
+    private readonly object gate = new(); private readonly string file; private List<LocalAuditEvent> events;private readonly IConfiguration? configuration;
+    public LocalAudit(IWebHostEnvironment env,IConfiguration? configuration=null)
     {
+        this.configuration=configuration;
         var folder = Path.Combine(env.ContentRootPath, "Data"); Directory.CreateDirectory(folder); file = Path.Combine(folder, "system-events.json");
         events = File.Exists(file) ? JsonSerializer.Deserialize<List<LocalAuditEvent>>(File.ReadAllText(file)) ?? new() : new();
     }
     public void Add(string level, string category, string message)
     {
-        lock(gate) { events.Insert(0, new(DateTimeOffset.UtcNow, level, category, message)); events = events.Take(200).ToList(); var tmp = file + ".tmp"; File.WriteAllText(tmp, JsonSerializer.Serialize(events)); File.Move(tmp, file, true); }
+        lock(gate) { events.Insert(0, new(DateTimeOffset.UtcNow, SecurityHardening.Mask(level,configuration), SecurityHardening.Mask(category,configuration), SecurityHardening.Mask(message,configuration))); events = events.Take(200).ToList(); var tmp = file + ".tmp"; File.WriteAllText(tmp, JsonSerializer.Serialize(events)); File.Move(tmp, file, true); }
     }
-    public IReadOnlyList<LocalAuditEvent> Recent() { lock(gate) return events.ToArray(); }
+    public IReadOnlyList<LocalAuditEvent> Recent() { lock(gate) return events.Select(entry=>entry with{Level=SecurityHardening.Mask(entry.Level,configuration),Category=SecurityHardening.Mask(entry.Category,configuration),Message=SecurityHardening.Mask(entry.Message,configuration)}).ToArray(); }
 }
 public sealed class ReliabilityState
 {
@@ -35,7 +36,7 @@ public sealed record BackupManifest(DateTimeOffset CreatedAt, Dictionary<string,
 public sealed class LocalBackups
 {
     private readonly object gate = new(); private readonly string data,folder; private readonly byte[] key;
-    private static readonly string[] Files = ["demo-store.json", "integration-demo.json", "integration-connections.json", "local-accounts.json", "system-events.json", "central-stock.json", "central-stock-real.json", "order-webhook-inbox.json", "marketplace-outbox.json", "synchronization.json"];
+    private static readonly string[] Files = ["demo-store.json", "integration-demo.json", "integration-connections.json", "local-accounts.json", "system-events.json", "central-stock.json", "central-stock-real.json", "order-webhook-inbox.json", "marketplace-outbox.json", "synchronization.json", "enterprise-sync.json"];
     private const long MaxBytes = 256L * 1024 * 1024;
     public LocalBackups(IWebHostEnvironment env)
     {
@@ -82,20 +83,52 @@ public sealed class LocalBackups
     }
     public object Verify(string name)
     {
-        lock(gate)
-        {
+        lock(gate){var result=ReadArchive(name);return new {ok=true,files=result.Files.Count,createdAt=result.Manifest.CreatedAt};}
+    }
+    private (BackupManifest Manifest,Dictionary<string,byte[]> Files) ReadArchive(string name)
+    {
             var path=Target(name);if(new FileInfo(path).Length>MaxBytes)throw new InvalidOperationException("Yedek boyutu geçersiz.");var env=JsonSerializer.Deserialize<BackupEnvelope>(File.ReadAllText(path))??throw new InvalidOperationException("Geçersiz yedek.");if(env.Version!=1)throw new InvalidOperationException("Desteklenmeyen yedek sürümü.");
             var cipher=Convert.FromBase64String(env.Cipher);var plain=new byte[cipher.Length];using(var aes=new AesGcm(key,16))aes.Decrypt(Convert.FromBase64String(env.Nonce),cipher,Convert.FromBase64String(env.Tag),plain,Encoding.UTF8.GetBytes("InternetTekstilBackup:v1"));
             using var stream=new MemoryStream(plain);using var zip=new ZipArchive(stream,ZipArchiveMode.Read);var meta=zip.GetEntry("manifest.json")??throw new InvalidOperationException("Yedek bilgisi eksik.");using var reader=meta.Open();var manifest=JsonSerializer.Deserialize<BackupManifest>(reader)??throw new InvalidOperationException("Yedek bilgisi okunamadı.");if(manifest.Hashes.Count>1000||zip.Entries.Select(e=>e.FullName).Distinct().Count()!=zip.Entries.Count)throw new InvalidOperationException("Geçersiz yedek içeriği.");
+            var restored=new Dictionary<string,byte[]>();
             long total=0;foreach(var entry in zip.Entries)
             {
                 if(entry.FullName=="manifest.json")continue;
                 if(!Allowed(entry.FullName)||!manifest.Hashes.TryGetValue(entry.FullName,out var expected))throw new InvalidOperationException("Beklenmeyen yedek dosyası.");
                 total+=entry.Length;if(total>MaxBytes)throw new InvalidOperationException("Yedek boyut sınırı aşıldı.");using var input=entry.Open();using var output=new MemoryStream();input.CopyTo(output);var bytes=output.ToArray();if(Convert.ToHexString(SHA256.HashData(bytes))!=expected)throw new InvalidOperationException("Yedek bütünlüğü doğrulanamadı.");
-                if(entry.FullName.EndsWith(".json"))using(JsonDocument.Parse(bytes)){}else System.Xml.Linq.XDocument.Parse(Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF'));
+                restored.Add(entry.FullName,bytes);if(entry.FullName.EndsWith(".json"))using(JsonDocument.Parse(bytes)){}else System.Xml.Linq.XDocument.Parse(Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF'));
             }
-            if(zip.Entries.Count!=manifest.Hashes.Count+1)throw new InvalidOperationException("Yedek dosyaları eksik.");return new {ok=true,files=manifest.Hashes.Count,createdAt=manifest.CreatedAt};
+            if(zip.Entries.Count!=manifest.Hashes.Count+1)throw new InvalidOperationException("Yedek dosyaları eksik.");return (manifest,restored);
+    }
+    public object RestoreCheck(string name)
+    {
+        lock(gate)
+        {
+            var archive=ReadArchive(name);
+            var parent=Path.GetFullPath(Path.Combine(data,"RestoreChecks"));Directory.CreateDirectory(parent);
+            var target=Path.GetFullPath(Path.Combine(parent,Guid.NewGuid().ToString("N")));
+            if(!target.StartsWith(parent+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("Invalid restore directory.");
+            var destination=Path.Combine(target,"Data");Directory.CreateDirectory(destination);
+            try
+            {
+                foreach(var file in archive.Files)
+                {
+                    var output=Path.GetFullPath(Path.Combine(destination,file.Key.Replace('/',Path.DirectorySeparatorChar)));
+                    if(!output.StartsWith(destination+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("Invalid restore entry.");
+                    Directory.CreateDirectory(Path.GetDirectoryName(output)!);File.WriteAllBytes(output,file.Value);
+                }
+                var env=new RestoreEnvironment {ContentRootPath=target};
+                var database=new DemoStore(env).Read();var stores=new MarketPilot.Web.Integrations.IntegrationRegistry(env);var workspace=new DemoWorkspace(env);var inbox=new MarketPilot.Web.Webhooks.OrderWebhookInbox(env);
+                var result=new {ok=true,files=archive.Files.Count,products=database.Products.Count,orders=database.Orders.Count,stores=stores.Connections.Count,queue=workspace.QueueStatus(),webhooks=inbox.Status(),checkedAt=DateTimeOffset.UtcNow,liveDataChanged=false};
+                File.WriteAllText(Path.Combine(data,"restore-check.json"),JsonSerializer.Serialize(result));return result;
+            }
+            finally {if(Directory.Exists(target))Directory.Delete(target,true);}
         }
+    }
+    private sealed class RestoreEnvironment:IWebHostEnvironment
+    {
+        public string ApplicationName{get;set;}="MarketPilot.Web";public string EnvironmentName{get;set;}="Production";public string ContentRootPath{get;set;}="";public string WebRootPath{get;set;}="";
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider{get;set;}=new Microsoft.Extensions.FileProviders.NullFileProvider();public Microsoft.Extensions.FileProviders.IFileProvider WebRootFileProvider{get;set;}=new Microsoft.Extensions.FileProviders.NullFileProvider();
     }
     public byte[] Download(string name){lock(gate)return File.ReadAllBytes(Target(name));}
 }
@@ -190,6 +223,10 @@ public static class LocalReliability
     {
         app.MapGet("/api/system/status",(ReliabilityState s,LocalBackups backups)=>Results.Ok(new {s.LastQueueTick,s.LastQueueError,s.LastBackupSuccess,s.LastBackupError,backupCount=backups.List().Count,queueMode="local-demo"}));
         app.MapGet("/api/system/events",(HttpContext c,LocalAudit audit)=>c.User.IsInRole("admin")?Results.Ok(audit.Recent()):Results.StatusCode(403));
+        app.MapPost("/api/system/backups/restore-check",(VerifyBackupRequest input,HttpContext c,LocalBackups backups)=>{
+            if(!c.User.IsInRole("admin"))return Results.StatusCode(403);
+            try{return Results.Ok(backups.RestoreCheck(input.Name));}catch(Exception e)when(e is IOException or ArgumentException or InvalidOperationException or CryptographicException or JsonException){return Results.BadRequest(new{error="Yedekten geri alma provası tamamlanamadı; mevcut kayıtlar korunuyor."});}
+        });
         app.MapGet("/api/system/backups",(HttpContext c,LocalBackups b)=>c.User.IsInRole("admin")?Results.Ok(b.List()):Results.StatusCode(403));
         app.MapPost("/api/system/backups",(HttpContext c,LocalBackups b,LocalAudit audit)=>{if(!c.User.IsInRole("admin"))return Results.StatusCode(403);try{var result=b.Create();audit.Add("info","backup","Yönetici şifreli yedek oluşturdu ve doğruladı.");return Results.Ok(result);}catch(Exception e)when(e is IOException or InvalidOperationException or CryptographicException or JsonException){return Results.Json(new{error="Yedek oluşturulamadı."},statusCode:503);}});
         app.MapPost("/api/system/backups/verify",(VerifyBackupRequest input,HttpContext c,LocalBackups b)=>{if(!c.User.IsInRole("admin"))return Results.StatusCode(403);try{return Results.Ok(b.Verify(input.Name));}catch(Exception e)when(e is IOException or ArgumentException or InvalidOperationException or CryptographicException or JsonException){return Results.BadRequest(new{error="Yedek doğrulanamadı."});}});

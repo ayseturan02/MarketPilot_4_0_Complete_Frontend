@@ -1,0 +1,578 @@
+{
+  "started": "2026-10-30T11:18:30.043Z",
+  "finished": "2026-10-30T11:30:18.753Z",
+  "counts": {
+    "passed": 58,
+    "failed": 5,
+    "total": 63
+  },
+  "results": [
+    {
+      "name": "offline-guard",
+      "command": "dotnet tests/qa/GuardProbe/bin/Debug/net8.0/GuardProbe.dll",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 84,
+      "status": "PASS",
+      "log": "offline-guard.log"
+    },
+    {
+      "name": "build",
+      "command": "dotnet build src/MarketPilot.Web --no-restore",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 810,
+      "status": "PASS",
+      "log": "build.log"
+    },
+    {
+      "name": "MarketPilot.AccountWriteChecks",
+      "command": "dotnet run --project tests/MarketPilot.AccountWriteChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 2067,
+      "status": "PASS",
+      "log": "MarketPilot.AccountWriteChecks.log"
+    },
+    {
+      "name": "MarketPilot.AmazonChecks",
+      "command": "dotnet run --project tests/MarketPilot.AmazonChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1571,
+      "status": "PASS",
+      "log": "MarketPilot.AmazonChecks.log"
+    },
+    {
+      "name": "MarketPilot.AutomationChecks",
+      "command": "dotnet run --project tests/MarketPilot.AutomationChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 2226,
+      "status": "PASS",
+      "log": "MarketPilot.AutomationChecks.log"
+    },
+    {
+      "name": "MarketPilot.BoynerChecks",
+      "command": "dotnet run --project tests/MarketPilot.BoynerChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1712,
+      "status": "PASS",
+      "log": "MarketPilot.BoynerChecks.log"
+    },
+    {
+      "name": "MarketPilot.CanonicalChecks",
+      "command": "dotnet run --project tests/MarketPilot.CanonicalChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 2142,
+      "status": "PASS",
+      "log": "MarketPilot.CanonicalChecks.log"
+    },
+    {
+      "name": "MarketPilot.CatalogChecks",
+      "command": "dotnet run --project tests/MarketPilot.CatalogChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 4984,
+      "status": "PASS",
+      "log": "MarketPilot.CatalogChecks.log"
+    },
+    {
+      "name": "MarketPilot.ChannelContractChecks",
+      "command": "dotnet run --project tests/MarketPilot.ChannelContractChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1452,
+      "status": "PASS",
+      "log": "MarketPilot.ChannelContractChecks.log"
+    },
+    {
+      "name": "MarketPilot.DemoChecks",
+      "command": "dotnet run --project tests/MarketPilot.DemoChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 5723,
+      "status": "PASS",
+      "log": "MarketPilot.DemoChecks.log"
+    },
+    {
+      "name": "MarketPilot.ErpReadModelChecks",
+      "command": "dotnet run --project tests/MarketPilot.ErpReadModelChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1615,
+      "status": "PASS",
+      "log": "MarketPilot.ErpReadModelChecks.log"
+    },
+    {
+      "name": "MarketPilot.ErpTransferChecks",
+      "command": "dotnet run --project tests/MarketPilot.ErpTransferChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1514,
+      "status": "PASS",
+      "log": "MarketPilot.ErpTransferChecks.log"
+    },
+    {
+      "name": "MarketPilot.HepsiburadaChecks",
+      "command": "dotnet run --project tests/MarketPilot.HepsiburadaChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1377,
+      "status": "PASS",
+      "log": "MarketPilot.HepsiburadaChecks.log"
+    },
+    {
+      "name": "MarketPilot.IntegrationChecks",
+      "command": "dotnet run --project tests/MarketPilot.IntegrationChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1468,
+      "status": "PASS",
+      "log": "MarketPilot.IntegrationChecks.log"
+    },
+    {
+      "name": "MarketPilot.ListingChecks",
+      "command": "dotnet run --project tests/MarketPilot.ListingChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1604,
+      "status": "PASS",
+      "log": "MarketPilot.ListingChecks.log"
+    },
+    {
+      "name": "MarketPilot.LocalReliabilityChecks",
+      "command": "dotnet run --project tests/MarketPilot.LocalReliabilityChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 5236,
+      "status": "PASS",
+      "log": "MarketPilot.LocalReliabilityChecks.log"
+    },
+    {
+      "name": "MarketPilot.N11Checks",
+      "command": "dotnet run --project tests/MarketPilot.N11Checks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1354,
+      "status": "PASS",
+      "log": "MarketPilot.N11Checks.log"
+    },
+    {
+      "name": "MarketPilot.NebimChecks",
+      "command": "dotnet run --project tests/MarketPilot.NebimChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1483,
+      "status": "PASS",
+      "log": "MarketPilot.NebimChecks.log"
+    },
+    {
+      "name": "MarketPilot.OrchestratorChecks",
+      "command": "dotnet run --project tests/MarketPilot.OrchestratorChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1402,
+      "status": "PASS",
+      "log": "MarketPilot.OrchestratorChecks.log"
+    },
+    {
+      "name": "MarketPilot.PricingChecks",
+      "command": "dotnet run --project tests/MarketPilot.PricingChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 2071,
+      "status": "PASS",
+      "log": "MarketPilot.PricingChecks.log"
+    },
+    {
+      "name": "MarketPilot.SecurityChecks",
+      "command": "dotnet run --project tests/MarketPilot.SecurityChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1463,
+      "status": "PASS",
+      "log": "MarketPilot.SecurityChecks.log"
+    },
+    {
+      "name": "MarketPilot.SynchronizationChecks",
+      "command": "dotnet run --project tests/MarketPilot.SynchronizationChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1792,
+      "status": "PASS",
+      "log": "MarketPilot.SynchronizationChecks.log"
+    },
+    {
+      "name": "MarketPilot.TicimaxChecks",
+      "command": "dotnet run --project tests/MarketPilot.TicimaxChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1546,
+      "status": "PASS",
+      "log": "MarketPilot.TicimaxChecks.log"
+    },
+    {
+      "name": "MarketPilot.WmsChecks",
+      "command": "dotnet run --project tests/MarketPilot.WmsChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 2884,
+      "status": "PASS",
+      "log": "MarketPilot.WmsChecks.log"
+    },
+    {
+      "name": "MarketPilot.WmsLogisticsChecks",
+      "command": "dotnet run --project tests/MarketPilot.WmsLogisticsChecks --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 3361,
+      "status": "PASS",
+      "log": "MarketPilot.WmsLogisticsChecks.log"
+    },
+    {
+      "name": "accounts-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/accounts-http-checks.cjs",
+      "exitCode": 1,
+      "signal": null,
+      "durationMs": 7537,
+      "status": "FAIL",
+      "log": "accounts-http-checks.cjs.log"
+    },
+    {
+      "name": "amazon-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/amazon-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 13250,
+      "status": "PASS",
+      "log": "amazon-http-checks.cjs.log"
+    },
+    {
+      "name": "amazon-protocol-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/amazon-protocol-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 140,
+      "status": "PASS",
+      "log": "amazon-protocol-checks.cjs.log"
+    },
+    {
+      "name": "analytics-system-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/analytics-system-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 5730,
+      "status": "PASS",
+      "log": "analytics-system-http-checks.cjs.log"
+    },
+    {
+      "name": "automation-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/automation-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 40026,
+      "status": "PASS",
+      "log": "automation-http-checks.cjs.log"
+    },
+    {
+      "name": "boyner-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/boyner-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 14794,
+      "status": "PASS",
+      "log": "boyner-http-checks.cjs.log"
+    },
+    {
+      "name": "canonical-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/canonical-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 2076,
+      "status": "PASS",
+      "log": "canonical-http-checks.cjs.log"
+    },
+    {
+      "name": "catalog-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/catalog-http-checks.cjs",
+      "exitCode": 1,
+      "signal": null,
+      "durationMs": 41409,
+      "status": "FAIL",
+      "log": "catalog-http-checks.cjs.log"
+    },
+    {
+      "name": "catalog-stock-actions-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/catalog-stock-actions-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 11284,
+      "status": "PASS",
+      "log": "catalog-stock-actions-http-checks.cjs.log"
+    },
+    {
+      "name": "central-stock-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/central-stock-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 28484,
+      "status": "PASS",
+      "log": "central-stock-http-checks.cjs.log"
+    },
+    {
+      "name": "clothing-catalog-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/clothing-catalog-http-checks.cjs",
+      "exitCode": 1,
+      "signal": null,
+      "durationMs": 32456,
+      "status": "FAIL",
+      "log": "clothing-catalog-http-checks.cjs.log"
+    },
+    {
+      "name": "deployment-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/deployment-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1136,
+      "status": "PASS",
+      "log": "deployment-http-checks.cjs.log"
+    },
+    {
+      "name": "enterprise-sync-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/enterprise-sync-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 73721,
+      "status": "PASS",
+      "log": "enterprise-sync-http-checks.cjs.log"
+    },
+    {
+      "name": "erp-read-model-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/erp-read-model-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 3260,
+      "status": "PASS",
+      "log": "erp-read-model-http-checks.cjs.log"
+    },
+    {
+      "name": "erp-webhook-resilience-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/erp-webhook-resilience-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 13888,
+      "status": "PASS",
+      "log": "erp-webhook-resilience-http-checks.cjs.log"
+    },
+    {
+      "name": "frontend-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/frontend-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 92,
+      "status": "PASS",
+      "log": "frontend-checks.cjs.log"
+    },
+    {
+      "name": "fulfillment-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/fulfillment-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 2329,
+      "status": "PASS",
+      "log": "fulfillment-http-checks.cjs.log"
+    },
+    {
+      "name": "hepsiburada-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/hepsiburada-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 16661,
+      "status": "PASS",
+      "log": "hepsiburada-http-checks.cjs.log"
+    },
+    {
+      "name": "integration-orchestrator-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/integration-orchestrator-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 190007,
+      "status": "PASS",
+      "log": "integration-orchestrator-http-checks.cjs.log"
+    },
+    {
+      "name": "listing-protocol-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/listing-protocol-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 66,
+      "status": "PASS",
+      "log": "listing-protocol-checks.cjs.log"
+    },
+    {
+      "name": "local-access-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/local-access-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 9577,
+      "status": "PASS",
+      "log": "local-access-http-checks.cjs.log"
+    },
+    {
+      "name": "n11-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/n11-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 14609,
+      "status": "PASS",
+      "log": "n11-http-checks.cjs.log"
+    },
+    {
+      "name": "nebim-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/nebim-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 4019,
+      "status": "PASS",
+      "log": "nebim-http-checks.cjs.log"
+    },
+    {
+      "name": "operational-preparation-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/operational-preparation-http-checks.cjs",
+      "exitCode": 1,
+      "signal": null,
+      "durationMs": 1265,
+      "status": "FAIL",
+      "log": "operational-preparation-http-checks.cjs.log"
+    },
+    {
+      "name": "pricing-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/pricing-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 3439,
+      "status": "PASS",
+      "log": "pricing-http-checks.cjs.log"
+    },
+    {
+      "name": "product-store-stocks-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/product-store-stocks-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 53,
+      "status": "PASS",
+      "log": "product-store-stocks-checks.cjs.log"
+    },
+    {
+      "name": "retired-channel-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/retired-channel-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 7619,
+      "status": "PASS",
+      "log": "retired-channel-http-checks.cjs.log"
+    },
+    {
+      "name": "security-hardening-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/security-hardening-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 2306,
+      "status": "PASS",
+      "log": "security-hardening-http-checks.cjs.log"
+    },
+    {
+      "name": "shared-workspace-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/shared-workspace-http-checks.cjs",
+      "exitCode": 1,
+      "signal": null,
+      "durationMs": 40210,
+      "status": "FAIL",
+      "log": "shared-workspace-http-checks.cjs.log"
+    },
+    {
+      "name": "synchronization-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/synchronization-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 28542,
+      "status": "PASS",
+      "log": "synchronization-http-checks.cjs.log"
+    },
+    {
+      "name": "tenant-security-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/tenant-security-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1659,
+      "status": "PASS",
+      "log": "tenant-security-http-checks.cjs.log"
+    },
+    {
+      "name": "ticimax-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/ticimax-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 12238,
+      "status": "PASS",
+      "log": "ticimax-http-checks.cjs.log"
+    },
+    {
+      "name": "trendyol-workflows-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/trendyol-workflows-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 65,
+      "status": "PASS",
+      "log": "trendyol-workflows-checks.cjs.log"
+    },
+    {
+      "name": "webhook-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/webhook-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 17548,
+      "status": "PASS",
+      "log": "webhook-http-checks.cjs.log"
+    },
+    {
+      "name": "wms-inventory-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/wms-inventory-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 2361,
+      "status": "PASS",
+      "log": "wms-inventory-http-checks.cjs.log"
+    },
+    {
+      "name": "wms-logistics-http-checks.cjs",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/wms-logistics-http-checks.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 2515,
+      "status": "PASS",
+      "log": "wms-logistics-http-checks.cjs.log"
+    },
+    {
+      "name": "tenant-isolation-audit",
+      "command": "C:\\Program Files\\nodejs\\node.exe tests/tenant-isolation-audit.cjs",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 6789,
+      "status": "PASS",
+      "log": "tenant-isolation-audit.log"
+    },
+    {
+      "name": "worker-isolation-audit",
+      "command": "dotnet run --project tests/MarketPilot.WorkerIsolationAudit --no-restore -p:BuildProjectReferences=false",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 2574,
+      "status": "PASS",
+      "log": "worker-isolation-audit.log"
+    }
+  ]
+}

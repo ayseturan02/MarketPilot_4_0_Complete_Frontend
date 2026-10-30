@@ -1,0 +1,1 @@
+PASS multi-account/write fixtures: six independent seller profiles, authentication and native identities, separate Amazon OAuth caches, missing/mismatched profiles without fallback, secret-free metadata, rotation guard, stock-only price preservation, managed inventory refusal, async rejection, price payloads and 429. All network transports mocked.

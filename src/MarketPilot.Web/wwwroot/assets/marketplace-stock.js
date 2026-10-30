@@ -8,7 +8,7 @@ function mpStockForm(id){
       <label class="store-field"><span>Satıcı SKU / stok kodu</span><input name="sku" maxlength="100" autocomplete="off"><small>Hepsiburada, n11 ve Amazon için gerekli.</small></label>
       <label class="store-field"><span>Barkod</span><input name="barcode" maxlength="100" autocomplete="off"></label>
       <label class="store-field"><span>Hedef stok</span><input name="quantity" type="number" required min="0" max="1000000" step="1"></label>
-      <label class="store-field"><span>Yeni satış fiyatı (isteğe bağlı)</span><input name="price" type="number" min="0.01" max="10000000" step="0.01"><small>Boş bırakırsan mevcut fiyat korunur.</small></label>
+      <label class="store-field"><span>Yeni satış fiyatı (isteğe bağlı)</span><input name="price" readonly title="Fiyatlar ERP fiyat yönetiminden değiştirilir" type="number" min="0.01" max="10000000" step="0.01"><small>Boş bırakırsan mevcut fiyat korunur.</small></label>
     </div>
     <label class="store-field"><span><input name="confirm" type="checkbox" required> Bu mağazanın stok/fiyatının güncellenmesini onaylıyorum.</span></label>
     <p role="status" data-write-status>Gönderim kalıcı kuyruğa alınır. Sonuç mağazadan doğrulanır; Senkronizasyon ekranından izlenir.</p>

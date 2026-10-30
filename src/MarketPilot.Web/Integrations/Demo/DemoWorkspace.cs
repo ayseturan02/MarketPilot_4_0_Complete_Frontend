@@ -100,10 +100,11 @@ public sealed partial class DemoWorkspace
         lock(gate)
         {
             var count=0;
-            foreach(var state in states.Values)
+            foreach(var pair in states.ToArray())
             {
+                var state=pair.Value;
                 var due=state.Jobs.Where(j=>j.State=="pending"&&j.DueAt<=DateTimeOffset.UtcNow).OrderBy(j=>j.CreatedAt).ToList();
-                foreach(var job in due){Apply(state,job);count++;}
+                foreach(var job in due){state=ApplyIsolated(pair.Key,state,job.Id);count++;}
                 if(due.Count>0)state.LastSyncAt=DateTimeOffset.UtcNow;
             }
             if(count>0)Save();return count;
@@ -121,7 +122,7 @@ public sealed partial class DemoWorkspace
             if (changed) Save();
         }
         var due = state.Jobs.Where(j => j.State == "pending" && j.DueAt <= DateTimeOffset.UtcNow).OrderBy(j => j.CreatedAt).ToList();
-        foreach (var job in due) Apply(state, job);
+        foreach (var job in due) state=ApplyIsolated(Key(settings),state,job.Id);
         if (due.Count > 0) { state.LastSyncAt = DateTimeOffset.UtcNow; Save(); }
         return state;
     }
@@ -152,6 +153,7 @@ public sealed partial class DemoWorkspace
         lock (gate)
         {
             var state = State(settings);
+            if(action.Price.HasValue && (action.Type!="stock" || state.Products.Count(p=>p.Barcode==action.Barcode&&p.SalePrice==action.Price)!=1))throw new ArgumentException("Price changes require the ERP pricing approval flow.");
             if (string.IsNullOrWhiteSpace(action.RequestId) || action.RequestId.Length > 100) throw new ArgumentException("İşlem kimliği gerekli.");
             var fingerprint=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(action,json))));
             var existing = state.Jobs.FirstOrDefault(j => j.RequestId == action.RequestId); if (existing is not null) { if(existing.Fingerprint.Length>0&&existing.Fingerprint!=fingerprint)throw new ArgumentException("Aynı işlem kimliği farklı bir istek için kullanılamaz."); return existing; }
@@ -199,7 +201,7 @@ public sealed partial class DemoWorkspace
             {
                 case "stock":
                     var index = state.Products.FindIndex(p => p.Barcode == job.Reference); if (index < 0) throw new ArgumentException("Ürün bulunamadı.");
-                    var product = state.Products[index]; state.Products[index] = product with { Stock = job.Quantity, SalePrice = job.Price, ListPrice = Math.Max(product.ListPrice ?? job.Price!.Value, job.Price!.Value), OnSale = job.Quantity > 0 && product.ApprovalStatus == "approved" }; break;
+                    var product = state.Products[index]; state.Products[index] = product with { Stock = job.Quantity, OnSale = job.Quantity > 0 && product.ApprovalStatus == "approved" }; break;
                 case "order-next":
                     var oi = state.Orders.FindIndex(o => o.PackageId == job.Reference); if (oi < 0) throw new ArgumentException("Sipariş bulunamadı.");
                     var order = state.Orders[oi]; if (order.Status != job.Text) throw new ArgumentException("Sipariş durumu değişmiş; tekrar kontrol et.");
@@ -220,6 +222,18 @@ public sealed partial class DemoWorkspace
             job.State = "completed"; state.Events.Insert(0, new(job.Title, DateTimeOffset.UtcNow, job.Reference));
         }
         catch (Exception e) when (e is ArgumentException or InvalidOperationException) { job.State = "failed"; job.Error = e.Message; }
+    }
+    private DemoWorkspaceState ApplyIsolated(string key,DemoWorkspaceState state,string jobId)
+    {
+        var before=JsonSerializer.Serialize(state,json);
+        try {Apply(state,state.Jobs.Single(j=>j.Id==jobId));return state;}
+        catch(Exception error) when(error is not OperationCanceledException && error is not OutOfMemoryException)
+        {
+            // Roll back partial mutations from this job, quarantine it, and continue other workspaces.
+            var restored=JsonSerializer.Deserialize<DemoWorkspaceState>(before,json)!;
+            var failed=restored.Jobs.Single(j=>j.Id==jobId);failed.State="failed";failed.Error="İşlem beklenmeyen veri hatası nedeniyle durduruldu; diğer işler devam ediyor.";
+            states[key]=restored;return restored;
+        }
     }
     private static DemoWorkspaceState Seed(ConnectionSettings settings)
     {
