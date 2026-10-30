@@ -1,5 +1,7 @@
 # Bağımsız WMS sağlayıcı sözleşmesi
 
+WMS regresyon paketini çalıştırmak için: `npm.cmd run check:wms`. Çok depolu stok HTTP/tarayıcı kontrolleri: `node tests/wms-inventory-http-checks.cjs`.
+
 `src/MarketPilot.Web/Wms` altında bulunan `MarketPilot.Web.Wms.IWmsProvider`, mevcut özel `Enterprise.IWmsProvider` bridge arayüzünden bağımsızdır. Nebim V3 ile ilişkili bir WMS'ye veya ayrı bir sağlayıcıya bağlanabilmesi için MarketPilot içi ortak modeller ve işlemler sunar. Gerçek WMS URL'si, protokolü, kimlik doğrulaması veya payload formatı varsayılmaz.
 
 ## Sözleşme
@@ -21,11 +23,15 @@ Tüm çağrılar cancellation token alır, correlation kimliği ve tamamlanma za
 
 Mock depo/stok/hareket verileri sabittir. Uygulama DI sağlayıcısında fulfillment makbuzları mevcut EnterpriseSync deposunda kalıcı tutulur; yeniden başlatma sonrası aynı external request ID sorgulanabilir. EnterpriseSync verilmeden doğrudan oluşturulan test sağlayıcısı yalnız bellek kullanır. Bu makbuz deposu ikinci bir iş kuyruğu değildir. Mock yazma varsayılan olarak kapalıdır.
 
+Deposu reddedilen talebin kabul sonucu sorgulanabilir; ancak rezervasyon, toplama, paketleme, sevkiyat ve uygunluk sorguları `FulfillmentRejected` (HTTP 409) döndürür. Reddedilen talep için başarılı işlem durumu üretilmez. Kabul edilen talebin satırları çağıranın koleksiyonundan kopyalanır; sonradan yapılan yerel değişiklikler talebi değiştirmez. Gecikme sırasında cancellation oluşursa gönderim kaydedilmez. Yanıt kaybı senaryosu ise `AmbiguousSubmission` ile ayrıca simüle edilir ve kabul sorgusuyla uzlaştırılır.
+
 ## WMS çok depolu stok ekranı
 
 `WmsInventoryService`, her etkin depodan WMS stok görüntülerini ve destekleniyorsa hareketleri okur. Son görüntüler, kaynak olay geçmişi, kanal depo eşlemeleri, depo güvenlik stokları ve kanal limitleri işletme `Data/wms-inventory.json` dosyasında saklanır. Gerçek veritabanı kullanılmaz; stok kaynağına yazılmaz.
 
 Onaylı satılabilir stok kuralı: `fiziksel - rezervasyon - hasarlı - bloke - iade kontrolü - ayrılmış - transferde - güvenlik stoğu`; sonuç sıfırın altına inerse sıfır olur. Bileşenlerden biri `null`/bilinmiyorsa satılabilir değer de bilinmiyor kalır. Negatif fiziksel veya kategori stoğu satışa kapatılır. Provider-managed/FBA/n11depom satırları ayrı gösterilir, bu hesaba ve kanal stoğuna katılmaz.
+
+Yeni işletmede kural otomatik onaylanmaz; `RuleApprovedAt` boşken satılabilir miktar bilinmiyor, durum `rule-approval-required` olur. Yetkili kullanıcının “Kuralı onayla ve ayarları kaydet” işlemi onay zamanını kaydeder. Kapalı depolar tahsise alınmaz. Hesap bazlı önizleme depo toplamını ve kanal limitini gösterir; eksik depo/SKU verisi sıfıra çevrilmez. Sürümlü görüntü sürümsüz olayla değiştirilemez. Sağlayıcı yönetimli stok sahipliğini değiştiren olay çelişki olarak tutulur; mevcut stok korunur. ERP kimliği bulunduğu halde stok pozisyonu yoksa `missing-erp-stock` inceleme kaydı gösterilir.
 
 Bir pazaryeri hesabına sıfır, bir veya daha fazla depo atanabilir. Atanmış depolardan herhangi birinde ilgili SKU görüntüsü yoksa kanal miktarı bilinmiyor kalır; eksik stok sıfır varsayılmaz. Kanal üst limiti, hesaplanan depo toplamına uygulanır. Bu ayarlar yalnız görüntü/projeksiyon içindir; pazaryerine stok push'u veya WMS stok yazımı yapmaz.
 
@@ -62,6 +68,10 @@ Uygulama yolları `/api/wms` altındadır: `/warehouses`, `/warehouses/{id}/stoc
 `dotnet run --project tests/MarketPilot.WmsChecks` sabit fixture'ları, tüm işlemleri, yetenek reddini, idempotency'yi, gecikme/hata ve cancellation davranışını; çoklu depo ataması/limitini, satılabilir hesabı, sağlayıcı yönetimli stoğu, sürüm gerilemesini, belirsiz/negatif stok engelini, ERP/WMS farklarını ve JSON geçmiş kalıcılığını doğrular. Test gerçek ağa veya veritabanına bağlanmaz.
 
 ## Fulfillment orkestrasyonu
+
+Regresyon komutu: `npm.cmd run check:fulfillment`. Mock uçtan uca HTTP/tarayıcı testi, politika onayı öncesi blokajı, ERP önce sırasını, eşzamanlı tekrarlı sipariş alımını, kimlik çatışmasını, iki depo/dört paketi, rezervasyon-toplama-paketleme-sevk adımlarını ve ekranda durum geçmişini doğrular. Birim testleri WMS önce sırasını, kısmi sevki, depo reddini, yetersiz stoğu, yanıt kaybı uzlaştırmasını ve yeniden başlatmayı da kapsar.
+
+Aynı SKU farklı sipariş satırlarında yer alsa da bir depodaki miktar yalnız bir kez tahsis edilir. Rezervasyon yanıtı talep/depo/SKU/birim/miktarla; kabul, toplama, paketleme ve sevkiyat yanıtları dış talep kimliğiyle doğrulanır. Paket satırlarında SKU/birim eşleşmesi, takip numarası ve sevk zamanı zorunludur. Yinelenen paket kimlikleri, değişmiş paket içeriği ve önceki paketlerle birlikte tahsisi aşan toplam miktar incelemeye bloke edilir. Kısmi sevk tam işlenmiş sayılmaz; tekrar sorgulama paket veya durum bildirimi çoğaltmaz.
 
 `WMS Fulfillment` ekranı normalize edilmiş pazaryeri siparişini doğrulayıp işletmenin onaylı `FulfillmentWorkflowPolicy` sırasına göre ERP sipariş kaydı ve WMS sevk talebini ilerletir. Varsayılan politika onaysızdır; depo önceliği, kısmi tahsis izni ve `ERP → WMS`, `WMS → ERP` veya yalnız WMS sırası açıkça belirlenmeden dış işlem yapılmaz. WMS önce seçilirse ERP kaydı WMS kabulü doğrulandıktan sonra ilerler.
 

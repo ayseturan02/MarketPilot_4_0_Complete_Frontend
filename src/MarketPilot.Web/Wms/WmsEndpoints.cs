@@ -37,7 +37,7 @@ public static class WmsEndpoints
             var http = context.HttpContext;
             if (http.Request.Method != "GET" &&
                 http.RequestServices.GetRequiredService<MarketPilot.Web.Local.LocalAccountStore>().Configured &&
-                !http.User.IsInRole("admin"))
+                !http.User.IsInRole("admin") && !MarketPilot.Web.Local.TenantRoles.WarehouseAction(http))
                 return Results.StatusCode(403);
 
             try
@@ -49,7 +49,7 @@ public static class WmsEndpoints
                 var status = error.Error.Code switch
                 {
                     "NotSupported" => 501,
-                    "Disabled" or "WriteDisabled" or "IdempotencyConflict" or "ReviewRequired" => 409,
+                    "Disabled" or "WriteDisabled" or "IdempotencyConflict" or "ReviewRequired" or "FulfillmentRejected" => 409,
                     "NotFound" => 404,
                     "SimulatedFailure" or "OutcomeUnknown" => 503,
                     _ => 400

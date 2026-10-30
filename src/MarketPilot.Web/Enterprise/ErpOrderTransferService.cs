@@ -18,7 +18,8 @@ public sealed record ErpTransferPlan(string RequestKey, string SourceIdentity, s
     decimal GrossTotal, decimal Discount, decimal MarketplaceTotal, MarketplaceOrder SourceOrder, string MockScenario);
 public sealed record MockErpTransferReceipt(string RequestKey, string State, string? AcceptanceReference,
     decimal? ErpTotal, string Currency, string? Error, int Submissions = 1, int Queries = 0,
-    string Fingerprint = "", string SourceIdentity = "", string Operation = "create",DateTimeOffset? ConfirmedAt=null);
+    string Fingerprint = "", string SourceIdentity = "", string Operation = "create",DateTimeOffset? ConfirmedAt=null,
+    decimal? MarketplaceTotal = null);
 public sealed record ErpTransferOutcome(string State, string? AcceptanceReference, decimal? ErpTotal,
     decimal MarketplaceTotal, decimal? Difference, string Currency, bool Reconciled, string? Error,DateTimeOffset? ConfirmedAt=null);
 
@@ -45,9 +46,13 @@ public sealed class MockErpOrderTransferProvider(EnterpriseSync jobs) : IErpOrde
 }
 public sealed class ErpOrderTransferService(EnterpriseSync jobs, IErpOrderTransferProvider provider)
 {
+    private static readonly HashSet<string> CurrencyCodes = System.Globalization.CultureInfo.GetCultures(System.Globalization.CultureTypes.SpecificCultures)
+        .Select(culture => { try { return new System.Globalization.RegionInfo(culture.Name).ISOCurrencySymbol; } catch (ArgumentException) { return ""; } })
+        .Where(code => code.Length == 3).ToHashSet(StringComparer.Ordinal);
+    internal static bool ValidCurrency(string? code) => code is not null && CurrencyCodes.Contains(code);
     public ErpTransferPlan Prepare(ErpTransferRequest input)
     {
-        if (string.IsNullOrWhiteSpace(input.TenantId) || string.IsNullOrWhiteSpace(input.AccountId) ||
+        if (input is null || string.IsNullOrWhiteSpace(input.TenantId) || string.IsNullOrWhiteSpace(input.AccountId) ||
             string.IsNullOrWhiteSpace(input.Channel) || string.IsNullOrWhiteSpace(input.SourceOrderId) || string.IsNullOrWhiteSpace(input.OperationId) ||
             input.Operation is not ("create" or "correct" or "cancel" or "return") ||
             input.MockScenario is not ("success" or "rejected" or "pending" or "timeout" or "unavailable" or "mismatch"))
@@ -58,7 +63,15 @@ public sealed class ErpOrderTransferService(EnterpriseSync jobs, IErpOrderTransf
         if(policy.Channel!=input.Channel || policy.UnitPricesIncludeVat!=true)
             throw new ArgumentException("Kanal veya KDV dahil fiyat esası doğrulanmadı; vergi tahmini yapılmaz.");
         var order = input.Order ?? throw new ArgumentException("Sipariş gerekli.");
-        if(order.Promotions?.Any(p=>p==null||p.Amount<0||p.Currency!=order.Currency)==true)
+        if (order.Lines is null || order.Lines.Count is < 1 or > 1000 || order.Lines.Any(line => line is null) ||
+            order.Total is < 0 or > 10000000000000000m || order.GrossTotal is < 0 or > 10000000000000000m ||
+            order.Discount is < 0 or > 10000000000000000m ||
+            order.Lines.Any(line => line.Quantity is < 1 or > 1000000 || line.UnitPrice is < 0 or > 10000000))
+            throw new ArgumentException("Sipariş kalemleri veya tutar sınırları geçersiz.");
+        // Freeze the source data; a caller-owned list must not alter an approved preview.
+        order = JsonSerializer.Deserialize<MarketplaceOrder>(JsonSerializer.Serialize(order))!;
+        if(order.Promotions?.Any(p=>p==null||string.IsNullOrWhiteSpace(p.Id)||p.Amount<0||p.Currency!=order.Currency ||
+            p.LineId is not null && !order.Lines.Any(line => line.Id == p.LineId))==true)
             throw new ArgumentException("Kampanya tutarı veya para birimi geçersiz.");
         var central=ChannelContracts.For(input.Channel).Order(input.TenantId,input.AccountId,order,policy.Variants);
         if(central.CanonicalStatus==null || input.Operation=="create" && central.CanonicalStatus is not ("received" or "picking" or "packing"))
@@ -77,7 +90,7 @@ public sealed class ErpOrderTransferService(EnterpriseSync jobs, IErpOrderTransf
             _ => null
         };
         if (string.IsNullOrWhiteSpace(customer)) throw new ArgumentException("Cari/müşteri eşlemesi belirsiz; kullanıcı müdahalesi gerekli.");
-        if (!policy.Currencies.Contains(order.Currency) || order.Total == null || order.GrossTotal == null || order.Discount == null ||
+        if (!ValidCurrency(order.Currency) || !policy.Currencies.Contains(order.Currency) || order.Total == null || order.GrossTotal == null || order.Discount == null ||
             order.Total < 0 || order.GrossTotal < 0 || order.Discount < 0 || order.Discount > order.GrossTotal ||
             order.GrossTotal - order.Discount != order.Total || order.Lines == null || order.Lines.Count == 0 ||
             order.Lines.Select(x=>x.Id).Distinct().Count()!=order.Lines.Count)
@@ -109,10 +122,12 @@ public sealed class ErpOrderTransferService(EnterpriseSync jobs, IErpOrderTransf
             throw new IntegrationException("erp_duplicate_conflict","ERP kaynak kimliği farklı içerikle kullanılmış; kullanıcı müdahalesi gerekli.",409);
         if(receipt==null && !queryOnly)receipt=await provider.SubmitAsync(plan,ct);
         if (receipt == null) return new("uncertain",null,null,plan.MarketplaceTotal,null,plan.Currency,false,"ERP kaydı doğrulanamadı; kör tekrar yapılmaz.");
-        if (receipt.RequestKey != plan.RequestKey) throw new ArgumentException("ERP kabul kimliği uyuşmuyor.");
+        if (receipt.RequestKey != plan.RequestKey || receipt.SourceIdentity != plan.SourceIdentity || receipt.Operation != plan.Operation ||
+            receipt.Fingerprint != IntegrationOrchestrator.Hash(plan with { MockScenario = "success" }))
+            throw new ArgumentException("ERP kabul kimliği, kaynak sipariş veya işlem içeriği uyuşmuyor.");
         var difference = receipt.ErpTotal - plan.MarketplaceTotal;
         var reconciled = receipt.State == "accepted" && !string.IsNullOrWhiteSpace(receipt.AcceptanceReference) &&
-            receipt.Currency == plan.Currency && difference == 0;
+            receipt.Currency == plan.Currency && difference == 0 && receipt.ConfirmedAt is not null && receipt.ConfirmedAt != default(DateTimeOffset);
         var state = receipt.State switch { "rejected"=>"intervention-required", "accepted" when reconciled=>"accepted",
             "accepted"=>"reconciliation-required", "pending"=>"pending", _=>"uncertain" };
         return new(state,receipt.AcceptanceReference,receipt.ErpTotal,plan.MarketplaceTotal,difference,receipt.Currency,reconciled,receipt.Error,receipt.ConfirmedAt);

@@ -5,7 +5,7 @@ namespace MarketPilot.Web.Wms;
 public sealed record WmsLogisticsEvent(string EventId, long Sequence, string ShipmentId, string PackageId,
     string OrderId, string WarehouseId, string Channel, string Carrier, string? TrackingNumber,
     string State, decimal Quantity, decimal OrderQuantity, DateTimeOffset At,
-    DateTimeOffset? ShippedAt = null, bool WmsRestockApproved = false);
+    DateTimeOffset? ShippedAt = null, bool WmsRestockApproved = false, string ExternalAccountId = "mock-default");
 public sealed record WmsChannelMapping(string Channel, string WmsState, string ChannelState, bool Approved);
 public sealed record WmsLabelPolicy(string Channel, string Authority, bool Approved);
 public sealed record WmsLogisticsPackage(string Key, WmsLogisticsEvent Latest, string PickingStatus,
@@ -78,7 +78,7 @@ public sealed class WmsLogisticsService
     });
     public object Policies() { lock (gate) return new { mappings = data.Mappings.ToArray(), labelPolicies = data.LabelPolicies.ToArray(), transitions = Transitions, mockOnly = true }; }
     public WmsLogisticsPackage[] List() { lock (gate) return data.Events.GroupBy(Key).Select(g => Project(g.ToArray())).ToArray(); }
-    private static string Key(WmsLogisticsEvent e) => JsonSerializer.Serialize(new[] { e.Channel, e.ShipmentId, e.PackageId });
+    private static string Key(WmsLogisticsEvent e) => JsonSerializer.Serialize(new[] { e.Channel, e.ExternalAccountId, e.ShipmentId, e.PackageId });
     private WmsLogisticsPackage Project(WmsLogisticsEvent[] history)
     {
         var e = history[^1];
@@ -95,10 +95,14 @@ public sealed class WmsLogisticsService
     public WmsLogisticsPackage Receive(WmsLogisticsEvent e) => Commit(() => ReceiveCore(e));
     private WmsLogisticsPackage ReceiveCore(WmsLogisticsEvent e)
     {
-        if (new[] { e.EventId, e.ShipmentId, e.PackageId, e.OrderId, e.WarehouseId, e.Channel, e.Carrier }.Any(string.IsNullOrWhiteSpace) ||
-            e.Quantity <= 0 || e.OrderQuantity < e.Quantity || e.At == default || !Transitions.ContainsKey(e.State))
+        if (e is null || new[] { e.EventId, e.ShipmentId, e.PackageId, e.OrderId, e.WarehouseId, e.Channel, e.Carrier, e.ExternalAccountId }
+                .Any(value => string.IsNullOrWhiteSpace(value) || value.Length > 160) ||
+            e.TrackingNumber?.Length > 200 || e.Quantity <= 0 || e.Quantity > 1000000 || e.OrderQuantity > 1000000 ||
+            e.OrderQuantity < e.Quantity || e.At == default || e.State is null || !Transitions.ContainsKey(e.State) ||
+            e.WmsRestockApproved && e.State != "restocked" ||
+            e.ShippedAt is not null && (e.State is "received" or "picking" or "packed" || e.ShippedAt > e.At))
             throw new ArgumentException("WMS olay kimliği, miktarı veya durumu geçersiz.");
-        var duplicate = data.Events.SingleOrDefault(x => x.EventId == e.EventId);
+        var duplicate = data.Events.SingleOrDefault(x => x.EventId == e.EventId && x.Channel == e.Channel && x.ExternalAccountId == e.ExternalAccountId);
         if (duplicate != null && duplicate != e) throw new ArgumentException("Event ID farklı içerikle kullanılmış.");
         var history = data.Events.Where(x => Key(x) == Key(e)).ToArray();
         if (duplicate != null) return Project(history);
@@ -112,11 +116,12 @@ public sealed class WmsLogisticsService
             throw new ArgumentException("Sırasız olay, değişen paket kimliği veya geçersiz durum geçişi; inceleme gerekli.");
         var shipped = e.State is "shipped" or "partially-shipped";
         if (shipped && (string.IsNullOrWhiteSpace(e.TrackingNumber) || e.ShippedAt == null || e.ShippedAt > e.At ||
+            last?.ShippedAt is null && e.ShippedAt < last?.At ||
             (e.State == "partially-shipped") != (e.Quantity < e.OrderQuantity)))
             throw new ArgumentException("Sevk için takip numarası, sevk zamanı ve doğru kısmi sevk durumu gerekli.");
         if (e.State == "restocked" && (!e.WmsRestockApproved || last?.State != "quality-passed"))
             throw new ArgumentException("Satılabilir iade için başarılı kalite kontrolü ve WMS onayı gerekli.");
-        var orderEvents = data.Events.Where(x => x.OrderId == e.OrderId && x.Channel == e.Channel).ToArray();
+        var orderEvents = data.Events.Where(x => x.OrderId == e.OrderId && x.Channel == e.Channel && x.ExternalAccountId == e.ExternalAccountId).ToArray();
         if (orderEvents.Any(x => x.OrderQuantity != e.OrderQuantity))
             throw new ArgumentException("Sipariş miktarı paketler arasında değiştirilemez.");
         if (last == null && orderEvents.GroupBy(Key).Sum(g => g.First().Quantity) + e.Quantity > e.OrderQuantity)
@@ -144,6 +149,18 @@ public sealed class WmsLogisticsService
                     "MOCK Taşıyıcı", shippedAt == null ? null : id + "-TRACK", states[i], quantity, total, at,
                     shippedAt, states[i] == "restocked"));
             }
+        }
+        // Same fictional order, two packages shipped from independent depots.
+        for (var package = 1; package <= 2; package++)
+        {
+            if (data.Events.Any(e => e.ShipmentId == "MOCK-D" && e.PackageId == "MOCK-D-P" + package)) continue;
+            var states = new[] { "received", "picking", "packed", "partially-shipped", "delivered" };
+            var start = new DateTimeOffset(2026, 1, 2, 10, 0, 0, TimeSpan.Zero);
+            for (var i = 0; i < states.Length; i++)
+                ReceiveCore(new($"MOCK-D-P{package}-{i}", i + 1, "MOCK-D", "MOCK-D-P" + package,
+                    "MOCK-D-ORDER", package == 1 ? "mock-main" : "mock-outlet", "hepsiburada", "MOCK Taşıyıcı",
+                    i >= 3 ? $"MOCK-D-TRACK-{package}" : null, states[i], 1, 2, start.AddMinutes(i),
+                    i >= 3 ? start.AddMinutes(3) : null));
         }
         return List();
     });

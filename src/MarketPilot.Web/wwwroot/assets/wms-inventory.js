@@ -72,7 +72,7 @@ async function wmsSavePolicy(event) {
       method: 'PUT',
       body: JSON.stringify({ safetyStockByWarehouse, warehouseAssignmentsByAccount, channelStockLimits })
     });
-    notice('Depo güvenlik stoğu ve kanal eşlemeleri kaydedildi. Stok gönderimi yapılmadı.');
+    notice('Stok hesaplama kuralı onaylandı; depo ve kanal ayarları kaydedildi.');
     wmsInventoryData = null;
     await wmsLoadInventory();
   } catch (error) {
@@ -143,7 +143,7 @@ function wmsInventoryPage() {
     <td class="wms-number">${wmsNumber(entry.previousOnHand)} → ${wmsNumber(entry.incomingOnHand)}</td>
     <td>${wmsNumber(entry.sourceVersion)}<small>${wmsEscape(entry.reason || '')}</small></td>
   </tr>`).join('');
-  const discrepancyRows = data.discrepancies.map(item => `<tr>
+  const discrepancyRows = data.discrepancies.filter(item => !selectedWarehouse || item.warehouseCode === selectedWarehouse.code).map(item => `<tr>
     <td>${wmsEscape(item.warehouseCode)}</td><td>${wmsEscape(item.sku)}</td>
     <td class="wms-number">${wmsNumber(item.wmsQuantity)} ${wmsEscape(item.wmsUnit)}</td>
     <td class="wms-number">${wmsNumber(item.erpQuantity)} ${wmsEscape(item.erpUnit)}</td>
@@ -186,7 +186,7 @@ function wmsInventoryPage() {
 
   const policyForm = `<section class="card wms-section"><div class="panel-head"><div><div class="panel-title">Stok kuralı ve kanal depo dağılımı</div>
     <div class="panel-sub">Onaylı kural: fiziksel − rezervasyon − hasarlı − bloke − iade kontrolü − ayrılmış − transferde − güvenlik stoğu. Sonuç eksiye düşerse sıfır olur.</div></div>
-    <span class="tag tag-green">İşletme onaylı</span></div>
+    <span class="tag ${data.ruleApprovedAt ? 'tag-green' : 'tag-orange'}">${data.ruleApprovedAt ? 'İşletme onaylı' : 'İşletme onayı bekleniyor'}</span></div>
     <form class="wms-policy-form" onsubmit="wmsSavePolicy(event)">
       <div class="wms-policy-grid">${data.warehouses.map(warehouse => `<label>${wmsEscape(warehouse.name)} güvenlik stoğu
         <input type="number" min="0" max="1000000" step="1" required data-wms-safety="${wmsEscape(warehouse.id)}" value="${data.policy.safetyStockByWarehouse[warehouse.id] ?? 0}"></label>`).join('')}</div>
@@ -198,11 +198,16 @@ function wmsInventoryPage() {
           <label>Kanal stok üst limiti<input type="number" min="0" max="1000000" step="1" placeholder="Limitsiz" data-wms-limit="${wmsEscape(account.id)}" value="${data.policy.channelStockLimits[account.id] ?? ''}"></label>
         </div>`;
       }).join('')}</div>
-      <div class="wms-actions"><button class="btn btn-primary" type="submit" ${wmsInventoryBusy ? 'disabled' : ''}>${wmsInventoryBusy ? 'Kaydediliyor…' : 'Kural ayarlarını kaydet'}</button>
+      <div class="wms-actions"><button class="btn btn-primary" type="submit" ${wmsInventoryBusy ? 'disabled' : ''}>${wmsInventoryBusy ? 'Kaydediliyor…' : 'Kuralı onayla ve ayarları kaydet'}</button>
       <span class="wms-hint">Bu ayarlar yalnız hesaplamayı ve görünümü etkiler; pazaryerine stok göndermez.</span></div>
     </form>
   </section>`;
 
+  const channelPreview = `<section class="card wms-section"><div class="panel-title">Hesap bazlı stok önizlemesi</div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Pazaryeri hesabı</th><th>SKU</th><th>Depolar</th><th>Üst limit</th><th>Satılabilir</th></tr></thead>
+    <tbody>${data.channelStock.map(row => `<tr><td>${wmsEscape(row.accountName)}</td><td>${wmsEscape(row.sku)}</td>
+    <td>${row.warehouseIds.map(id => wmsEscape(data.warehouses.find(w => w.id === id)?.name || id)).join(', ') || 'Atanmamış'}</td>
+    <td>${wmsNumber(row.channelStockLimit)}</td><td>${wmsNumber(row.sellableQuantity)}</td></tr>`).join('') || '<tr><td colspan="5">Kanal stok hesabı yok.</td></tr>'}</tbody></table></div></section>`;
   const sourceTime = data.stock.reduce((latest, row) =>
     !latest || new Date(row.snapshot.capturedAt) > new Date(latest) ? row.snapshot.capturedAt : latest, null);
   const summary = `<div class="wms-summary">
@@ -218,5 +223,5 @@ function wmsInventoryPage() {
       <div class="wms-source"><span class="tag tag-blue">${wmsEscape(data.profile.providerKey)} · ${data.capabilities.isMock ? 'MOCK WMS' : 'WMS'}</span>
       <span>Son okuma: <strong>${wmsDate(data.readAt)}</strong></span><span>Kaynak görüntüsü: <strong>${wmsDate(sourceTime)}</strong></span>
       <span>${data.warehouses.length} depo · ${data.stock.length} stok satırı</span></div>
-      ${summary}${tabs}${detail}${policyForm}</section>`;
+      ${summary}${tabs}${detail}${policyForm}${channelPreview}</section>`;
 }

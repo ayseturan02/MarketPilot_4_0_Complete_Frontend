@@ -4,9 +4,11 @@ Bu modül yalnız mock olay kabul eder. Gerçek WMS webhooks, taşıyıcı, ERP 
 
 ## Ortak olay modeli
 
-`WmsLogisticsEvent`: event ID, paket bazlı sıra numarası, shipment/package/order/warehouse kimlikleri, kanal, taşıyıcı, takip numarası, durum, paket miktarı, sipariş miktarı, olay zamanı, sevk zamanı ve WMS yeniden satış onayı. Paketler kanal + shipment ID + package ID ile ayrılır; aynı sipariş farklı paketlere ve depolara ayrılabilir. Bu sürüm miktarları paket bazında taşır; SKU bazında stok muhasebesi yapmaz.
+`WmsLogisticsEvent`: event ID, paket bazlı sıra numarası, shipment/package/order/warehouse kimlikleri, kanal, satıcı hesabı (`ExternalAccountId`), taşıyıcı, takip numarası, durum, paket miktarı, sipariş miktarı, olay zamanı, sevk zamanı ve WMS yeniden satış onayı. Paketler kanal + satıcı hesabı + shipment ID + package ID ile ayrılır; aynı sipariş farklı paketlere ve depolara ayrılabilir. Eski mock kayıtlar için hesap varsayılanı `mock-default` olur; sağlayıcı adaptörü gerçek hesabı açıkça sağlamalıdır. Event tekrar kontrolü ve sipariş miktar toplamı da kanal/hesap kapsamında yapılır. Bu sürüm miktarları paket bazında taşır; SKU bazında stok muhasebesi yapmaz.
 
 Akış: `received → picking → packed → shipped/partially-shipped → delivered/delivery-failed`. Başarısız teslimat yeniden sevke veya iade kabulüne gider. Teslim edilen sipariş de iade kabulüne ilerleyebilir. İade: `return-accepted → quality-check → quality-passed/quarantined → restocked` (yalnız quality-passed kolundan). Karantina ve restocked terminaldir. Sevkte takip ve sevk zamanı zorunludur. Kısmi sevk miktarı sipariş miktarından küçük olmalıdır.
+
+Sevk zamanı paketleme zamanından önce olamaz; sevk öncesi durumlarda sevk zamanı kabul edilmez. WMS yeniden satış onayı yalnız `restocked` durumunda kabul edilir. Mock senaryolar: MOCK-A teslimat, MOCK-B kısmi sevk/başarısız teslimat/onaylı iade, MOCK-C karantina, MOCK-D iki depodan iki ayrı paket. Toplam beş paket gösterilir; aynı senaryoyu yeniden yüklemek kayıt çoğaltmaz.
 
 Aynı event ID ve aynı içerik tekrar geldiğinde geçmişe eklenmez. Farklı içerik, atlanan sıra, zaman gerilemesi, kimlik değişikliği, miktar değişikliği veya geçersiz geçiş reddedilir. Kaydı olmayan paket received/1 ile başlamalıdır; eksik geçmiş inceleme gerektirir.
 

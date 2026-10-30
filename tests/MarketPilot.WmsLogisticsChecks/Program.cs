@@ -47,9 +47,16 @@ try
     Reject(()=>service.Receive(first with { Quantity = 1 }), "Conflicting event accepted");
     Reject(()=>service.Receive(Event("duplicate","picking",3)), "Out-of-order event accepted");
     Reject(()=>service.Receive(Event("duplicate","picking",2) with { WarehouseId="other" }), "Identity changed");
+    var anotherAccount = first with { ExternalAccountId = "seller-b" };
+    Check(service.Receive(anotherAccount).Latest.ExternalAccountId == "seller-b", "Seller accounts shared an event identity");
+    Check(service.List().Count(x=>x.Latest.ShipmentId=="duplicate") == 2, "Seller package identities collided");
+    Reject(()=>service.Receive(first with { EventId="early-approval", WmsRestockApproved=true }), "Restock approval accepted before return QC");
+    Reject(()=>service.Receive(first with { EventId="missing-account", ExternalAccountId="" }), "Empty account accepted");
+    Reject(()=>service.Receive(first with { EventId="premature-shipment", ShippedAt=at }), "Shipment timestamp accepted before packing");
     service.Receive(Event("guard", "received", 1)); service.Receive(Event("guard", "picking", 2)); service.Receive(Event("guard", "packed", 3));
     Reject(()=>service.Receive(Event("guard","shipped",4) with { TrackingNumber=null }),"Tracking missing");
     Reject(()=>service.Receive(Event("guard","shipped",4) with { ShippedAt=null }),"Time missing");
+    Reject(()=>service.Receive(Event("guard","shipped",4) with { ShippedAt=at }),"Shipment before packing accepted");
     Reject(()=>service.Receive(Event("guard","partially-shipped",4)),"Incorrect partial quantity");
     foreach (var (s,i) in new[] {("shipped",4),("delivered",5),("return-accepted",6),("quality-check",7),("quality-passed",8)})
         Check(service.Receive(Event("guard",s,i)).ResellableReturnQuantity==0,"Premature return stock");
@@ -82,6 +89,9 @@ try
     Check(service.SeedMock().Length==seed.Length,"Mock seed duplicates packages");
     Check(seed.Any(x=>x.Latest.State=="quarantined" && x.ResellableReturnQuantity==0),"Quarantine stock released");
     Check(seed.Any(x=>x.PartialShipment && x.History.Any(e=>e.State=="delivery-failed")),"Partial/failure fixture missing");
+    Check(seed.Where(x=>x.Latest.ShipmentId=="MOCK-D").Select(x=>x.Latest.WarehouseId).Distinct().Count()==2,
+        "Two-depot/two-package mock scenario missing");
+    Check(!File.Exists(Path.Combine(root,"Data","wms-inventory.json")), "Return events must not create or mutate WMS inventory");
     Check(new WmsLogisticsService(env).List().Length==seed.Length,"Restart lost inbox");
     Console.WriteLine($"PASS {checks} WMS logistics checks: every state pair, replay/conflict/order, tracking, partial quantities, multi-package/depot, channel approval, label authority, return QC/WMS approval, mock scenarios and persistence.");
 }

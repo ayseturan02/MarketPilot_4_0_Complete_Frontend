@@ -74,6 +74,25 @@ await Reject(async () => await readOnly.SubmitFulfillmentOrderAsync(order), "Not
 var unsupported = new MockWmsProvider(profile,
     capabilities: new WmsCapabilities(WmsCapability.Warehouses, true));
 await Reject(async () => await unsupported.ReadStockAsync("mock-main"), "NotSupported");
+// A rejected request must never appear reserved, picked, packed or shipped.
+var rejectingProvider = new MockWmsProvider(profile, new WmsMockBehavior(RejectWarehouseId: "mock-main"));
+Check((await rejectingProvider.SubmitFulfillmentOrderAsync(order)).Data.Status == "rejected", "Explicit warehouse rejection.");
+Check((await rejectingProvider.GetAcceptanceStatusAsync(order.Id)).Data.Status == "rejected", "Rejected acceptance remains queryable.");
+await Reject(async () => await rejectingProvider.GetReservationStatusAsync(order.Id), "FulfillmentRejected");
+await Reject(async () => await rejectingProvider.GetPickingStatusAsync(order.Id), "FulfillmentRejected");
+await Reject(async () => await rejectingProvider.GetPackingStatusAsync(order.Id), "FulfillmentRejected");
+await Reject(async () => await rejectingProvider.GetShipmentStatusAsync(order.Id), "FulfillmentRejected");
+await Reject(async () => await rejectingProvider.CheckCancellationOrReturnEligibilityAsync(order.Id, WmsRequestType.Return), "FulfillmentRejected");
+
+var callerLines = new List<WmsFulfillmentLine> { new("TSH-EKR-S", 2, "EA") };
+var isolatedOrder = order with { Id = "isolated-request", Lines = callerLines };
+await provider.SubmitFulfillmentOrderAsync(isolatedOrder);
+callerLines[0] = callerLines[0] with { Quantity = 99 };
+Check((await provider.GetReservationStatusAsync(isolatedOrder.Id)).Data.Lines.Single().Quantity == 2,
+    "Caller mutation cannot change an accepted request.");
+
+var otherTenant = new MockWmsProvider(profile with { TenantId = "tenant-b" });
+await Reject(async () => await otherTenant.GetAcceptanceStatusAsync(order.Id), "NotFound");
 var realMode = new MockWmsProvider(profile with { Mode = "real" });
 Check(realMode.Capabilities.Supported == WmsCapability.None && !realMode.Capabilities.IsMock,
     "No assumed native provider capabilities.");
@@ -86,6 +105,17 @@ var delayed = new MockWmsProvider(profile, new WmsMockBehavior(DelayMilliseconds
 var started = System.Diagnostics.Stopwatch.StartNew();
 await delayed.ReadWarehousesAsync();
 Check(started.ElapsedMilliseconds >= 15, "Configured mock latency.");
+using (var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(20)))
+{
+    var slow = new MockWmsProvider(profile, new WmsMockBehavior(DelayMilliseconds: 500));
+    try
+    {
+        await slow.SubmitFulfillmentOrderAsync(order, timeout.Token);
+        throw new Exception("In-flight cancellation was ignored.");
+    }
+    catch (OperationCanceledException) { }
+    await Reject(async () => await slow.GetAcceptanceStatusAsync(order.Id), "NotFound");
+}
 using (var cancellation = new CancellationTokenSource())
 {
     cancellation.Cancel();
@@ -120,6 +150,10 @@ try
     canonical.Apply(new StockPosition("erp-stock", Context("erp-stock"), "erp-variant", "erp-main", 25, "EA"));
 
     var overview = await inventory.ReadAsync();
+    Check(overview.RuleApprovedAt is null && overview.Stock.All(row => row.SellableQuantity is null),
+        "A new business must explicitly approve the sellable calculation.");
+    await inventory.UpdatePolicyAsync(new(new(), new(), new()));
+    overview = await inventory.ReadAsync();
     var mainStock = overview.Stock.Single(row => row.Snapshot.WarehouseId == "mock-main" && row.Snapshot.Sku == "TSH-EKR-S");
     Check(mainStock.SellableQuantity == 30 && mainStock.Snapshot.ReservedQuantity == 4,
         "Approved sellable rule deducts reservations and separately tracked unusable stock.");
@@ -139,6 +173,13 @@ try
         .All(row => row.SellableQuantity == 20), "Multi-depot assignment and channel stock cap.");
 
     var baseline = mainStock.Snapshot;
+    Check(inventory.ApplySnapshot(baseline with { SourceVersion = null, CapturedAt = baseline.CapturedAt.AddDays(1), OnHandQuantity = 999 }) == "conflict",
+        "Unversioned events cannot erase a versioned stock snapshot.");
+    var managedBaseline = overview.Stock.First(row => row.Snapshot.ProviderManaged).Snapshot;
+    Check(inventory.ApplySnapshot(managedBaseline with { ProviderManaged = false, SourceVersion = 100 }) == "conflict",
+        "Provider-managed stock ownership cannot be overwritten.");
+    Check(overview.Stock.Single(row => row.Snapshot.WarehouseId == "mock-outlet" && row.Snapshot.Sku == "TSH-EKR-S").Snapshot.OnHandQuantity == 8,
+        "Warehouse balances remain independent.");
     var stale = inventory.ApplySnapshot(baseline with
     {
         OnHandQuantity = 4,
@@ -202,6 +243,7 @@ try
         "Fulfillment ERP fixture canonical identities.");
     var fulfillmentInventory = new WmsInventoryService(
         fulfillmentWms, fulfillmentCanonical, fulfillmentRegistry, fulfillmentEnvironment);
+    await fulfillmentInventory.UpdatePolicyAsync(new(new(), new(), new()));
     var statusPublisher = new MockFulfillmentStatusPublisher(
         writableProfile, new WmsMockBehavior(PackageCount: 2));
     var fulfillment = new FulfillmentOrchestrationService(
@@ -287,6 +329,45 @@ try
     });
     Check(insufficient.State == "blocked-stock" && insufficient.Warehouses.Length == 0,
         "Insufficient stock is blocked before any external write.");
+    var repeatedSku = await fulfillment.ReceiveAsync(fulfillmentOrder with
+    {
+        ExternalOrderId = "same-sku-multiple-lines",
+        IdempotencyKey = "same-sku-multiple-lines",
+        Lines = [new("first", "TSH-EKR-S", 25, "EA", 449, "TRY"), new("second", "TSH-EKR-S", 25, "EA", 449, "TRY")]
+    });
+    Check(repeatedSku.State == "blocked-stock" && repeatedSku.Warehouses.Length == 0,
+        "Two lines of the same SKU cannot allocate the same physical stock twice.");
+
+    var partialRoot = Path.Combine(testFolder, "partial");
+    Directory.CreateDirectory(partialRoot);
+    var partialEnvironment = new WmsTestEnvironment(partialRoot);
+    var partialWms = new MockWmsProvider(writableProfile, new WmsMockBehavior(PackageCount: 2, ShipmentQuantityLimit: 1));
+    var partialInventory = new WmsInventoryService(partialWms, fulfillmentCanonical, fulfillmentRegistry, partialEnvironment);
+    await partialInventory.UpdatePolicyAsync(new(new(), new(), new()));
+    var partialWorkflow = new FulfillmentOrchestrationService(partialWms, partialInventory, fulfillmentErp,
+        fulfillmentCanonical, statusPublisher, partialEnvironment);
+    partialWorkflow.UpdatePolicy(approvedPolicy with { WriteSequence = [FulfillmentWriteSteps.WmsFulfillmentSubmission], AllowPartialShipments = true });
+    var partial = await partialWorkflow.ReceiveAsync(wmsFirstOrder with { ExternalOrderId = "partial-shipment", IdempotencyKey = "partial-shipment" });
+    for (var step = 0; step < 7; step++) partial = await partialWorkflow.AdvanceAsync(partial.Id);
+    Check(partial.State == "partially-shipped" && partial.Packages.Sum(package => package.Lines.Sum(line => line.Quantity)) == 1,
+        "Partial shipment retains unshipped quantity and never marks the complete order processed.");
+    var replayedPartial = await partialWorkflow.AdvanceAsync(partial.Id);
+    Check(replayedPartial.Packages.Count == partial.Packages.Count && replayedPartial.Publications.Count == partial.Publications.Count,
+        "Repeated partial shipment polling creates neither duplicate packages nor publications.");
+
+    var mismatchRoot = Path.Combine(testFolder, "wrong-reservation");
+    Directory.CreateDirectory(mismatchRoot);
+    var mismatchEnvironment = new WmsTestEnvironment(mismatchRoot);
+    var mismatchedProvider = new MismatchedReservationProvider(new MockWmsProvider(writableProfile));
+    var mismatchInventory = new WmsInventoryService(mismatchedProvider, fulfillmentCanonical, fulfillmentRegistry, mismatchEnvironment);
+    await mismatchInventory.UpdatePolicyAsync(new(new(), new(), new()));
+    var mismatchWorkflow = new FulfillmentOrchestrationService(mismatchedProvider, mismatchInventory, fulfillmentErp,
+        fulfillmentCanonical, statusPublisher, mismatchEnvironment);
+    mismatchWorkflow.UpdatePolicy(approvedPolicy with { WriteSequence = [FulfillmentWriteSteps.WmsFulfillmentSubmission] });
+    var mismatch = await mismatchWorkflow.ReceiveAsync(wmsFirstOrder with { ExternalOrderId = "wrong-reservation", IdempotencyKey = "wrong-reservation" });
+    for (var step = 0; step < 3; step++) mismatch = await mismatchWorkflow.AdvanceAsync(mismatch.Id);
+    Check(mismatch.State == "blocked-reservation" && mismatch.Warehouses.All(task => task.PickingState == "pending"),
+        "A successful reservation response from the wrong warehouse blocks picking.");
 
     var rejectionRoot = Path.Combine(testFolder, "rejection");
     Directory.CreateDirectory(rejectionRoot);
@@ -300,6 +381,7 @@ try
         new WmsMockBehavior(RejectWarehouseId: "mock-outlet"));
     var rejectingInventory = new WmsInventoryService(rejectingWms, rejectionCanonical,
         new IntegrationRegistry(rejectionEnvironment), rejectionEnvironment);
+    await rejectingInventory.UpdatePolicyAsync(new(new(), new(), new()));
     var rejectingWorkflow = new FulfillmentOrchestrationService(rejectingWms, rejectingInventory, rejectionErp,
         rejectionCanonical, new MockFulfillmentStatusPublisher(writableProfile, new()), rejectionEnvironment);
     rejectingWorkflow.UpdatePolicy(approvedPolicy);
@@ -328,6 +410,7 @@ try
     var ambiguousWms = new MockWmsProvider(writableProfile, new WmsMockBehavior(AmbiguousSubmission: true));
     var ambiguousInventory = new WmsInventoryService(ambiguousWms, ambiguousCanonical,
         new IntegrationRegistry(ambiguousEnvironment), ambiguousEnvironment);
+    await ambiguousInventory.UpdatePolicyAsync(new(new(), new(), new()));
     var ambiguousWorkflow = new FulfillmentOrchestrationService(ambiguousWms, ambiguousInventory, ambiguousErp,
         ambiguousCanonical, new MockFulfillmentStatusPublisher(writableProfile, new()), ambiguousEnvironment);
     ambiguousWorkflow.UpdatePolicy(approvedPolicy with { WriteSequence = [FulfillmentWriteSteps.WmsFulfillmentSubmission] });

@@ -8,6 +8,12 @@ Uygulama DI mock WMS sağlayıcısının kabul makbuzları da aynı EnterpriseSy
 
 `IntegrationOrchestrator`, olayları mevcut `EnterpriseState.Jobs` listesine `integration-event` olarak ekler. Aynı `EnterpriseSyncWorker` / `Deliver` döngüsü işler; ikinci kuyruk, worker veya iş dosyası yoktur. ERP mock makbuzları ve onaylı aktarım politikaları aynı `Data/enterprise-sync.json` içinde saklanır. İş deposu tek süreçli yerel kullanım içindir; çoklu sunucu veritabanı kuyruğu değildir.
 
+Olay zarfı tenant/hesap, EventId/CorrelationId, olay türü, kaynak sistem/sürüm, hedef, kaynak işlem zamanı ve payload içerir. Aynı kalıcı işte `State`, `Result`, `Error`, `ProcessedAt`, `FinishedAt`, kabul referansı ve deneme sayısı tutulur. Kaynak zamanıyla yerel işlenme zamanı ayrıdır. Kalıcı kabulden sonra hedef erişilemese de payload korunur.
+
+Hedef yazma öncesinde kaynak sürümü yeniden kontrol edilir: kabul edildiği anda güncel olan bir olay kuyrukta beklerken eskimişse hedefe yazılmaz. Denenmiş/belirsiz ERP yazmaları sürüm kontrolüyle atılmaz; sonuçları önce hedefte sorgulanır. Tenant, hesap, olay türü, kaynak, hedef ve kaynak kayıt kimliği sürüm kapsamını belirler.
+
+WMS alt olayları önceki aşamanın doğrulanmış geçmişini gerektirir. Sırasız `PackageCompleted` WMS gönderimini başlatamaz. Daha önce ulaşılan aşamanın tekrarı workflow'u bir sonraki aşamaya ilerletmez ve türetilen olayları çoğaltmaz. `ShipmentDispatched` aşamasının işi, paketler doğrulanıp kanal/ERP bildirim onayları tamamlanana kadar bekler.
+
 - `OrderSynchronization`, siparişleri kalıcı işe almadan başarılı checkpoint yazmaz.
 - Webhook inbox, doğrulanmış siparişi operasyon görünümüne ve merkezi işe aktarmadan processed/ignored olmaz. Depolama hatasında inbox tekrar denenir. İki dosya arasında dağıtık transaction yoktur; değişmeyen olay kimliği yeniden oynatmayı güvenli kılar.
 - Stok hedefi mevcut `StockOutbox`'a aynı request ID ile delege edilir. Merkezi iş yalnız gerçek outbox sonucu completed olduğunda tamamlanır. Yeni fiyat gönderim yolu açılmaz; mevcut ERP fiyat onayı gerekir.
@@ -46,7 +52,9 @@ Bu sürümde yalnız açıkça onaylanmış **KDV dahil birim fiyat** esası des
 
 `create`, `correct`, `cancel`, `return` ayrı idempotency anahtarlarına sahiptir. Create anahtarı tenant+hesap+kanal+kaynak sipariş/paket kimliğinden türetilir; farklı event ID aynı siparişi çoğaltmaz. Farklı içerikle aynı create anahtarı müdahale gerektirir. Kabul edilmiş siparişin düzeltme/iptal/iadesi aynı kaynak kimliğinin ERP kabul referansını ister. Kesin reddedilmiş kayıt için kullanıcı yeni bir correct işlemi açabilir: `RejectedRequestKey` gerçek rejected makbuzuna bağlanmalıdır. İptal ve iade bu istisnayı kullanamaz.
 
-`IErpOrderTransferProvider.QueryBySourceIdentityAsync` belirsiz sonucu sorgulama sözleşmesidir. Yeni işte bile önce mevcut makbuz aranır. Accepted ancak kabul referansı, aynı para birimi ve sıfır tutar farkı varsa completed sayılır. Pending bekler, rejected kullanıcı müdahalesi ister, farklı ERP tutarı reconciliation-required olur. HTTP transport başarısı hiçbir yerde ERP kaydı olarak yorumlanmaz.
+`IErpOrderTransferProvider.QueryBySourceIdentityAsync` belirsiz sonucu sorgulama sözleşmesidir. Yeni işte bile önce mevcut makbuz aranır. Sorgu ve gönderim yanıtlarının ikisinde de request key, kaynak sipariş kimliği, işlem türü ve içerik parmak izi doğrulanır. Accepted ancak kabul referansı, ERP onay zamanı, aynı para birimi ve sıfır tutar farkı varsa completed sayılır. Pending bekler, rejected kullanıcı müdahalesi ister, farklı ERP tutarı reconciliation-required olur. Mutabakatı tamamlanmamış makbuz, sonraki düzeltme/iptal/iade işlemini yetkilendirmez. HTTP transport başarısı hiçbir yerde ERP kaydı olarak yorumlanmaz.
+
+Önizleme kaynak siparişini ve kampanya listelerini kopyalar; çağıranın koleksiyonunda sonradan yapılan değişiklikler planı değiştirmez. Kampanya kalem referansı mevcut bir sipariş satırını göstermelidir. Geçersiz para birimi, eksik/null kalem ve hesaplamayı taşırabilecek tutarlar doğrulamada reddedilir. Vergi veya kur dönüşümü tahmin edilmez.
 
 Mock senaryolar: success, rejected, pending (iki sorgudan sonra kabul), timeout (commit sonrası yanıt kaybı), unavailable (kesinleşmeyen sonuç), mismatch (ERP tutar farkı). Gerçek provider enjeksiyonu IsMock=false ise yazma bloke edilir.
 
@@ -71,6 +79,14 @@ Mevcut `/api/sync/enterprise` yönetici yazma yetkisi ve uygulama erişim sını
 Senkronizasyon Merkezi mevcut kalıcı iş tablosunda ERP reddini, mutabakat gereksinimini, hata nedenini ve doğrulanmış dış referansı gösterir. Kaynak siparişler ERP/WMS erişilemezken iş payload'ında korunur.
 
 ## Testler
+
+Merkezi orkestrasyon paketi: `npm.cmd run check:orchestration`.
+
+- `dotnet run --project tests/MarketPilot.OrchestratorChecks`: aynı kalıcı dosya kullanımı, 12 olay türü, idempotency çatışması, kabulden sonra eskiyen olayın hedefe erişmeden engellenmesi, hesap ayrımı, sonuç/hata/zaman damgaları ve yeniden başlatma.
+
+Toplu ERP hazırlık regresyonu: `npm.cmd run check:erp-transfer`.
+
+- `dotnet run --project tests/MarketPilot.ErpTransferChecks`: değişmez kaynak önizlemesi, ürün/varyant ve cari eşlemesi, kampanya korunması, güvenli tutar sınırları, eksik kalem, hatalı makbuz kimliği/işlem türü, eksik onay zamanı/referans, para birimi, mutabakat engeli ve belirsiz sonuçta kör tekrar yapılmaması.
 
 - `node tests/integration-orchestrator-http-checks.cjs`: izole içerik kökü; ERP senaryoları, düzeltme/iptal/iade, kesin red sonrası müdahale, iki ERP/WMS sırası, WMS lifecycle, StockOutbox, poller alımı, metadata, idempotency, eski sürüm ve yeniden başlatma.
 - `dotnet run --project tests/MarketPilot.ChannelContractChecks`: loopback sahte HTTP sunucusu; altı ortak mapper, kimlikler, KDV, kampanya/paketler, cursor/tarih/hesap, async makbuz ve unsupported kontrolleri.

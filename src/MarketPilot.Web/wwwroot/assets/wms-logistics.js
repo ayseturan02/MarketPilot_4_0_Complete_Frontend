@@ -39,7 +39,7 @@ function wlPage() {
       <label><input type="checkbox" name="approved"/> İşletme onayı</label><button class="btn" ${wl.busy?'disabled':''}>Etiket yetkisini kaydet</button></div></form>
     <details><summary>Kayıtlı politikalar</summary><pre>${esc(JSON.stringify(wl.policies, null, 2))}</pre></details></section>` +
     rows.map(r=>`<section class="card wf-card"><h2>${esc(r.latest.shipmentId)} / ${esc(r.latest.packageId)}</h2>
-      <p>${esc(r.latest.channel)} · Sipariş ${esc(r.latest.orderId)} · Depo ${esc(r.latest.warehouseId)}</p>
+      <p>${esc(r.latest.channel)} · Hesap ${esc(r.latest.externalAccountId || 'mock-default')} · Sipariş ${esc(r.latest.orderId)} · Depo ${esc(r.latest.warehouseId)}</p>
       <div class="table-wrap"><table class="table"><thead><tr><th>WMS durumu</th><th>Taşıyıcı / Takip</th><th>Toplama / Paketleme</th><th>Sevk zamanı</th><th>Miktar</th></tr></thead><tbody><tr>
       <td>${esc(wlLabels[r.latest.state]||r.latest.state)}</td><td>${esc(r.latest.carrier)} / ${esc(r.latest.trackingNumber||'Bekleniyor')}</td>
       <td>${esc(r.pickingStatus)} / ${esc(r.packingStatus)}</td><td>${esc(r.latest.shippedAt||'Bekleniyor')}</td><td>${esc(r.latest.quantity)} / ${esc(r.latest.orderQuantity)} ${r.partialShipment?'· Kısmi sevk':''}</td></tr></tbody></table></div>

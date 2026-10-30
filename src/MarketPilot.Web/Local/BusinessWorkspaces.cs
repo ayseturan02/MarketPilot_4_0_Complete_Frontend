@@ -15,12 +15,12 @@ namespace MarketPilot.Web.Local;
 
 // Each business has its own stores, catalogue, orders, queues, settings, clients and backups.
 // Authentication stays global; the signed cookie determines the request workspace.
-public sealed class BusinessWorkspaces(IServiceProvider root,IWebHostEnvironment environment,IConfiguration configuration,LocalAccountStore accounts):IAsyncDisposable
+public sealed class BusinessWorkspaces(IServiceProvider root,IWebHostEnvironment environment,IConfiguration configuration,LocalAccountStore accounts,TenantAccessDirectory? tenants=null):IAsyncDisposable
 {
     private readonly ConcurrentDictionary<string,Lazy<BusinessWorkspace>> workspaces=new();
     public static bool ValidId(string? id)=>id!=null&&Regex.IsMatch(id,"^[a-z0-9][a-z0-9-]{0,63}$");
     public static string BusinessId(HttpContext context)=>context.User.Identity?.IsAuthenticated==true?context.User.FindFirstValue("business_id")??"default":"default";
-    public bool Exists(string id)=>ValidId(id)&&accounts.Users().Any(u=>u.BusinessId==id);
+    public bool Exists(string id)=>ValidId(id)&&(tenants?.Exists(id)??accounts.Users().Any(u=>u.BusinessId==id));
     public BusinessWorkspace Get(string id)
     {
         if(id=="default"||!Exists(id))throw new ArgumentException("İşletme bulunamadı.");
@@ -42,6 +42,8 @@ public sealed class BusinessWorkspaces(IServiceProvider root,IWebHostEnvironment
         var services=new ServiceCollection();
         services.AddSingleton<IConfiguration>(scopedConfig);services.AddSingleton<IWebHostEnvironment>(env);
         services.AddSingleton(accounts);services.AddSingleton(root.GetRequiredService<ILoggerFactory>());services.AddLogging();
+        if(tenants!=null)services.AddSingleton(tenants);
+        services.AddSingleton<CredentialReferenceStore>();
         services.AddSingleton(root.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions>>());
         services.AddSingleton<DemoStore>();services.AddCatalog();services.AddOrderWebhooks();services.AddMarketplaceIntegrations(scopedConfig);
         services.AddLocalReliability();services.AddBackgroundSynchronization();services.AddEnterprise();services.AddWmsProviders(scopedConfig);services.AddSingleton<WorkspaceHub>();services.AddOperationalPreparation();services.AddCanonicalContracts();

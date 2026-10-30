@@ -25,11 +25,12 @@ public sealed class IntegrationOrchestrator(EnterpriseSync jobs,IServiceProvider
     private static readonly JsonSerializerOptions Json=new(JsonSerializerDefaults.Web);
     public EnterpriseJob Accept(IntegrationEnvelope input)
     {
-        if(input.TenantId!=(config["Workspace:BusinessId"]??"default") || string.IsNullOrWhiteSpace(input.AccountId) ||
+        if(input is null || input.TenantId!=(config["Workspace:BusinessId"]??"default") || string.IsNullOrWhiteSpace(input.AccountId) ||
             string.IsNullOrWhiteSpace(input.EventId) || string.IsNullOrWhiteSpace(input.CorrelationId) || !EventTypes.Contains(input.EventType) ||
             string.IsNullOrWhiteSpace(input.SourceSystem) || input.SourceVersion<0 || input.OccurredAt==default ||
             input.TargetSystem is not ("erp" or "wms" or "marketplace" or "catalog" or "audit") ||
-            input.Payload.ValueKind!=JsonValueKind.Object)
+            input.Payload.ValueKind!=JsonValueKind.Object ||
+            new[]{input.AccountId,input.EventId,input.CorrelationId,input.SourceSystem}.Any(value=>value.Length>200))
             throw new ArgumentException("Merkezi olay kimliği, işletmesi, kaynağı veya hedefi geçersiz.");
         return jobs.EnqueueIntegration(input);
     }
@@ -61,6 +62,8 @@ public sealed class IntegrationOrchestrator(EnterpriseSync jobs,IServiceProvider
         try
         {
             if(e.TargetSystem=="audit") {Finish("completed","observed-only; no target write");return;}
+            if(job.Attempts==0 && jobs.HasNewerIntegrationSource(e))
+            {Finish("blocked","stale-source-version","Daha yeni kaynak olayı mevcut; eski olay hedefe yazılmadı.");return;}
             if(e.SourceSystem.StartsWith("demo|",StringComparison.Ordinal)||e.SourceSystem.StartsWith("real|",StringComparison.Ordinal))
             {
                 var registry=services.GetRequiredService<IntegrationRegistry>();
@@ -148,13 +151,18 @@ public sealed class IntegrationOrchestrator(EnterpriseSync jobs,IServiceProvider
                 var workflow=services.GetRequiredService<FulfillmentOrchestrationService>();
                 var record=workflow.Get(id.GetString()!);
                 if(record.Order.AccountId!=e.AccountId)throw new ArgumentException("WMS workflow hesabı uyuşmuyor.");
-                record=await workflow.AdvanceAsync(record.Id,ct);
-                var (requiredState,next)=e.EventType switch
+                var (prerequisite,requiredState,next)=e.EventType switch
                 {
-                    "WmsOrderAccepted"=>("reserved","StockReserved"),"StockReserved"=>("picked","PickCompleted"),
-                    "PickCompleted"=>("packed","PackageCompleted"),_=>("processed","ShipmentDispatched")
+                    "WmsOrderAccepted"=>("wms-accepted","reserved","StockReserved"),"StockReserved"=>("reserved","picked","PickCompleted"),
+                    "PickCompleted"=>("picked","packed","PackageCompleted"),_=>("packed","processed","ShipmentDispatched")
                 };
-                var reached=record.History.Any(h=>h.State==requiredState) || next=="ShipmentDispatched"&&record.Packages.Count>0;
+                if(!record.History.Any(h=>h.State==prerequisite))
+                    throw new ArgumentException("WMS olayı için önceki aşama doğrulanmadı; sırasız işlem bloke.");
+                bool Reached()=>next=="ShipmentDispatched"
+                    ? record.State is "processed" or "partially-shipped" && record.Packages.Count>0 && record.Publications.All(publication=>publication.State=="acknowledged")
+                    : record.History.Any(h=>h.State==requiredState);
+                if(!Reached())record=await workflow.AdvanceAsync(record.Id,ct);
+                var reached=Reached();
                 if(reached)PublishWmsEvent(e,record,next,next=="ShipmentDispatched"?"audit":"wms",requiredState);
                 Finish(reached?"completed":record.State.StartsWith("blocked")||record.State=="wms-rejected"?"blocked":"waiting",
                     JsonSerializer.Serialize(new{workflowId=record.Id,state=record.State,packages=record.Packages,processed=record.State=="processed"},Json),record.BlockReason);
@@ -184,8 +192,10 @@ public sealed class IntegrationOrchestrator(EnterpriseSync jobs,IServiceProvider
     }
     private void PublishWmsEvent(IntegrationEnvelope parent,FulfillmentWorkflowRecord record,string eventType,string target,string state)
     {
+        var eventId=Hash(new{record.Id,eventType,parent.TenantId,parent.AccountId});
+        if(jobs.IntegrationEventExists(parent.TenantId,parent.AccountId,eventId))return;
         var history=record.History.FirstOrDefault(h=>h.State==state)??record.History.Last();
-        Accept(parent with{EventId=Hash(new{record.Id,eventType,parent.TenantId,parent.AccountId}),EventType=eventType,
+        Accept(parent with{EventId=eventId,EventType=eventType,
             SourceSystem="mock-wms",SourceVersion=record.History.IndexOf(history)+1,TargetSystem=target,OccurredAt=history.At,
             Payload=JsonSerializer.SerializeToElement(new{workflowId=record.Id,sourceOrderId=record.Order.ExternalOrderId},Json)});
     }

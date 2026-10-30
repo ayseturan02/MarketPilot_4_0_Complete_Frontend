@@ -12,7 +12,7 @@ const {chromium}=require('./browser-test-runtime.cjs');
     browser=await chromium.launch({headless:true});const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.goto(base+'/#shipping');await page.getByRole('button',{name:'Mock senaryoları yükle'}).waitFor();
     await page.getByRole('button',{name:'Mock senaryoları yükle'}).click();await page.getByRole('heading',{name:'MOCK-B / MOCK-B-P1',exact:true}).waitFor();
-    assert.equal((await api('')).body.length,3);
+    assert.equal((await api('')).body.length,5);
     await page.locator('form').filter({has:page.locator('[name=wmsState]')}).locator('[name=channel]').fill('amazon');
     const mapping=page.locator('form').filter({has:page.locator('[name=wmsState]')});
     await mapping.locator('[name=wmsState]').selectOption('restocked');await mapping.locator('[name=channelState]').fill('ReturnReceived');await mapping.locator('[name=approved]').check();await mapping.getByRole('button').click();
@@ -25,7 +25,7 @@ const {chromium}=require('./browser-test-runtime.cjs');
     assert.equal(rows.find(x=>x.latest.shipmentId==='MOCK-B').resellableReturnQuantity,1);
     const invalid={...rows[0].latest,eventId:'invalid-sequence',sequence:100,state:'restocked',wmsRestockApproved:true};
     assert.equal((await api('/mock/events',invalid)).status,400);
-    assert.equal((await api('/mock/scenarios',{})).body.length,3);
+    assert.equal((await api('/mock/scenarios',{})).body.length,5);
     assert.deepEqual(errors,[]);console.log('PASS WMS logistics HTTP + browser: mock intake, shipment/cargo/returns/labels screens, policy approval, invalid transitions, quarantine, restock and seed replay. Isolated data; no external service calls.');
   }finally{
     if(browser)await browser.close();

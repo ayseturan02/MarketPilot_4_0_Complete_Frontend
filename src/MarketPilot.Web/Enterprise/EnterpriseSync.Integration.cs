@@ -14,9 +14,10 @@ public sealed partial class EnterpriseSync
     { lock(gate) return state.ErpTransferPolicies.TryGetValue(IntegrationOrchestrator.Hash(new {tenant,account}),out var p)?Clone(p):null; }
     public void ConfigureErpTransfer(ErpTransferPolicy policy)
     {
-        if(policy.TenantId != (config["Workspace:BusinessId"]??"default") || string.IsNullOrWhiteSpace(policy.AccountId) ||
+        if(policy is null || policy.TenantId != (config["Workspace:BusinessId"]??"default") || string.IsNullOrWhiteSpace(policy.AccountId) ||
             policy.Customers==null || policy.Currencies==null || policy.VatRates==null || policy.Variants==null ||
             policy.CustomerPolicy is not ("fixed-account" or "existing-customer") || policy.VatRates.Any(x=>x<0||x>100) ||
+            policy.Currencies.Length == 0 || policy.Currencies.Any(code => !ErpOrderTransferService.ValidCurrency(code)) ||
             !ChannelContracts.All.Any(x=>x.Channel==policy.Channel))
             throw new ArgumentException("ERP aktarım politikası veya işletme kimliği geçersiz.");
         lock(gate){state.ErpTransferPolicies[IntegrationOrchestrator.Hash(new{tenant=policy.TenantId,account=policy.AccountId})]=Clone(policy);Save();}
@@ -51,6 +52,14 @@ public sealed partial class EnterpriseSync
         }
     }
     public EnterpriseJob[] IntegrationJobs() {lock(gate)return state.Jobs.Where(x=>x.IntegrationEvent!=null).Select(Clone).ToArray();}
+    internal bool HasNewerIntegrationSource(IntegrationEnvelope input)
+    {
+        var entity=IntegrationOrchestrator.SourceEntity(input);
+        lock(gate)return state.Jobs.Any(job=>job.IntegrationEvent is {} prior &&
+            prior.TenantId==input.TenantId && prior.AccountId==input.AccountId && prior.SourceSystem==input.SourceSystem &&
+            prior.EventType==input.EventType && prior.TargetSystem==input.TargetSystem &&
+            IntegrationOrchestrator.SourceEntity(prior)==entity && prior.SourceVersion>input.SourceVersion);
+    }
     internal bool IntegrationEventExists(string tenant,string account,string eventId)
     {lock(gate)return state.Jobs.Any(x=>x.IntegrationEvent is {} e&&e.TenantId==tenant&&e.AccountId==account&&e.EventId==eventId);}
     internal void IntegrationUpdate(string id,Action<EnterpriseJob> change)=>UpdateJob(id,change);
@@ -66,7 +75,7 @@ public sealed partial class EnterpriseSync
         }
     }
     internal bool HasErpAcceptance(string source,string reference)
-    {lock(gate)return state.MockErpTransferReceipts.Values.Any(x=>x.SourceIdentity==source&&x.Operation is "create" or "correct"&&x.State=="accepted"&&x.AcceptanceReference==reference);}
+    {lock(gate)return state.MockErpTransferReceipts.Values.Any(x=>x.SourceIdentity==source&&x.Operation is "create" or "correct"&&x.State=="accepted"&&x.AcceptanceReference==reference&&x.ConfirmedAt!=null&&x.ErpTotal!=null&&x.MarketplaceTotal==x.ErpTotal);}
     internal bool HasErpRejection(string source,string key)
     {lock(gate)return state.MockErpTransferReceipts.TryGetValue(key,out var r)&&r.SourceIdentity==source&&r.State=="rejected";}
     internal MockErpTransferReceipt MockErpSubmit(ErpTransferPlan plan)
@@ -83,7 +92,8 @@ public sealed partial class EnterpriseSync
             var receipt=new MockErpTransferReceipt(plan.RequestKey,status,status=="accepted"?"MOCK-ERP-"+plan.RequestKey[..16]:null,
                 status=="accepted"?plan.MarketplaceTotal+(plan.MockScenario=="mismatch"?1:0):null,plan.Currency,
                 status=="rejected"?"Mock ERP siparişi reddetti; kullanıcı müdahalesi gerekli.":null,
-                Fingerprint:fingerprint,SourceIdentity:plan.SourceIdentity,Operation:plan.Operation,ConfirmedAt:status=="accepted"?DateTimeOffset.UtcNow:null);
+                Fingerprint:fingerprint,SourceIdentity:plan.SourceIdentity,Operation:plan.Operation,ConfirmedAt:status=="accepted"?DateTimeOffset.UtcNow:null,
+                MarketplaceTotal:plan.MarketplaceTotal);
             state.MockErpTransferReceipts.Add(plan.RequestKey,receipt);Save();return Clone(receipt);
         }
     }

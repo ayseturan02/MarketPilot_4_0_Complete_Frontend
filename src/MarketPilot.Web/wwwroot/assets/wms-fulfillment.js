@@ -14,6 +14,8 @@ function wfStatusLabel(status) {
     reserved: 'Rezerve edildi', picking: 'Toplanıyor', picked: 'Toplandı',
     packing: 'Paketleniyor', packed: 'Paketlendi', 'shipment-pending': 'Sevk bekleniyor',
     'blocked-shipment': 'Sevk doğrulanamadı', 'blocked-shipment-ambiguity': 'Sevk belirsiz',
+    'blocked-reservation': 'Rezervasyon doğrulanamadı', 'blocked-picking': 'Toplama doğrulanamadı',
+    'blocked-packing': 'Paketleme doğrulanamadı', 'blocked-erp-preparation': 'ERP hazırlığı bekleniyor',
     'updates-pending': 'Kanal/ERP güncellemesi bekliyor', 'partially-shipped': 'Kısmi sevk',
     processed: 'İşlendi', blocked: 'Bloke'
   };

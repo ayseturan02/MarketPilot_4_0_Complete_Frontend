@@ -489,6 +489,7 @@ public sealed class FulfillmentOrchestrationService
                 .GroupBy(stock => stock.Warehouse.Id, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
             var allocationByWarehouse = new Dictionary<string, List<WmsFulfillmentLine>>(StringComparer.Ordinal);
+            var usedByWarehouseSku = new Dictionary<(string Warehouse, string Sku), decimal>();
             foreach (var line in row.Order.Lines)
             {
                 var remaining = line.Quantity;
@@ -508,7 +509,8 @@ public sealed class FulfillmentOrchestrationService
                     if (stock.SellableQuantity is null || stock.SellableQuantity < 0 ||
                         !stock.CanAllocateToChannels || string.IsNullOrWhiteSpace(stock.Snapshot.Unit))
                         continue;
-                    var take = Math.Min(remaining, stock.SellableQuantity.Value);
+                    var stockKey = (warehouseId, line.Sku.ToUpperInvariant());
+                    var take = Math.Min(remaining, Math.Max(0, stock.SellableQuantity.Value - usedByWarehouseSku.GetValueOrDefault(stockKey)));
                     if (take <= 0)
                         continue;
                     if (stock.Snapshot.Unit != line.Unit)
@@ -519,6 +521,7 @@ public sealed class FulfillmentOrchestrationService
                     if (!allocationByWarehouse.TryGetValue(warehouseId, out var tasks))
                         allocationByWarehouse.Add(warehouseId, tasks = []);
                     tasks.Add(new(line.Sku, take, line.Unit, line.ExternalLineId));
+                    usedByWarehouseSku[stockKey] = usedByWarehouseSku.GetValueOrDefault(stockKey) + take;
                     remaining -= take;
                 }
                 if (remaining > 0)
@@ -688,6 +691,8 @@ public sealed class FulfillmentOrchestrationService
             try
             {
                 var result = await wms.GetAcceptanceStatusAsync(task.ExternalRequestId, ct);
+                if (result.Data.FulfillmentOrderId != task.ExternalRequestId)
+                    throw Error("InvalidResponse", "WMS kabul sonucu farklı bir talebe ait.");
                 if (result.Data.Status == "accepted")
                 {
                     task.SubmissionState = "submitted";
@@ -727,6 +732,13 @@ public sealed class FulfillmentOrchestrationService
             try
             {
                 var result = await wms.GetReservationStatusAsync(task.ExternalRequestId, ct);
+                if (result.Data.FulfillmentOrderId != task.ExternalRequestId || result.Data.WarehouseId != task.WarehouseId ||
+                    result.Data.Lines is null || result.Data.Lines.Any(line => line.Quantity <= 0) ||
+                    !ReservationMatches(task.Lines, result.Data.Lines))
+                {
+                    Block(row, "blocked-reservation", "WMS rezervasyon kimliği, deposu, birimi veya miktarı talep ile eşleşmiyor.");
+                    return Clone(row);
+                }
                 if (result.Data.Status is "reserved" or "held")
                 {
                     task.ReservationState = "reserved";
@@ -748,6 +760,15 @@ public sealed class FulfillmentOrchestrationService
         return Clone(row);
     }
 
+    private static bool ReservationMatches(IReadOnlyList<WmsFulfillmentLine> requested, IReadOnlyList<WmsReservationLine> reserved)
+    {
+        var expected = requested.GroupBy(line => (line.Sku, line.Unit))
+            .ToDictionary(group => group.Key, group => group.Sum(line => line.Quantity));
+        var actual = reserved.GroupBy(line => (line.Sku, line.Unit))
+            .ToDictionary(group => group.Key, group => group.Sum(line => line.Quantity));
+        return expected.Count == actual.Count && expected.All(pair => actual.TryGetValue(pair.Key, out var quantity) && quantity == pair.Value);
+    }
+
     private async Task<FulfillmentWorkflowRecord> PollPickingAsync(FulfillmentWorkflowRecord row, CancellationToken ct)
     {
         foreach (var task in row.Warehouses.Where(task => task.PickingState != "picked"))
@@ -755,6 +776,8 @@ public sealed class FulfillmentOrchestrationService
             try
             {
                 var result = await wms.GetPickingStatusAsync(task.ExternalRequestId, ct);
+                if (result.Data.FulfillmentOrderId != task.ExternalRequestId)
+                    throw Error("InvalidResponse", "Toplama sonucu farklı bir talebe ait.");
                 if (result.Data.Status is "picked" or "completed")
                     task.PickingState = "picked";
                 else
@@ -780,6 +803,8 @@ public sealed class FulfillmentOrchestrationService
             try
             {
                 var result = await wms.GetPackingStatusAsync(task.ExternalRequestId, ct);
+                if (result.Data.FulfillmentOrderId != task.ExternalRequestId)
+                    throw Error("InvalidResponse", "Paketleme sonucu farklı bir talebe ait.");
                 if (result.Data.Status is "packed" or "completed")
                     task.PackingState = "packed";
                 else
@@ -805,6 +830,8 @@ public sealed class FulfillmentOrchestrationService
             try
             {
                 var result = await wms.GetShipmentStatusAsync(task.ExternalRequestId, ct);
+                if (result.Data.FulfillmentOrderId != task.ExternalRequestId)
+                    throw Error("InvalidResponse", "Sevkiyat sonucu farklı bir talebe ait.");
                 if (result.Data.Status is not ("shipped" or "partially-shipped" or "in-transit" or "delivered"))
                 {
                     SetState(row, "shipment-pending", $"Sevk henüz doğrulanmadı: {task.WarehouseId} ({result.Data.Status}).", result.CorrelationId);
@@ -813,16 +840,8 @@ public sealed class FulfillmentOrchestrationService
                 var packages = result.Data.Packages;
                 if (packages is null || packages.Count == 0)
                 {
-                    if (result.Data.Status != "shipped")
-                    {
-                        Block(row, "blocked-shipment-ambiguity", "WMS paket satırları olmadan kısmi sevk sonucu döndürdü.");
-                        return;
-                    }
-                    packages =
-                    [
-                        new(task.ExternalRequestId + "-package-1", task.Lines, result.Data.Carrier,
-                            result.Data.TrackingNumber, result.Data.TrackingUrl, result.Data.UpdatedAt)
-                    ];
+                    Block(row, "blocked-shipment-ambiguity", "WMS paket satırları olmadan sevk sonucu döndürdü; paket veya sevk miktarı varsayılmadı.");
+                    return;
                 }
                 if (!MergePackages(row, task, packages))
                     return;
@@ -858,9 +877,22 @@ public sealed class FulfillmentOrchestrationService
         var allocated = task.Lines.GroupBy(line => line.ExternalLineId ?? line.Sku, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.Sum(line => line.Quantity), StringComparer.Ordinal);
         var totals = new Dictionary<string, decimal>(StringComparer.Ordinal);
+        if (incoming.Select(package => package.PackageId).Distinct(StringComparer.Ordinal).Count() != incoming.Count)
+        {
+            Block(row, "blocked-shipment-ambiguity", "WMS yanıtında tekrarlanan paket kimliği var.");
+            return false;
+        }
+        var replacedIds = incoming.Select(package => task.WarehouseId + "|" + package.PackageId).ToHashSet(StringComparer.Ordinal);
+        foreach (var savedPackage in row.Packages.Where(package => package.PackageId.StartsWith(task.WarehouseId + "|", StringComparison.Ordinal) && !replacedIds.Contains(package.PackageId)))
+        foreach (var line in savedPackage.Lines)
+        {
+            var key = line.ExternalLineId ?? line.Sku;
+            totals[key] = totals.GetValueOrDefault(key) + line.Quantity;
+        }
         foreach (var package in incoming)
         {
             if (string.IsNullOrWhiteSpace(package.PackageId) || package.Lines is null ||
+                package.Lines.Count == 0 || package.ShippedAt == default || string.IsNullOrWhiteSpace(package.TrackingNumber) ||
                 package.Lines.Any(line => line.Quantity <= 0 || string.IsNullOrWhiteSpace(line.Sku)))
             {
                 Block(row, "blocked-shipment-ambiguity", "WMS paket kimliği veya satırları geçersiz.");
@@ -869,7 +901,8 @@ public sealed class FulfillmentOrchestrationService
             foreach (var line in package.Lines)
             {
                 var key = line.ExternalLineId ?? line.Sku;
-                if (!allocated.ContainsKey(key))
+                var requested = task.Lines.FirstOrDefault(item => (item.ExternalLineId ?? item.Sku) == key);
+                if (!allocated.ContainsKey(key) || requested is null || requested.Sku != line.Sku || requested.Unit != line.Unit)
                 {
                     Block(row, "blocked-shipment-ambiguity", "WMS sevk satırı bu depo tahsisiyle eşleşmiyor.");
                     return false;
@@ -985,7 +1018,7 @@ public sealed class FulfillmentOrchestrationService
     {
         if (order is null || !Present(order.Marketplace, 50) || !Present(order.AccountId, 120) ||
             !Present(order.ExternalOrderId, 120) || !Present(order.IdempotencyKey, 160) ||
-            !Present(order.Status, 40) || order.OrderedAt == default ||
+            !Present(order.Status, 40) || order.OrderedAt == default || !Present(order.Currency, 3) ||
             !string.Equals(order.Currency, order.Currency.ToUpperInvariant(), StringComparison.Ordinal) ||
             order.Currency.Length != 3 || order.Currency.Any(character => character is < 'A' or > 'Z') ||
             order.Lines is null || order.Lines.Count is < 1 or > 1000)

@@ -16,7 +16,7 @@ public sealed class WmsInventoryState
 public sealed class WmsInventoryPolicy
 {
     public string ApprovedSellableRule { get; set; } = "strict-deduction";
-    public DateTimeOffset? RuleApprovedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? RuleApprovedAt { get; set; }
     public Dictionary<string, decimal> SafetyStockByWarehouse { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<string, string[]> WarehouseAssignmentsByAccount { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<string, decimal> ChannelStockLimits { get; set; } = new(StringComparer.Ordinal);
@@ -163,7 +163,12 @@ public sealed class WmsInventoryService
                     var warehouse = warehouses.Single(row => row.Id == snapshot.WarehouseId);
                     var safety = saved.Policy.SafetyStockByWarehouse.GetValueOrDefault(warehouse.Id);
                     var (quantity, status) = CalculateSellable(snapshot, safety);
-                    return new WmsInventoryRow(warehouse, snapshot, safety, quantity, status, !snapshot.ProviderManaged);
+                    if (!snapshot.ProviderManaged && saved.Policy.RuleApprovedAt is null)
+                        (quantity, status) = (null, "rule-approval-required");
+                    if (!warehouse.IsActive)
+                        (quantity, status) = (null, "warehouse-inactive");
+                    return new WmsInventoryRow(warehouse, snapshot, safety, quantity, status,
+                        !snapshot.ProviderManaged && warehouse.IsActive && quantity is not null);
                 }).ToArray();
 
             var accounts = registry.Connections.Values
@@ -221,7 +226,7 @@ public sealed class WmsInventoryService
             saved.Policy.ChannelStockLimits =
                 new(update.ChannelStockLimits, StringComparer.Ordinal);
             saved.Policy.ApprovedSellableRule = "strict-deduction";
-            saved.Policy.RuleApprovedAt ??= DateTimeOffset.UtcNow;
+            saved.Policy.RuleApprovedAt = DateTimeOffset.UtcNow;
             return CopyPolicy(saved.Policy);
         });
     }
@@ -314,7 +319,11 @@ public sealed class WmsInventoryService
             var positions = erpStock.Where(position =>
                 position.VariantId == matchingVariants[0].Id && position.WarehouseId == matchingWarehouses[0].Id).ToArray();
             if (positions.Length == 0)
+            {
+                differences.Add(new(row.Warehouse.Code, row.Snapshot.Sku, row.Snapshot.OnHandQuantity,
+                    null, row.Snapshot.Unit, "unknown", "missing-erp-stock", row.Snapshot.CapturedAt));
                 continue;
+            }
             if (positions.Length > 1)
             {
                 differences.Add(new(row.Warehouse.Code, row.Snapshot.Sku, row.Snapshot.OnHandQuantity,
@@ -400,6 +409,11 @@ public sealed class WmsInventoryService
     {
         if (current is null)
             return ("applied", null);
+
+        if (current.ProviderManaged && (!incoming.ProviderManaged || current.ProviderName != incoming.ProviderName))
+            return ("conflict", "Sağlayıcı yönetimli stok sahipliği otomatik değiştirilemez.");
+        if (current.SourceVersion.HasValue && !incoming.SourceVersion.HasValue)
+            return ("conflict", "Sürümlü WMS görüntüsü sürümsüz olayla değiştirilemez.");
 
         var sameContent = current with { CapturedAt = incoming.CapturedAt, SourceVersion = incoming.SourceVersion } == incoming;
         if (current.SourceVersion.HasValue && incoming.SourceVersion.HasValue)

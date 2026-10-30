@@ -124,7 +124,8 @@ public sealed class MockWmsProvider : IWmsProvider
                     rejected ? "Mock WMS bu depoyu reddetti." : "Mock WMS talebi kabul edildi.", FixtureTime);
                 fulfillmentFingerprints.Add(order.Id, fingerprint);
                 fulfillments.Add(order.Id, acceptance);
-                orders.Add(order.Id, order);
+                // Keep the accepted request independent of caller-owned collections.
+                orders.Add(order.Id, order with { Lines = order.Lines.ToArray() });
             }
             var ambiguous=behavior.AmbiguousSubmission && ambiguousSubmissions.Add(order.Id);
             try{persistence?.SaveMockWmsState(Profile.TenantId,Profile.Id,Snapshot());}
@@ -161,6 +162,8 @@ public sealed class MockWmsProvider : IWmsProvider
         WmsFulfillmentAcceptance acceptance;
         lock (gate)
             acceptance = GetFulfillment(fulfillmentOrderId);
+
+        EnsureAccepted(acceptance);
 
         var order = FindOrder(fulfillmentOrderId);
         return Result(WmsMockOperations.Reservations, new WmsReservation(
@@ -325,7 +328,17 @@ public sealed class MockWmsProvider : IWmsProvider
     private WmsFulfillmentAcceptance GetKnownFulfillment(string fulfillmentOrderId)
     {
         lock (gate)
-            return GetFulfillment(fulfillmentOrderId);
+        {
+            var acceptance = GetFulfillment(fulfillmentOrderId);
+            EnsureAccepted(acceptance);
+            return acceptance;
+        }
+    }
+
+    private static void EnsureAccepted(WmsFulfillmentAcceptance acceptance)
+    {
+        if (acceptance.Status != "accepted")
+            throw Error("FulfillmentRejected", "Reddedilen WMS talebi için işlem durumu üretilemez.");
     }
 
     private WmsFulfillmentAcceptance GetFulfillment(string fulfillmentOrderId) =>

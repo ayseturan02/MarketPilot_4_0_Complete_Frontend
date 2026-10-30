@@ -66,6 +66,7 @@ builder.Services.AddSingleton<WorkspaceHub>();
 builder.Services.AddOperationalPreparation();
 builder.Services.AddCanonicalContracts();
 builder.Services.AddSingleton<BusinessWorkspaces>();builder.Services.AddHostedService<BusinessWorkspaceWorker>();
+builder.Services.AddSingleton<CredentialReferenceStore>();
 var app = builder.Build();
 if (publicDeployment)
 {
@@ -91,7 +92,9 @@ app.Use(async(context,next)=>
     }
 });
 app.UseLocalAccess();
+app.UseTenantBoundary();
 app.UseBusinessWorkspaces();
+app.MapTenantSecurity();
 app.MapLocalReliability();
 app.UseDefaultFiles(); app.UseStaticFiles();
 app.MapMarketplaceIntegrations();

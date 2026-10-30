@@ -75,7 +75,7 @@ public sealed class LocalAccountStore
             name = (name ?? "").Trim().ToLowerInvariant();
             if (!Regex.IsMatch(name, @"^[a-z0-9][a-z0-9._@-]{2,79}$")) throw new ArgumentException("Hesap adı 3–80 karakter olmalı; harf, rakam, nokta, tire veya @ kullanılabilir.");
             if (password is null || password.Length is < 12 or > 128) throw new ArgumentException("Parola 12–128 karakter olmalı.");
-            if (!new[] { "admin", "operator", "viewer" }.Contains(role)) throw new ArgumentException("Geçersiz yetki.");
+            if (!TenantRoles.Valid(role)||TenantRoles.Normalize(role,businessId)=="platform-admin"&&businessId!="default") throw new ArgumentException("Geçersiz yetki.");
             if(!BusinessWorkspaces.ValidId(businessId))throw new ArgumentException("İşletme kodu 1–64 küçük harf, rakam veya tire olmalı.");
             if(!users.Any(u=>u.BusinessId==businessId)&&users.Select(u=>u.BusinessId).Distinct().Count()>=100)throw new ArgumentException("En fazla 100 işletme tanımlanabilir.");
             if (users.Any(u => u.Name == name)) throw new ArgumentException("Bu hesap adı zaten kullanılıyor.");
@@ -138,12 +138,13 @@ public sealed class LocalAccountStore
     {
         lock (gate)
         {
-            if (!new[] { "admin", "operator", "viewer" }.Contains(role)) throw new ArgumentException("Geçersiz yetki.");
+            if (!TenantRoles.Valid(role)) throw new ArgumentException("Geçersiz yetki.");
             var user = users.FirstOrDefault(u => u.Id == id) ?? throw new ArgumentException("Kullanıcı bulunamadı.");
             var acting=users.FirstOrDefault(u=>u.Id==actor);
             if(acting==null||acting.BusinessId!="default"&&acting.BusinessId!=user.BusinessId)throw new ArgumentException("Bu işletmenin kullanıcısına erişim yok.");
-            if (id == actor && (!enabled || role != "admin")) throw new ArgumentException("Kendi yönetici erişimini bu ekrandan kapatamazsın.");
-            if (user.Role == "admin" && user.Enabled && (!enabled || role != "admin") && users.Count(u => u.Role == "admin" && u.Enabled) <= 1) throw new ArgumentException("Son yönetici hesabı kapatılamaz.");
+            if (id == actor && (!enabled || TenantRoles.Alias(TenantRoles.Normalize(role,user.BusinessId)) != "admin")) throw new ArgumentException("Kendi yönetici erişimini bu ekrandan kapatamazsın.");
+            if(TenantRoles.Normalize(role,user.BusinessId)=="platform-admin"&&user.BusinessId!="default")throw new ArgumentException("Platform rolü bu işletmeye atanamaz.");
+            if (TenantRoles.Alias(TenantRoles.Normalize(user.Role,user.BusinessId))=="admin" && user.Enabled && (!enabled || TenantRoles.Alias(TenantRoles.Normalize(role,user.BusinessId))!="admin") && users.Count(u => u.BusinessId==user.BusinessId&&TenantRoles.Alias(TenantRoles.Normalize(u.Role,u.BusinessId))=="admin"&&u.Enabled)<=1) throw new ArgumentException("Son yönetici hesabı kapatılamaz.");
             var before = JsonSerializer.Serialize(users, json); user.Role = role; user.Enabled = enabled; user.Version++; Save(before);
         }
     }
@@ -180,6 +181,7 @@ public static class LocalAccess
         var keys = Path.Combine(builder.Environment.ContentRootPath, "Data", "keys"); Directory.CreateDirectory(keys);
         builder.Services.AddDataProtection().SetApplicationName("InternetTekstil.Local").PersistKeysToFileSystem(new DirectoryInfo(keys));
         builder.Services.AddSingleton<LocalAccountStore>();
+        builder.Services.AddSingleton<TenantAccessDirectory>();
         builder.Services.AddSingleton<SetupToken>();
         builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(o =>
         {
@@ -191,7 +193,11 @@ public static class LocalAccess
             o.Events.OnValidatePrincipal = async c =>
             {
                 var store = c.HttpContext.RequestServices.GetRequiredService<LocalAccountStore>();
-                if (!store.ValidateSession(c.Principal?.FindFirstValue(ClaimTypes.NameIdentifier), c.Principal?.FindFirstValue("version"))) { c.RejectPrincipal(); await c.HttpContext.SignOutAsync(); }
+                var directory=c.HttpContext.RequestServices.GetRequiredService<TenantAccessDirectory>();directory.Synchronize(store.Users());
+                var tenant=c.Principal?.FindFirstValue("business_id")??"default";
+                var membership=directory.Find(c.Principal?.FindFirstValue(ClaimTypes.NameIdentifier)??"",tenant);
+                var role=c.Principal?.FindFirstValue("tenant_role")??TenantRoles.Normalize(c.Principal?.FindFirstValue(ClaimTypes.Role)??"viewer",tenant);
+                if (!store.ValidateSession(c.Principal?.FindFirstValue(ClaimTypes.NameIdentifier), c.Principal?.FindFirstValue("version"))||membership?.RoleId!=role) { c.RejectPrincipal(); await c.HttpContext.SignOutAsync(); }
             };
         });
         builder.Services.AddRateLimiter(o =>
@@ -239,7 +245,7 @@ public static class LocalAccess
             }
             context.Response.Headers.CacheControl = "no-store"; await next();
         });
-        app.MapGet("/api/access/status", (HttpContext c, LocalAccountStore store) => Results.Ok(new { configured = store.Configured, setupTokenRequired = IsPublicDeployment(app.Configuration) && !store.Configured, authenticated = c.User.Identity?.IsAuthenticated == true, name = c.User.Identity?.Name, role = c.User.FindFirstValue(ClaimTypes.Role), businessId = BusinessWorkspaces.BusinessId(c), canManageBusinesses = c.User.IsInRole("admin") && BusinessWorkspaces.BusinessId(c) == "default" }));
+        app.MapGet("/api/access/status", (HttpContext c, LocalAccountStore store) => Results.Ok(new { configured = store.Configured, setupTokenRequired = IsPublicDeployment(app.Configuration) && !store.Configured, authenticated = c.User.Identity?.IsAuthenticated == true, name = c.User.Identity?.Name, role = c.User.FindFirstValue(ClaimTypes.Role),tenantRole=TenantRoles.Current(c), businessId = BusinessWorkspaces.BusinessId(c), canManageBusinesses = TenantRoles.IsPlatform(c) }));
         app.MapPost("/api/access/setup", async (LocalCredentials credentials, HttpContext c, LocalAccountStore store, SetupToken token) =>
         {
             var publicDeployment = IsPublicDeployment(app.Configuration);
@@ -266,33 +272,35 @@ public static class LocalAccess
             try{var updated=store.ChangePassword(id,input.CurrentPassword,input.NewPassword);await SignIn(c,updated.User,updated.Version);return Results.Ok(new{ok=true});}catch(ArgumentException e){return Results.BadRequest(new{error=e.Message});}
         }).RequireRateLimiting("local-login");
         app.MapPost("/api/access/logout", async (HttpContext c) => { await c.SignOutAsync(); return Results.Ok(new { ok = true }); });
-        app.MapGet("/api/access/users", (HttpContext c, LocalAccountStore store) => c.User.IsInRole("admin") ? Results.Ok(store.Users().Where(u=>BusinessWorkspaces.BusinessId(c)=="default"||u.BusinessId==BusinessWorkspaces.BusinessId(c))) : Results.StatusCode(403));
+        app.MapGet("/api/access/users", (HttpContext c, LocalAccountStore store) => c.User.IsInRole("admin") ? Results.Ok(store.Users().Where(u=>TenantRoles.IsPlatform(c)||u.BusinessId==BusinessWorkspaces.BusinessId(c))) : Results.StatusCode(403));
         app.MapPost("/api/access/users", (NewLocalUser input, HttpContext c, LocalAccountStore store) =>
         {
             if (!c.User.IsInRole("admin")) return Results.StatusCode(403);
             var business=input.BusinessId??BusinessWorkspaces.BusinessId(c);
-            if(BusinessWorkspaces.BusinessId(c)!="default"&&business!=BusinessWorkspaces.BusinessId(c))return Results.StatusCode(403);
+            if(!TenantRoles.CanGrant(c,input.Role,business))return Results.StatusCode(403);
             try { return Results.Ok(store.Create(input.Name, input.Password, input.Role,businessId:business)); } catch (ArgumentException e) { return Results.BadRequest(new { error = e.Message }); }
         });
         app.MapPost("/api/access/users/{id}", (string id, ChangeLocalUser input, HttpContext c, LocalAccountStore store) =>
         {
             if (!c.User.IsInRole("admin")) return Results.StatusCode(403);
-            if(BusinessWorkspaces.BusinessId(c)!="default"&&!store.Users().Any(u=>u.Id==id&&u.BusinessId==BusinessWorkspaces.BusinessId(c)))return Results.StatusCode(403);
+            var target=store.Users().FirstOrDefault(u=>u.Id==id);if(target==null)return Results.NotFound();
+            if(!TenantRoles.CanGrant(c,input.Role,target.BusinessId)||!TenantRoles.IsPlatform(c)&&TenantRoles.Normalize(target.Role,target.BusinessId) is "platform-admin" or "business-owner")return Results.StatusCode(403);
             try { store.Change(id, input.Role, input.Enabled, c.User.FindFirstValue(ClaimTypes.NameIdentifier)!); return Results.Ok(new { ok = true }); } catch (ArgumentException e) { return Results.BadRequest(new { error = e.Message }); }
         });
     }
-    private static bool ReadOnlyPost(HttpContext c)
+    internal static bool ReadOnlyPost(HttpContext c)
     {
         var path=c.Request.Path.Value??"";
         if(path=="/api/catalog/preview")return true;
-        if(path is "/api/access/logout" or "/api/access/login" or "/api/access/password")return true;
+        if(path is "/api/access/logout" or "/api/access/login" or "/api/access/password" or "/api/access/switch-tenant")return true;
         if(System.Text.RegularExpressions.Regex.IsMatch(path,@"^/api/integrations/connections/[^/]+/(test|account|products|orders)$"))return true;
         var match=System.Text.RegularExpressions.Regex.Match(path,@"^/api/integrations/trendyol/connections/[^/]+/operations/([^/]+)$");
         return match.Success&&MarketPilot.Web.Integrations.Trendyol.TrendyolCatalog.Operations.TryGetValue(match.Groups[1].Value,out var op)&&!op.Write;
     }
-    private static Task SignIn(HttpContext c, UserSummary user, int version)
+    internal static Task SignIn(HttpContext c, UserSummary user, int version)
     {
-        var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, user.Id), new Claim(ClaimTypes.Name, user.Name), new Claim(ClaimTypes.Role, user.Role), new Claim("version", version.ToString()),new Claim("business_id",user.BusinessId)], CookieAuthenticationDefaults.AuthenticationScheme);
+        var role=TenantRoles.Normalize(user.Role,user.BusinessId);
+        var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, user.Id), new Claim(ClaimTypes.Name, user.Name), new Claim(ClaimTypes.Role, TenantRoles.Alias(role)),new Claim(ClaimTypes.Role,role),new Claim("tenant_role",role), new Claim("version", version.ToString()),new Claim("business_id",user.BusinessId)], CookieAuthenticationDefaults.AuthenticationScheme);
         return c.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity), new AuthenticationProperties { IsPersistent = false });
     }
 }
