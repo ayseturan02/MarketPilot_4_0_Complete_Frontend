@@ -19,6 +19,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Docker/compose secrets: one file per key under /run/secrets (e.g. Marketplaces__Trendyol__production__ApiKey), so API keys
 // need not be container environment variables that docker inspect would reveal.
 builder.Configuration.AddKeyPerFile(builder.Configuration["Secrets:Directory"] ?? "/run/secrets", optional: true);
+builder.ConfigureSecurity();
 var configuredDeploymentMode = builder.Configuration["Deployment:Mode"];
 if (configuredDeploymentMode is not null &&
     configuredDeploymentMode is not ("local" or "public"))
@@ -76,15 +77,18 @@ if (publicDeployment)
 app.Services.GetRequiredService<CatalogHub>().Ensure();
 app.Use(async(context,next)=>
 {
-    var h=context.Response.Headers;
-    h.XContentTypeOptions="nosniff";h.XFrameOptions="DENY";h["Referrer-Policy"]="no-referrer";h["Cross-Origin-Opener-Policy"]="same-origin";
-    h.ContentSecurityPolicy="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+    SecurityHardening.SecurityHeaders(context);
+    context.Response.OnStarting(()=>{SecurityHardening.SecurityHeaders(context);return Task.CompletedTask;});
+    if(context.Request.ContentLength>8*1024*1024)
+    {context.Response.StatusCode=413;await context.Response.WriteAsJsonAsync(new{error="İstek boyut sınırını aşıyor."});return;}
     await next();
 });
 app.Use(async(context,next)=>
 {
     try{await next();}
     catch(OperationCanceledException)when(context.RequestAborted.IsCancellationRequested){}
+    catch(BadHttpRequestException error) when(error.StatusCode is 400 or 413 or 431)
+    {if(!context.Response.HasStarted){context.Response.Clear();context.Response.StatusCode=error.StatusCode;await context.Response.WriteAsJsonAsync(new{error="İstek biçimi veya boyut sınırı geçersiz."});}else context.Abort();}
     catch(Exception)
     {
         try{context.RequestServices.GetRequiredService<LocalAudit>().Add("error","request","Bir sunucu isteği tamamlanamadı.");}catch(Exception){}

@@ -56,9 +56,9 @@ public sealed class IntegrationOrchestrator(EnterpriseSync jobs,IServiceProvider
     public async Task ProcessAsync(EnterpriseJob job,CancellationToken ct)
     {
         var e=job.IntegrationEvent!;
-        void Finish(string state,string result,string? error=null)=>jobs.IntegrationUpdate(job.Id,j=>
+        void Finish(string state,string result,string? error=null,TimeSpan? delay=null)=>jobs.IntegrationUpdate(job.Id,j=>
         {j.State=state;j.Result=result;j.Error=error;j.ProcessedAt=DateTimeOffset.UtcNow;
-            j.NextAttemptAt=DateTimeOffset.UtcNow.AddSeconds(5);if(state=="completed")j.FinishedAt=j.ProcessedAt;});
+            j.NextAttemptAt=DateTimeOffset.UtcNow.Add(delay??QueueResiliencePolicy.RetryDelay(Math.Max(1,j.Attempts),TimeSpan.FromSeconds(5),TimeSpan.FromMinutes(5)));if(state=="completed")j.FinishedAt=j.ProcessedAt;});
         try
         {
             if(e.TargetSystem=="audit") {Finish("completed","observed-only; no target write");return;}
@@ -77,7 +77,7 @@ public sealed class IntegrationOrchestrator(EnterpriseSync jobs,IServiceProvider
                 if(request.AccountId!=e.AccountId)throw new ArgumentException("İlan hesabı uyuşmuyor.");
                 var policy=jobs.GetErpTransferPolicy(e.TenantId,e.AccountId);
                 if(policy==null||!policy.Approved)throw new ArgumentException("Onaylı ERP ilan eşleme politikası gerekli.");
-                var projection=ChannelContracts.For(policy.Channel).Product(e.AccountId,request.Product,policy.Variants);
+                var projection=ChannelContracts.For(policy.Channel).Product(e.AccountId,request.Product,policy.Variants,e.TenantId);
                 Finish(projection.ReviewReasons.Length==0?"completed":"blocked",JsonSerializer.Serialize(projection,Json),
                     projection.ReviewReasons.Length==0?null:string.Join(" ",projection.ReviewReasons));return;
             }
@@ -93,7 +93,9 @@ public sealed class IntegrationOrchestrator(EnterpriseSync jobs,IServiceProvider
                 var transfer=services.GetRequiredService<ErpOrderTransferService>();
                 var plan=job.TransferPlan??transfer.Prepare(request);
                 if(job.TransferPlan==null)jobs.IntegrationUpdate(job.Id,j=>j.TransferPlan=plan);
-                var queryOnly=job.Attempts>0 || job.State is "waiting" or "uncertain";
+                var queryOnly=job.State is "waiting" or "uncertain";
+                if(!queryOnly&&job.Attempts>=QueueResiliencePolicy.MaxAttempts)
+                {Finish("intervention-required","maximum-attempts","Maksimum ERP gönderim sayısına ulaşıldı; hedef durumu incelenmeden yeni yazma yapılmayacak.");return;}
                 if(!queryOnly)jobs.IntegrationUpdate(job.Id,j=>{j.State="sending";j.Attempts++;});
                 var outcome=await transfer.ExecuteAsync(plan,queryOnly,ct);
                 jobs.IntegrationUpdate(job.Id,j=>j.ExternalReference=outcome.AcceptanceReference);
@@ -125,7 +127,9 @@ public sealed class IntegrationOrchestrator(EnterpriseSync jobs,IServiceProvider
                     if(record.NextWriteStep<record.PolicySnapshot.WriteSequence.Length &&
                         record.PolicySnapshot.WriteSequence[record.NextWriteStep]==FulfillmentWriteSteps.ErpOrderRegistration && record.ErpRegistrationState!="registered")
                     {
-                        var queryOnly=job.Attempts>0;
+                        var queryOnly=job.State is "waiting" or "uncertain";
+                        if(!queryOnly&&job.Attempts>=QueueResiliencePolicy.MaxAttempts)
+                        {Finish("intervention-required","maximum-attempts","Maksimum ERP gönderim sayısına ulaşıldı; hedef durumu incelenmeden yeni yazma yapılmayacak.");return;}
                         if(!queryOnly)jobs.IntegrationUpdate(job.Id,j=>{j.State="sending";j.Attempts++;});
                         var outcome=await transfer.ExecuteAsync(plan,queryOnly,ct);
                         jobs.IntegrationUpdate(job.Id,j=>j.ExternalReference=outcome.AcceptanceReference);
@@ -185,10 +189,26 @@ public sealed class IntegrationOrchestrator(EnterpriseSync jobs,IServiceProvider
                 "Bu olay/hedef için onaylı işlem sözleşmesi yok; hazırlık kullanıcı incelemesi bekliyor.");
         }
         catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
+        catch(OperationCanceledException)
+        {Finish("uncertain","query-target-before-any-retry","Hedef isteği zaman aşımına uğradı; hedef durumu doğrulanmadan yeniden yazılmayacak.",QueueResiliencePolicy.RetryDelay(Math.Max(1,job.Attempts),TimeSpan.FromSeconds(5),TimeSpan.FromMinutes(5)));}
         catch(ArgumentException error){Finish("blocked","validation-blocked",error.Message);}
-        catch(IntegrationException error){Finish("intervention-required","target-conflict",error.Message);}
+        catch(IntegrationException error)
+        {
+            if(error.Status==429)
+            {
+                var delay=QueueResiliencePolicy.RetryDelay(Math.Max(1,job.Attempts),TimeSpan.FromSeconds(10),TimeSpan.FromMinutes(15),error.RetryAfter);
+                if(job.State=="queued"&&job.Attempts<QueueResiliencePolicy.MaxAttempts)
+                    Finish("queued","rate-limited",error.Message,delay);
+                else
+                    Finish("uncertain","query-target-before-any-retry",error.Message,delay);
+            }
+            else if(QueueResiliencePolicy.IsTransientStatus(error.Status))
+                Finish("uncertain","query-target-before-any-retry",error.Message,
+                    QueueResiliencePolicy.RetryDelay(Math.Max(1,job.Attempts),TimeSpan.FromSeconds(5),TimeSpan.FromMinutes(5),error.RetryAfter));
+            else Finish("intervention-required","target-conflict",error.Message);
+        }
         catch(Exception error)when(error is IOException or TimeoutException or HttpRequestException)
-        {Finish("uncertain","query-target-before-any-retry","Mock hedef erişilemiyor veya sonuç belirsiz; kaynak sipariş kalıcı işte korunuyor.");}
+        {Finish("uncertain","query-target-before-any-retry","Hedef erişilemiyor veya sonuç belirsiz; kaynak sipariş kalıcı işte korunuyor.",QueueResiliencePolicy.RetryDelay(Math.Max(1,job.Attempts),TimeSpan.FromSeconds(5),TimeSpan.FromMinutes(5)));}
     }
     private void PublishWmsEvent(IntegrationEnvelope parent,FulfillmentWorkflowRecord record,string eventType,string target,string state)
     {

@@ -27,8 +27,10 @@ public sealed class StockWriteJob
     public string Reason { get; set; } = "";
     public string State { get; set; } = "queued";
     public int Attempts { get; set; }
+    public int TransientFailures { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset NextAttemptAt { get; set; }
+    public DateTimeOffset? LastAttemptAt { get; set; }
     public DateTimeOffset? SentAt { get; set; }
     public DateTimeOffset? FinishedAt { get; set; }
     public string? ProviderJobId { get; set; }
@@ -58,6 +60,7 @@ public sealed class StockOutbox
     }
     // A failed or blocked target is not resent on every run; after this pause the next run queues it again.
     private static readonly TimeSpan RetryCooldown = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan StoreWriteInterval = TimeSpan.FromSeconds(1);
     private static bool Active(string state) => state is "queued" or "dispatching" or "waiting" or "uncertain" or "blocked";
 
     public StockOutbox(IWebHostEnvironment env, IntegrationRegistry registry, DemoWorkspace demo, IServiceProvider services, IConfiguration config, TimeProvider clock)
@@ -66,16 +69,19 @@ public sealed class StockOutbox
         var folder = Path.Combine(env.ContentRootPath, "Data"); Directory.CreateDirectory(folder);
         file = Path.Combine(folder, "marketplace-outbox.json");
         jobs = File.Exists(file) ? JsonSerializer.Deserialize<List<StockWriteJob>>(File.ReadAllText(file), json) ?? throw new InvalidOperationException("Outbox cannot be read.") : new();
+        var changed = false;
         long sequence = jobs.Select(j => j.Sequence).DefaultIfEmpty().Max();
-        foreach (var item in jobs.Where(j => j.Sequence == 0).OrderBy(j => j.CreatedAt)) item.Sequence = ++sequence;
+        foreach (var item in jobs.Where(j => j.Sequence == 0).OrderBy(j => j.CreatedAt)) { item.Sequence = ++sequence; changed = true; }
         // A real dispatch interrupted after sending must be verified, never blindly resent.
         foreach (var job in jobs.Where(j => j.State == "dispatching"))
         {
             job.State = job.Mode == "demo" ? "queued" : "uncertain";
             if (job.Mode == "real") job.SentAt ??= clock.GetUtcNow();
             job.NextAttemptAt = clock.GetUtcNow();
+            changed = true;
         }
         persisted = JsonSerializer.Serialize(jobs, json);
+        if (changed) Save();
     }
     private void Save()
     {
@@ -141,7 +147,7 @@ public sealed class StockOutbox
     public object Status()
     {
         lock (gate) return new { queued = jobs.Count(j => j.State == "queued"), waiting = jobs.Count(j => j.State is "dispatching" or "waiting" or "uncertain"),
-            blocked = jobs.Count(j => j.State == "blocked"), failed = jobs.Count(j => j.State == "failed"), completed = jobs.Count(j => j.State == "completed"),
+            uncertain = jobs.Count(j => j.State == "uncertain"), blocked = jobs.Count(j => j.State == "blocked"), failed = jobs.Count(j => j.State == "failed"), deadLetter = jobs.Count(j => j.State == "failed"), completed = jobs.Count(j => j.State == "completed"),
             recent = jobs.Take(100).Select(Copy).ToArray() };
     }
     public int PendingCount(string? mode = null) { lock (gate) return jobs.Count(j => (mode is null || j.Mode == mode) && Active(j.State)); }
@@ -164,7 +170,7 @@ public sealed class StockOutbox
             var job = jobs.FirstOrDefault(j => j.Id == id) ?? throw new IntegrationException("not_found", "Gönderim işi bulunamadı.", 404);
             if (job.State is not ("failed" or "blocked")) throw new IntegrationException("invalid_state", "Yalnızca hatalı veya engellenmiş iş tekrar denenebilir.", 409);
             if (jobs.Any(j => j.Id != id && j.StoreId == job.StoreId && j.Source == job.Source && j.AccountIdentity == job.AccountIdentity && SameProduct(j,job.Barcode,job.NativeSku) && Active(j.State))) throw new IntegrationException("newer_job", "Bu ürünün başka bir gönderimi sürüyor.", 409);
-            job.State = job.SentAt is null ? "queued" : "uncertain"; job.Attempts = 0; job.Error = null; job.FinishedAt = null; job.NextAttemptAt = clock.GetUtcNow(); Save();
+            job.State = job.SentAt is null ? "queued" : "uncertain"; job.Attempts = 0; job.TransientFailures = 0; job.Error = null; job.FinishedAt = null; job.NextAttemptAt = clock.GetUtcNow(); Save();
         }
     }
     private void Set(string id, Action<StockWriteJob> update)
@@ -177,7 +183,7 @@ public sealed class StockOutbox
         {
             var job = jobs.Single(j => j.Id == id);
             if (job.State != "queued") return false;
-            job.State = "dispatching"; job.Attempts++; job.Error = null; Save(); return true;
+            job.State = "dispatching"; job.Attempts++; job.LastAttemptAt = clock.GetUtcNow(); job.Error = null; Save(); return true;
         }
     }
     private void Finish(string id, string state, string? error = null) => Set(id, j => { j.State = state; j.Error = error; j.FinishedAt = clock.GetUtcNow(); });
@@ -189,7 +195,9 @@ public sealed class StockOutbox
             StockWriteJob[] due;
             lock (gate)
             {
-                due = jobs.Where(j => j.State is "queued" or "waiting" or "uncertain" && j.NextAttemptAt <= clock.GetUtcNow())
+                var now = clock.GetUtcNow();
+                due = jobs.Where(j => j.State is "queued" or "waiting" or "uncertain" && j.NextAttemptAt <= now &&
+                        !jobs.Any(storeJob => storeJob.StoreId == j.StoreId && storeJob.LastAttemptAt > now - StoreWriteInterval))
                     .OrderBy(j => j.Sequence).Where(j => !jobs.Any(old => old.Id != j.Id && old.StoreId == j.StoreId && old.Source == j.Source && old.AccountIdentity == j.AccountIdentity && SameProduct(old,j.Barcode,j.NativeSku) && old.Sequence < j.Sequence && Active(old.State) && old.State != "blocked"))
                     .GroupBy(j => j.StoreId).Select(g => Copy(g.First())).Take(5).ToArray();
             }
@@ -233,12 +241,35 @@ public sealed class StockOutbox
                 var product = await services.GetRequiredService<MarketplaceStockWriter>().Read(store.Settings,job.Barcode,job.NativeSku,ct);
                 if (product?.Stock == job.Quantity && (!job.Price.HasValue || product.SalePrice == job.Price))
                 { Finish(job.Id, "completed"); return; }
-                if (clock.GetUtcNow() - job.SentAt > TimeSpan.FromMinutes(5))
-                { Finish(job.Id, "failed", "Gönderilen stok doğrulanamadı. İşlem kontrol edilerek yeniden denenmeli."); return; }
-                Set(job.Id, j => j.NextAttemptAt = clock.GetUtcNow().AddSeconds(15));
+                var elapsed = clock.GetUtcNow() - job.SentAt;
+                var delay = elapsed > TimeSpan.FromMinutes(5)
+                    ? TimeSpan.FromMinutes(5)
+                    : QueueResiliencePolicy.RetryDelay(Math.Max(1, job.Attempts), TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(5));
+                Set(job.Id, j =>
+                {
+                    if (elapsed > TimeSpan.FromMinutes(5))
+                    {
+                        j.State = "uncertain";
+                        j.Error = "Sonuç hâlâ doğrulanamadı; belirsiz durumda tutuluyor, yeniden yazma yapılmadı.";
+                    }
+                    j.NextAttemptAt = clock.GetUtcNow().Add(delay);
+                });
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch { if(clock.GetUtcNow()-job.SentAt>TimeSpan.FromMinutes(5))Finish(job.Id,"failed","Mağaza sonucu doğrulanamadı; işlem kontrol edilerek yeniden denenmeli.");else Set(job.Id, j => { j.Error = "Mağaza sonucu okunamadı; gönderim başarılı sayılmadı."; j.NextAttemptAt = clock.GetUtcNow().AddSeconds(30); }); }
+            catch
+            {
+                var elapsed = clock.GetUtcNow() - job.SentAt;
+                Set(job.Id, j =>
+                {
+                    if (elapsed > TimeSpan.FromMinutes(5))
+                        j.State = "uncertain";
+                    j.Error = elapsed > TimeSpan.FromMinutes(5)
+                        ? "Mağaza sonucu doğrulanamadı; iş belirsiz durumda tutuluyor, yeniden yazma yapılmadı."
+                        : "Mağaza sonucu okunamadı; gönderim başarılı sayılmadı.";
+                    j.NextAttemptAt = clock.GetUtcNow().Add(QueueResiliencePolicy.RetryDelay(
+                        Math.Max(1, job.Attempts), TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(5)));
+                });
+            }
             return;
         }
         MarketplaceProduct? liveProduct = null;
@@ -249,11 +280,37 @@ public sealed class StockOutbox
                 var writer = services.GetRequiredService<MarketplaceStockWriter>(); writer.Check(store.Settings);
                 liveProduct = await writer.Read(store.Settings,job.Barcode,job.NativeSku,ct);
                 // Persist the exact native identity before any mutation, including recovery after a crash.
-                Set(job.Id,j=>{j.NativeSku=liveProduct.Sku;j.ResolvedBarcode=liveProduct.Barcode;}); job.NativeSku=liveProduct.Sku;job.ResolvedBarcode=liveProduct.Barcode;
+                Set(job.Id,j=>{j.NativeSku=liveProduct.Sku;j.ResolvedBarcode=liveProduct.Barcode;j.TransientFailures=0;j.Error=null;}); job.NativeSku=liveProduct.Sku;job.ResolvedBarcode=liveProduct.Barcode;
             }
             catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
             catch(IntegrationException e)when(e.Status is 400 or 401 or 403 or 404 or 409){Finish(job.Id,"blocked",e.Message);return;}
-            catch{Set(job.Id,j=>{j.Error="Gönderim öncesi mağaza kaydı okunamadı; veri değiştirilmedi.";j.NextAttemptAt=clock.GetUtcNow().AddSeconds(30);});return;}
+            catch(IntegrationException e)when(QueueResiliencePolicy.IsTransientStatus(e.Status))
+            {
+                Set(job.Id,j=>
+                {
+                    j.TransientFailures++;
+                    j.State=j.TransientFailures>=QueueResiliencePolicy.MaxAttempts?"failed":"queued";
+                    j.Error=e.Status==429?"Gönderim öncesi mağaza hız sınırı; Retry-After süresine göre bekleniyor.":"Gönderim öncesi mağaza kaydı geçici olarak okunamadı; hiçbir yazma yapılmadı.";
+                    j.NextAttemptAt=clock.GetUtcNow().Add(QueueResiliencePolicy.RetryDelay(j.TransientFailures,
+                        TimeSpan.FromSeconds(e.Status==429?10:5),TimeSpan.FromMinutes(15),e.RetryAfter));
+                    if(j.State=="failed")j.FinishedAt=clock.GetUtcNow();
+                });
+                return;
+            }
+            catch(Exception e)when(e is HttpRequestException or TimeoutException or IOException ||
+                e is OperationCanceledException && !ct.IsCancellationRequested)
+            {
+                Set(job.Id,j=>
+                {
+                    j.TransientFailures++;
+                    j.State=j.TransientFailures>=QueueResiliencePolicy.MaxAttempts?"failed":"queued";
+                    j.Error="Gönderim öncesi mağaza kaydı okunamadı; bağlantı/timeout sırasında veri değiştirilmedi.";
+                    j.NextAttemptAt=clock.GetUtcNow().Add(QueueResiliencePolicy.RetryDelay(
+                        j.TransientFailures,TimeSpan.FromSeconds(5),TimeSpan.FromMinutes(5)));
+                    if(j.State=="failed")j.FinishedAt=clock.GetUtcNow();
+                });
+                return;
+            }
         }
         var inventory=services.GetService<DemoStore>();
         if(inventory?.CatalogRead(s=>s.Operations.Policy.ReservationsEnabled)==true)
@@ -291,12 +348,12 @@ public sealed class StockOutbox
         { Finish(job.Id, "blocked", e.Message); }
         catch (IntegrationException e) when (e.Status == 429)
         {
-            Set(job.Id, j => { j.State = j.Attempts >= 6 ? "failed" : "queued"; j.Error = "İstek sınırı; artan beklemeyle tekrar denenecek."; j.NextAttemptAt = clock.GetUtcNow().AddSeconds(Math.Min(900, 10 * Math.Pow(2, j.Attempts))); });
+            Set(job.Id, j => { j.State = j.Attempts >= QueueResiliencePolicy.MaxAttempts ? "failed" : "queued"; j.Error = "İstek sınırı; Retry-After ve artan beklemeyle tekrar denenecek."; j.NextAttemptAt = clock.GetUtcNow().Add(QueueResiliencePolicy.RetryDelay(j.Attempts, TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(15), e.RetryAfter)); });
         }
         catch
         {
-            Set(job.Id, j => { j.State = store.Settings.Mode == "demo" ? (j.Attempts >= 6 ? "failed" : "queued") : "uncertain"; j.SentAt = store.Settings.Mode == "real" ? clock.GetUtcNow() : null;
-                j.Error = store.Settings.Mode == "demo" ? "Geçici işlem/disk hatası; aynı kalıcı işlem kimliğiyle tekrar denenecek." : "İşlem sonucu belirsiz; aynı gönderim körlemesine tekrarlanmayacak."; j.NextAttemptAt = clock.GetUtcNow().AddSeconds(store.Settings.Mode == "demo" ? Math.Min(30, Math.Pow(2, j.Attempts)) : 30); });
+            Set(job.Id, j => { j.State = store.Settings.Mode == "demo" ? (j.Attempts >= QueueResiliencePolicy.MaxAttempts ? "failed" : "queued") : "uncertain"; j.SentAt = store.Settings.Mode == "real" ? clock.GetUtcNow() : null;
+                j.Error = store.Settings.Mode == "demo" ? "Geçici işlem/disk hatası; aynı kalıcı işlem kimliğiyle tekrar denenecek." : "İşlem sonucu belirsiz; hedef doğrulanmadan yeniden gönderilmeyecek."; j.NextAttemptAt = clock.GetUtcNow().Add(QueueResiliencePolicy.RetryDelay(j.Attempts, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(30))); });
         }
     }
 }

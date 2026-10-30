@@ -40,7 +40,7 @@ public static class TenantRoles
         (c.Request.Path=="/api/wms/logistics/mock/events" || System.Text.RegularExpressions.Regex.IsMatch(c.Request.Path.Value??"",@"^/api/wms/fulfillment/workflows/[^/]+/advance$"));
     public static bool Allowed(HttpContext c)
     {
-        var role=Current(c);var path=c.Request.Path.Value??"";
+        var role=Current(c);var path=(c.Request.Path.Value??"").ToLowerInvariant();
         if(role is "platform-admin" or "business-owner" or "business-admin")return true;
         if(path.StartsWith("/api/access/",StringComparison.Ordinal))return path is "/api/access/status" or "/api/access/logout" or "/api/access/password" or "/api/access/switch-tenant" or "/api/access/memberships";
         var read=c.Request.Method is "GET" or "HEAD";

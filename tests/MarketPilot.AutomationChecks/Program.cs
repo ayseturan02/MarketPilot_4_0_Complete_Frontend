@@ -7,6 +7,7 @@ using MarketPilot.Web.Integrations.Demo;
 using MarketPilot.Web.Integrations.Trendyol;
 using MarketPilot.Web.Integrations.CentralStock;
 using MarketPilot.Web.Synchronization;
+using MarketPilot.Web.Webhooks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -80,14 +81,72 @@ try
     await recovered.ProcessDue(default);
     Check(Json(recovered.Status()).GetProperty("blocked").GetInt32() == 1 && transport.Calls == 0, "Real write guard must block outbound calls");
     config["Synchronization:AllowRealWrites"] = "true";
-    recovered.Retry(guarded.Id); transport.Code = HttpStatusCode.TooManyRequests;
+    recovered.Retry(guarded.Id); transport.Code = HttpStatusCode.TooManyRequests; transport.RetryAfter = TimeSpan.FromSeconds(60);
+    var rateLimitAt = clock.GetUtcNow();
     await recovered.ProcessDue(default); Check(transport.Calls == 1, "Mock 429 must be reached once");
+    var retryAt = recovered.Find(guarded.Id)!.NextAttemptAt;
+    Check(retryAt >= rateLimitAt.AddSeconds(60), "429 Retry-After must be honored");
     await recovered.ProcessDue(default); Check(transport.Calls == 1, "Rate-limit backoff must survive extra worker ticks");
-    clock.Advance(21); await recovered.ProcessDue(default); Check(transport.Calls == 2, "Due retry must reuse the queued target");
-    transport.Code = HttpStatusCode.OK; clock.Advance(41); await recovered.ProcessDue(default);
+    recovered = new StockOutbox(env, registry, demo, services, config, clock);
+    Check(recovered.Find(guarded.Id)!.NextAttemptAt == retryAt, "429 schedule must survive a process restart");
+    await recovered.ProcessDue(default); Check(transport.Calls == 1, "Restart must not bypass persisted rate-limit delay");
+    transport.RetryAfter = null; clock.Advance(61); await recovered.ProcessDue(default); Check(transport.Calls == 2, "Due retry must reuse the queued target");
+    transport.Code = HttpStatusCode.OK; clock.Advance(30); await recovered.ProcessDue(default);
     Check(Json(recovered.Status()).GetProperty("waiting").GetInt32() == 1, "HTTP acceptance must not count as completion");
     trendyol.Stock = 42; clock.Advance(16); await recovered.ProcessDue(default);
     Check(recovered.ConfirmedStock(live.Id, "FIXTURE-BARCODE") == 42, "Readback must confirm the exact target");
+
+    var uncertainStatus = recovered.Enqueue(live, "HTTP-503-UNCERTAIN", 57, null, "503 verification");
+    transport.Code = HttpStatusCode.ServiceUnavailable; clock.Advance(2);
+    var before503 = transport.Calls;
+    await recovered.ProcessDue(default);
+    Check(transport.Calls == before503 + 1 && recovered.Find(uncertainStatus.Id)?.State == "uncertain",
+        "A mock 503 write response must enter uncertain instead of retrying blindly.");
+    transport.Code = HttpStatusCode.OK; trendyol.Stock = 57; clock.Advance(2);
+    var before503Readback = transport.Calls;
+    recovered = new StockOutbox(env, registry, demo, services, config, clock);
+    await recovered.ProcessDue(default);
+    Check(transport.Calls == before503Readback && recovered.Find(uncertainStatus.Id)?.State == "completed",
+        "A restarted 503 job must verify target state without a second write.");
+
+    foreach (var (barcode, quantity, fault) in new[]
+    {
+        ("CONNECTION-DROPPED", 58, "connection"),
+        ("REQUEST-TIMEOUT", 59, "timeout")
+    })
+    {
+        var uncertainJob = recovered.Enqueue(live, barcode, quantity, null, fault);
+        transport.DropConnection = fault == "connection";
+        transport.Timeout = fault == "timeout";
+        clock.Advance(2);
+        var sendCount = transport.Calls;
+        await recovered.ProcessDue(default);
+        Check(transport.Calls == sendCount + 1 && recovered.Find(uncertainJob.Id)?.State == "uncertain",
+            $"A mock {fault} must leave the external write uncertain.");
+        transport.DropConnection = false;
+        transport.Timeout = false;
+        transport.Code = HttpStatusCode.OK;
+        trendyol.Stock = quantity;
+        clock.Advance(2);
+        sendCount = transport.Calls;
+        recovered = new StockOutbox(env, registry, demo, services, config, clock);
+        await recovered.ProcessDue(default);
+        Check(transport.Calls == sendCount && recovered.Find(uncertainJob.Id)?.State == "completed",
+            $"A restarted {fault} job must verify target state before any new send.");
+    }
+
+    var inbox = new OrderWebhookInbox(env, clock);
+    var hookBinding = new OrderHookBinding("fixture-endpoint", demoStore, "fixture-seller", config.GetSection("Webhooks"));
+    var webhookItem = new OrderWebhookPayload.Item(FixtureAdapter.Order("inbox-restart"), 1, "fixture-fingerprint");
+    var acceptedHook = Json(inbox.Accept(hookBinding, [webhookItem]));
+    Check(acceptedHook.GetProperty("accepted").GetInt32() == 1, "Webhook must be durably accepted once");
+    var restartedInbox = new OrderWebhookInbox(env, clock);
+    var duplicateHook = Json(restartedInbox.Accept(hookBinding, [webhookItem]));
+    Check(duplicateHook.GetProperty("accepted").GetInt32() == 0 && duplicateHook.GetProperty("duplicates").GetInt32() == 1,
+        "Webhook replay after restart must remain idempotent");
+    Check(Json(restartedInbox.Status()).GetProperty("pending").GetInt32() == 1, "Restart must preserve the accepted webhook");
+    var jittered = QueueResiliencePolicy.RetryDelay(4, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(20));
+    Check(jittered >= TimeSpan.FromSeconds(12.8) && jittered <= TimeSpan.FromSeconds(19.2), "Exponential backoff must be jittered and capped");
 
     Check(recovered.Enqueue(live,"FIXTURE-BARCODE",42,null,"fixture",requestId:"fixture-replay").Id==guarded.Id,"Replay must retain the same job after native SKU resolution and completion");
     try{recovered.Enqueue(live,"FIXTURE-BARCODE",43,null,"fixture",requestId:"fixture-replay");throw new Exception("Different target accepted under same request ID");}
@@ -178,7 +237,7 @@ try
     catch (UnauthorizedAccessException) { }
     finally { Directory.Delete(blocker); }
     Check(Json(uncertain.Status()).GetRawText() == snapshot, "Failed queue persistence must roll back memory");
-    Console.WriteLine("PASS automatic synchronization/outbox: scheduled multi-page import, interval and restart recovery, failure backoff, disabled polling, durable dispatch, idempotency, real-write guard, 429 retry, readback, uncertain-send recovery, transient Windows read locks and disk rollback. All transports mocked.");
+    Console.WriteLine("PASS automatic synchronization/outbox: scheduled multi-page import, interval and restart recovery, failure backoff, disabled polling, durable dispatch, idempotency, real-write guard, Retry-After, 503/connection/timeout uncertainty and query-before-retry, readback, transient Windows read locks and disk rollback. All transports mocked.");
 }
 finally
 {
@@ -213,9 +272,16 @@ sealed class FixtureAdapter(string marketplace) : IMarketplaceAdapter
 }
 sealed class FixtureTransport : HttpMessageHandler
 {
-    public int Calls; public HttpStatusCode Code = HttpStatusCode.OK;
+    public int Calls; public HttpStatusCode Code = HttpStatusCode.OK; public TimeSpan? RetryAfter; public bool DropConnection; public bool Timeout;
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-    { Calls++; return Task.FromResult(new HttpResponseMessage(Code) { Content = new StringContent("{\"batchRequestId\":\"fixture-batch\"}", Encoding.UTF8, "application/json") }); }
+    {
+        Calls++;
+        if (DropConnection) throw new HttpRequestException("fixture connection dropped");
+        if (Timeout) return Task.FromException<HttpResponseMessage>(new TaskCanceledException("fixture timeout"));
+        var response = new HttpResponseMessage(Code) { Content = new StringContent("{\"batchRequestId\":\"fixture-batch\"}", Encoding.UTF8, "application/json") };
+        if (RetryAfter is { } delay) response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(delay);
+        return Task.FromResult(response);
+    }
 }
 sealed class FixtureEnvironment : IWebHostEnvironment
 {

@@ -35,7 +35,7 @@ public sealed partial class TicimaxSoap(IHttpClientFactory factory,IConfiguratio
     private async Task<byte[]> Send(HttpRequestMessage request,CancellationToken ct)
     {
         using var response=await factory.CreateClient("Ticimax").SendAsync(request,HttpCompletionOption.ResponseHeadersRead,ct);
-        if(!response.IsSuccessStatusCode)throw new IntegrationException((int)response.StatusCode==429?"rate_limited":"ticimax_error",(int)response.StatusCode is 401 or 403?"Ticimax servis yetkisi doğrulanamadı.":"Ticimax servisine erişilemedi. Mağaza adresini ve servis yetkilerini kontrol edin.",(int)response.StatusCode is 401 or 403?409:(int)response.StatusCode==429?429:502);
+        if(!response.IsSuccessStatusCode)throw new IntegrationException((int)response.StatusCode==429?"rate_limited":"ticimax_error",(int)response.StatusCode is 401 or 403?"Ticimax servis yetkisi doğrulanamadı.":"Ticimax servisine erişilemedi. Mağaza adresini ve servis yetkilerini kontrol edin.",(int)response.StatusCode is 401 or 403?409:(int)response.StatusCode==429?429:502,(int)response.StatusCode==429?IntegrationException.ReadRetryAfter(response):null);
         const int limit=16*1024*1024;if(response.Content.Headers.ContentLength>limit)throw new IntegrationException("response_large","Ticimax yanıtı boyut sınırını aştı.");await using var input=await response.Content.ReadAsStreamAsync(ct);using var output=new MemoryStream();var block=new byte[8192];int n;while((n=await input.ReadAsync(block,ct))>0){if(output.Length+n>limit)throw new IntegrationException("response_large","Ticimax yanıtı boyut sınırını aştı.");output.Write(block,0,n);}return output.ToArray();
     }
     public async Task<TicimaxContract> Contract(ConnectionSettings s,string service,CancellationToken ct)

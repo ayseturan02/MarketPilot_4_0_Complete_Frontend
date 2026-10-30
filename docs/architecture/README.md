@@ -17,6 +17,20 @@ MarketPilot is an integration and orchestration layer between Nebim V3, a wareho
 | Persistence | `src/MarketPilot.Web/Program.cs`, `src/MarketPilot.Web/Data/` | JSON-backed demo and operational state; no production database adapter |
 | Regression checks | `tests/*checks.cjs`, `tests/MarketPilot.*Checks/` | HTTP/browser checks and isolated domain tests with local fixtures |
 
+## Durable delivery and recovery
+
+The existing stores remain the execution queues; no parallel queue or duplicate worker was added. `EnterpriseSync` owns ERP/WMS integration events, `StockOutbox` owns marketplace stock writes, and the webhook inbox owns inbound order events. Enterprise jobs that reference a native stock-outbox job are tracking records only; they do not submit a second marketplace write.
+
+All paths assume at-least-once delivery. Stable event/request identities deduplicate replays; replaying the same identity with different content is rejected. Webhook application and ERP/WMS transfer operations retain their existing stale-version checks. A webhook event interrupted before its inbox acknowledgement is safe to replay.
+
+| Queue | Durable file | Backpressure / retry behavior | Ambiguous external write |
+|---|---|---|---|
+| ERP/WMS event jobs | `Data/enterprise-sync.json` | 5,000 active / 10,000 total records; one job per store per worker cycle; ERP bridge writes capped at 8 attempts | Recovered `sending` jobs become `uncertain`. ERP retries query the target by source identity first; WMS submissions use a stable idempotency key and query acceptance after uncertainty, never resending blindly. Exhausted writes require operator intervention; manual recovery resumes with receipt lookup. |
+| Marketplace stock outbox | `Data/marketplace-outbox.json` | 5,000 active jobs; one outbound attempt per store per second; exponential backoff with jitter and an 8-attempt ceiling, including safe pre-write retries | 408, 5xx, timeout, connection loss, and interrupted sends are verified by reading target stock. If it cannot be verified, the job remains `uncertain` and is never blindly resent. |
+| Order webhook inbox | `Data/order-webhook-inbox.json` | 10,000 events / 32 MiB; exponential backoff with jitter, then `failed` dead-letter after 8 processing attempts | Processing is idempotent; stale events are ignored, and failed events can be retried by an operator. |
+
+HTTP 429 responses preserve `Retry-After` (delta or date) and defer the next attempt accordingly. Marketplace 500/502/503/504 responses are treated as uncertain writes, not as permission to resend. `failed`/`blocked` outbox jobs and failed inbox events are visible in status and support the existing authenticated retry actions. Interrupted ERP/WMS submissions recover into query-only reconciliation before workers resume; a replay does not create another queue or bypass idempotency.
+
 ## Ownership rules and addressed gaps
 
 | Data | Authoritative owner | MarketPilot behavior |

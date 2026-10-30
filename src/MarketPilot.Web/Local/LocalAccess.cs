@@ -134,14 +134,15 @@ public sealed class LocalAccountStore
         }
     }
     public IReadOnlyList<UserSummary> Users() { lock (gate) return users.Select(Summary).ToArray(); }
-    public void Change(string id, string role, bool enabled, string actor)
+    public void Change(string id, string role, bool enabled, string actor, string? actorBusinessId = null)
     {
         lock (gate)
         {
             if (!TenantRoles.Valid(role)) throw new ArgumentException("Geçersiz yetki.");
             var user = users.FirstOrDefault(u => u.Id == id) ?? throw new ArgumentException("Kullanıcı bulunamadı.");
             var acting=users.FirstOrDefault(u=>u.Id==actor);
-            if(acting==null||acting.BusinessId!="default"&&acting.BusinessId!=user.BusinessId)throw new ArgumentException("Bu işletmenin kullanıcısına erişim yok.");
+            var activeBusiness=actorBusinessId??acting?.BusinessId;
+            if(acting==null||activeBusiness!="default"&&activeBusiness!=user.BusinessId)throw new ArgumentException("Bu işletmenin kullanıcısına erişim yok.");
             if (id == actor && (!enabled || TenantRoles.Alias(TenantRoles.Normalize(role,user.BusinessId)) != "admin")) throw new ArgumentException("Kendi yönetici erişimini bu ekrandan kapatamazsın.");
             if(TenantRoles.Normalize(role,user.BusinessId)=="platform-admin"&&user.BusinessId!="default")throw new ArgumentException("Platform rolü bu işletmeye atanamaz.");
             if (TenantRoles.Alias(TenantRoles.Normalize(user.Role,user.BusinessId))=="admin" && user.Enabled && (!enabled || TenantRoles.Alias(TenantRoles.Normalize(role,user.BusinessId))!="admin") && users.Count(u => u.BusinessId==user.BusinessId&&TenantRoles.Alias(TenantRoles.Normalize(u.Role,u.BusinessId))=="admin"&&u.Enabled)<=1) throw new ArgumentException("Son yönetici hesabı kapatılamaz.");
@@ -266,10 +267,10 @@ public static class LocalAccess
             if (result is null) return Results.Json(new { error = "Hesap adı veya parola hatalı." }, statusCode: 401);
             await SignIn(c, result.Value.User, result.Value.Version); return Results.Ok(new { ok = true });
         }).RequireRateLimiting("local-login");
-        app.MapPost("/api/access/password",async(ChangePasswordInput input,HttpContext c,LocalAccountStore store)=>
+        app.MapPost("/api/access/password",async(ChangePasswordInput input,HttpContext c,LocalAccountStore store,TenantAccessDirectory directory)=>
         {
             var id=c.User.FindFirstValue(ClaimTypes.NameIdentifier);if(id is null)return Results.StatusCode(401);
-            try{var updated=store.ChangePassword(id,input.CurrentPassword,input.NewPassword);await SignIn(c,updated.User,updated.Version);return Results.Ok(new{ok=true});}catch(ArgumentException e){return Results.BadRequest(new{error=e.Message});}
+            try{var membership=directory.Find(id,BusinessWorkspaces.BusinessId(c));if(membership==null)return Results.StatusCode(403);var updated=store.ChangePassword(id,input.CurrentPassword,input.NewPassword);await SignIn(c,updated.User with{BusinessId=membership.TenantId,Role=membership.RoleId},updated.Version);return Results.Ok(new{ok=true});}catch(ArgumentException e){return Results.BadRequest(new{error=e.Message});}
         }).RequireRateLimiting("local-login");
         app.MapPost("/api/access/logout", async (HttpContext c) => { await c.SignOutAsync(); return Results.Ok(new { ok = true }); });
         app.MapGet("/api/access/users", (HttpContext c, LocalAccountStore store) => c.User.IsInRole("admin") ? Results.Ok(store.Users().Where(u=>TenantRoles.IsPlatform(c)||u.BusinessId==BusinessWorkspaces.BusinessId(c))) : Results.StatusCode(403));
@@ -284,8 +285,9 @@ public static class LocalAccess
         {
             if (!c.User.IsInRole("admin")) return Results.StatusCode(403);
             var target=store.Users().FirstOrDefault(u=>u.Id==id);if(target==null)return Results.NotFound();
-            if(!TenantRoles.CanGrant(c,input.Role,target.BusinessId)||!TenantRoles.IsPlatform(c)&&TenantRoles.Normalize(target.Role,target.BusinessId) is "platform-admin" or "business-owner")return Results.StatusCode(403);
-            try { store.Change(id, input.Role, input.Enabled, c.User.FindFirstValue(ClaimTypes.NameIdentifier)!); return Results.Ok(new { ok = true }); } catch (ArgumentException e) { return Results.BadRequest(new { error = e.Message }); }
+            if(!TenantRoles.CanGrant(c,input.Role,target.BusinessId)||!TenantRoles.IsPlatform(c)&&TenantRoles.Normalize(target.Role,target.BusinessId) is "platform-admin" or "business-owner" ||
+                TenantRoles.Current(c)=="business-admin"&&TenantRoles.Normalize(target.Role,target.BusinessId)=="business-admin")return Results.StatusCode(403);
+            try { store.Change(id, input.Role, input.Enabled, c.User.FindFirstValue(ClaimTypes.NameIdentifier)!,BusinessWorkspaces.BusinessId(c)); return Results.Ok(new { ok = true }); } catch (ArgumentException e) { return Results.BadRequest(new { error = e.Message }); }
         });
     }
     internal static bool ReadOnlyPost(HttpContext c)

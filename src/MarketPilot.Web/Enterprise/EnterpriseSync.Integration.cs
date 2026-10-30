@@ -25,6 +25,8 @@ public sealed partial class EnterpriseSync
     public EnterpriseJob EnqueueIntegration(IntegrationEnvelope input)
     {
         var key=IntegrationOrchestrator.Hash(new{input.TenantId,input.AccountId,input.EventId});
+        if(System.Text.Encoding.UTF8.GetByteCount(input.Payload.GetRawText())>2*1024*1024)
+            throw new IntegrationException("poison_message","Entegrasyon olayı 2 MiB sınırını aşıyor.",413);
         lock(gate)
         {
             var existing=state.Jobs.FirstOrDefault(x=>x.Kind=="integration-event"&&x.Key==key);
@@ -34,7 +36,8 @@ public sealed partial class EnterpriseSync
                     throw new IntegrationException("idempotency_conflict","Olay kimliği farklı içerikle tekrarlandı.",409);
                 return Clone(existing);
             }
-            if(state.Jobs.Count>=10000)throw new IntegrationException("outbox_full","Kalıcı iş deposu dolu; kaynak checkpoint ilerletilmedi.",503);
+            if(state.Jobs.Count>=10000||state.Jobs.Count(x=>x.State is "queued" or "sending" or "waiting" or "uncertain")>=5000)
+                throw new IntegrationException("outbox_full","Kalıcı iş deposu dolu; kaynak checkpoint ilerletilmedi.",503);
             var job=new EnterpriseJob{Kind="integration-event",Key=key,Connector=input.TargetSystem,StoreId=input.AccountId,
                 Source=input.SourceSystem,AccountIdentity=input.TenantId+":"+input.AccountId,Reference=input.EventId,
                 IntegrationEvent=Clone(input),Payload=input.Payload.GetRawText()};

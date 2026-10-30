@@ -37,9 +37,18 @@ try
         await orchestrator.ProcessAsync(job,default);
         Check(jobs.IntegrationJobs().Single(saved=>saved.Id==job.Id).State=="completed","Audit event type failed");
     }
+    var interrupted=orchestrator.Accept(Event("interrupted"));
+    var queueFile=Path.Combine(root,"Data","enterprise-sync.json");
+    var savedState=JsonSerializer.Deserialize<EnterpriseState>(File.ReadAllText(queueFile),new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+    savedState.Jobs.Single(job=>job.Id==interrupted.Id).State="sending";
+    File.WriteAllText(queueFile,JsonSerializer.Serialize(savedState,new JsonSerializerOptions(JsonSerializerDefaults.Web)));
     var restarted=new EnterpriseSync(environment,services,config);
     Check(restarted.IntegrationJobs().Length==jobs.IntegrationJobs().Length,"Restart lost accepted events");
     Check(restarted.IntegrationJobs().Single(job=>job.Id==otherAccount.Id).State=="queued","Pending order/event not restartable");
+    Check(restarted.IntegrationJobs().Single(job=>job.Id==interrupted.Id).State=="uncertain" &&
+        JsonSerializer.Deserialize<EnterpriseState>(File.ReadAllText(queueFile),new JsonSerializerOptions(JsonSerializerDefaults.Web))!
+            .Jobs.Single(job=>job.Id==interrupted.Id).State=="uncertain",
+        "An interrupted ERP/WMS event must be durably recovered as uncertain before the worker resumes.");
     Check(Directory.GetFiles(Path.Combine(root,"Data")).Select(Path.GetFileName).SequenceEqual(new[]{"enterprise-sync.json"}),
         "Orchestrator created a second queue");
     Console.WriteLine("PASS central orchestrator: existing durable queue, all 12 event envelopes, exact replay/conflict, stale-after-intake protection, tenant/account ordering isolation, execution timestamps/results/errors and restart persistence. No provider/network access.");

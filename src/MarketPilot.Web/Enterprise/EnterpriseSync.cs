@@ -20,15 +20,17 @@ public sealed partial class EnterpriseSync
     {
         this.services=services;this.config=config;var data=Path.Combine(env.ContentRootPath,"Data");Directory.CreateDirectory(data);file=Path.Combine(data,"enterprise-sync.json");
         state=File.Exists(file)?JsonSerializer.Deserialize<EnterpriseState>(File.ReadAllText(file),json)??throw new InvalidOperationException("Entegrasyon durumu okunamadı."):new();
+        var recovered=false;
         state.Plan.Schedules??=[];
         foreach(var schedule in EnterprisePlan.Defaults())
         {
             state.Tasks.TryAdd(schedule.Task,new(){Task=schedule.Task,NextRunAt=DateTimeOffset.UtcNow});
             if(state.Plan.Schedules.All(existing=>existing.Task!=schedule.Task))state.Plan.Schedules=state.Plan.Schedules.Append(schedule).ToArray();
         }
-        foreach(var job in state.Jobs.Where(j=>j.State=="sending"))job.State="uncertain";
-        foreach(var task in state.Tasks.Values.Where(t=>t.State=="running")){task.State="retry";task.Manual=true;}
+        foreach(var job in state.Jobs.Where(j=>j.State=="sending")){job.State="uncertain";recovered=true;}
+        foreach(var task in state.Tasks.Values.Where(t=>t.State=="running")){task.State="retry";task.Manual=true;recovered=true;}
         persisted=JsonSerializer.Serialize(state,json);
+        if(recovered)Save();
     }
     private T Clone<T>(T value)=>JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(value,json),json)!;
     public EnterprisePlan Plan {get{lock(gate)return Clone(state.Plan);}}
@@ -82,11 +84,12 @@ public sealed partial class EnterpriseSync
     public void Retry(string id)
     {
         lock(gate)if(state.Jobs.Any(j=>j.Id==id&&j.IntegrationEvent!=null)){RetryIntegration(id);return;}
-        lock(gate){var job=state.Jobs.FirstOrDefault(j=>j.Id==id)??throw new ArgumentException("İş bulunamadı.");if(job.State is not ("blocked" or "failed" or "uncertain"))throw new ArgumentException("Bu iş tekrar başlatılamaz.");
+        lock(gate){var job=state.Jobs.FirstOrDefault(j=>j.Id==id)??throw new ArgumentException("İş bulunamadı.");var interventionRequired=job.State=="intervention-required";if(job.State is not ("blocked" or "failed" or "uncertain" or "intervention-required"))throw new ArgumentException("Bu iş tekrar başlatılamaz.");
             if(job.NativeJobId==null&&job.Payload=="{}"){job.State="superseded";Request(job.Kind switch{"erp-order"=>"erp-orders","wms-order"=>"wms-orders","cargo-order"=>"cargo-create",_=>job.Kind});return;}
             if(job.NativeJobId!=null)services.GetRequiredService<StockOutbox>().Retry(job.NativeJobId);
             if(job.NativeJobId==null&&job.Attempts==0)job.ConnectorIdentity=services.GetRequiredService<EnterpriseBridge>().Identity(job.Connector);
-            job.State=job.NativeJobId!=null?"waiting":job.State=="uncertain"?"uncertain":"queued";job.NextAttemptAt=DateTimeOffset.UtcNow;job.Error=null;Save();}
+            if(interventionRequired)job.Attempts=0;
+            job.State=job.NativeJobId!=null?"waiting":job.State=="uncertain"||interventionRequired?"uncertain":"queued";job.NextAttemptAt=DateTimeOffset.UtcNow;job.Error=null;Save();}
     }
     public async Task Tick(CancellationToken ct)
     {
@@ -294,7 +297,7 @@ public sealed partial class EnterpriseSync
     }
     private async Task Deliver(CancellationToken ct)
     {
-        EnterpriseJob[] jobs;lock(gate)jobs=state.Jobs.Where(j=>j.State is "queued" or "waiting" or "uncertain").GroupBy(Entity).Select(g=>g.OrderBy(j=>j.CreatedAt).First()).Where(j=>j.NextAttemptAt<=DateTimeOffset.UtcNow).OrderBy(j=>j.CreatedAt).Take(20).Select(Clone).ToArray();
+        EnterpriseJob[] jobs;lock(gate)jobs=state.Jobs.Where(j=>j.State is "queued" or "waiting" or "uncertain").GroupBy(Entity).Select(g=>g.OrderBy(j=>j.CreatedAt).First()).GroupBy(j=>j.StoreId).Select(g=>g.OrderBy(j=>j.CreatedAt).First()).Where(j=>j.NextAttemptAt<=DateTimeOffset.UtcNow).OrderBy(j=>j.CreatedAt).Take(20).Select(Clone).ToArray();
         var bridge=services.GetRequiredService<EnterpriseBridge>();var registry=services.GetRequiredService<IntegrationRegistry>();
         foreach(var job in jobs){ct.ThrowIfCancellationRequested();
             try{
@@ -309,12 +312,17 @@ public sealed partial class EnterpriseSync
                 if(job.Connector.StartsWith("channel-",StringComparison.Ordinal)&&store.Settings.Mode=="real")services.GetRequiredService<MarketplaceStockWriter>().Check(store.Settings);
                 BridgeReceipt receipt;
                 if(job.State is "waiting" or "uncertain")receipt=await bridge.Receipt(job,ct);
-                else{UpdateJob(job.Id,j=>{j.State="sending";j.Attempts++;});receipt=await bridge.Submit(job,ct);}
-                UpdateJob(job.Id,j=>{j.State=receipt.State switch{"completed"=>"completed","failed"=>"failed","not-found" when receipt.SafeToRetry=>"queued",_=>"waiting"};j.ExternalReference=receipt.Reference;j.Error=null;j.NextAttemptAt=DateTimeOffset.UtcNow.AddSeconds(5);if(j.State=="completed")j.FinishedAt=DateTimeOffset.UtcNow;});
+                else
+                {
+                    if(job.Attempts>=QueueResiliencePolicy.MaxAttempts)
+                    {UpdateJob(job.Id,j=>{j.State="intervention-required";j.Error="Maksimum gönderim sayısına ulaşıldı; hedef durumu incelenmeden yeni yazma yapılmayacak.";j.FinishedAt=DateTimeOffset.UtcNow;});continue;}
+                    UpdateJob(job.Id,j=>{j.State="sending";j.Attempts++;});receipt=await bridge.Submit(job,ct);
+                }
+                UpdateJob(job.Id,j=>{j.State=receipt.State switch{"completed"=>"completed","failed"=>"failed","not-found" when receipt.SafeToRetry=>"queued",_=>"waiting"};j.ExternalReference=receipt.Reference;j.Error=receipt.State=="failed"?"Harici sistem işlemi reddetti; manuel müdahale gerekli.":null;j.NextAttemptAt=DateTimeOffset.UtcNow.Add(QueueResiliencePolicy.RetryDelay(Math.Max(1,j.Attempts),TimeSpan.FromSeconds(5),TimeSpan.FromMinutes(5)));if(j.State=="completed")j.FinishedAt=DateTimeOffset.UtcNow;});
                 if(receipt.State=="completed"&&(job.Kind=="erp-order"||job.Kind=="wms-order"&&Plan.FulfillmentMode!="disabled"))Request(Plan.StockAuthority=="wms"?"wms-stock":"catalog");
             }catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
-            catch(IntegrationException error){UpdateJob(job.Id,j=>{j.State=error.Status==429?job.State=="queued"?"queued":job.State:error.Status is 400 or 401 or 403 or 404 or 409?"blocked":"uncertain";j.Error=error.Message;j.NextAttemptAt=DateTimeOffset.UtcNow.AddSeconds(60);});}
-            catch(Exception){UpdateJob(job.Id,j=>{j.State="uncertain";j.Error="Aktarım sonucu doğrulanamadı; kör tekrar yerine işlem makbuzu kontrol edilecek.";j.NextAttemptAt=DateTimeOffset.UtcNow.AddSeconds(30);});}
+            catch(IntegrationException error){UpdateJob(job.Id,j=>{j.State=error.Status==429?job.State is "waiting" or "uncertain"?job.State:"queued":error.Status is 400 or 401 or 403 or 404 or 409?"blocked":"uncertain";j.Error=error.Message;j.NextAttemptAt=DateTimeOffset.UtcNow.Add(QueueResiliencePolicy.RetryDelay(Math.Max(1,job.Attempts+1),TimeSpan.FromSeconds(error.Status==429?10:5),TimeSpan.FromMinutes(error.Status==429?15:5),error.RetryAfter));});}
+            catch(Exception){UpdateJob(job.Id,j=>{j.State="uncertain";j.Error="Aktarım sonucu doğrulanamadı; kör tekrar yerine işlem makbuzu kontrol edilecek.";j.NextAttemptAt=DateTimeOffset.UtcNow.Add(QueueResiliencePolicy.RetryDelay(Math.Max(1,job.Attempts+1),TimeSpan.FromSeconds(5),TimeSpan.FromMinutes(5)));});}
         }
     }
     private void UpdateJob(string id,Action<EnterpriseJob> update){lock(gate){var job=state.Jobs.First(j=>j.Id==id);update(job);if(job.State=="completed"&&job.Key.Length>0)state.Delivered[Entity(job)]=job.Key;Save();}}

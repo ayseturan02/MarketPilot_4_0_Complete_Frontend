@@ -23,7 +23,7 @@ public static class TenantBoundary
     {
         app.Use(async(c,next)=>
         {
-            var path=c.Request.Path.Value??"";
+            var path=(c.Request.Path.Value??"").ToLowerInvariant();
             if(!path.StartsWith("/api/",StringComparison.Ordinal)){await next();return;}
             var tenant=BusinessWorkspaces.BusinessId(c);
             foreach(var name in new[]{"X-Tenant-Id","X-Business-Id","X-Source-Tenant-Id","X-Target-Tenant-Id"})

@@ -54,6 +54,7 @@ public sealed class EnterpriseJob
     public string Source { get; set; } = "";
     public string AccountIdentity { get; set; } = "";
     public string Reference { get; set; } = "";
+    public string CorrelationId { get; set; } = Guid.NewGuid().ToString("N");
     public string Payload { get; set; } = "{}";
     public string State { get; set; } = "queued";
     public string? Error { get; set; }

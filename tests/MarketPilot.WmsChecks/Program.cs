@@ -2,6 +2,7 @@ using MarketPilot.Web.Wms;
 using MarketPilot.Web.Contracts;
 using MarketPilot.Web.Integrations;
 using MarketPilot.Web.Enterprise.Nebim;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -299,6 +300,50 @@ try
     Check(restartedFulfillment.Get(processed.Id).Packages.Count == 4,
         "Workflow history and package tracking survive service reconstruction.");
 
+    var uncertainRoot = Path.Combine(testFolder, "restart-uncertain-write");
+    Directory.CreateDirectory(uncertainRoot);
+    var uncertainEnvironment = new WmsTestEnvironment(uncertainRoot);
+    var uncertainDb = new DemoStore(uncertainEnvironment);
+    var uncertainCanonical = new CanonicalStore(uncertainDb, fulfillmentConfiguration);
+    var uncertainWms = new MockWmsProvider(writableProfile);
+    var uncertainErp = new MockNebimProvider(uncertainDb,
+        new ErpConnectionProfile("mock-nebim", "default", AllowMockWrites: true));
+    await new NebimCanonicalSync(uncertainErp, uncertainCanonical, uncertainDb).Run(CancellationToken.None);
+    var uncertainInventory = new WmsInventoryService(uncertainWms, uncertainCanonical,
+        new IntegrationRegistry(uncertainEnvironment), uncertainEnvironment);
+    await uncertainInventory.UpdatePolicyAsync(new(new(), new(), new()));
+    var uncertainWorkflow = new FulfillmentOrchestrationService(uncertainWms, uncertainInventory, uncertainErp,
+        uncertainCanonical, new MockFulfillmentStatusPublisher(writableProfile, new()), uncertainEnvironment);
+    uncertainWorkflow.UpdatePolicy(approvedPolicy with
+    {
+        WriteSequence = [FulfillmentWriteSteps.WmsFulfillmentSubmission],
+        WarehousePriority = ["mock-main"]
+    });
+    var uncertainOrder = await uncertainWorkflow.ReceiveAsync(fulfillmentOrder with
+    {
+        ExternalOrderId = "restart-wms-submit",
+        IdempotencyKey = "restart-wms-submit",
+        Lines = [fulfillmentOrder.Lines[0] with { Quantity = 2 }]
+    });
+    var uncertainTask = uncertainOrder.Warehouses.Single();
+    await uncertainWms.SubmitFulfillmentOrderAsync(new(
+        uncertainTask.ExternalRequestId, uncertainOrder.Order.ExternalOrderId, uncertainTask.WarehouseId,
+        uncertainTask.Lines, uncertainOrder.Order.OrderedAt, uncertainTask.IdempotencyKey));
+    var workflowFile = Path.Combine(uncertainRoot, "Data", "wms-fulfillment.json");
+    var savedWorkflow = JsonNode.Parse(File.ReadAllText(workflowFile))!;
+    var savedRecord = savedWorkflow["workflows"]!.AsArray().Single()!;
+    savedRecord["state"] = "wms-submission-pending";
+    savedRecord["warehouses"]![0]!["submissionState"] = "submitting";
+    File.WriteAllText(workflowFile, savedWorkflow.ToJsonString());
+    var recoveredWorkflow = new FulfillmentOrchestrationService(uncertainWms, uncertainInventory, uncertainErp,
+        uncertainCanonical, new MockFulfillmentStatusPublisher(writableProfile, new()), uncertainEnvironment);
+    Check(recoveredWorkflow.Get(uncertainOrder.Id).Warehouses.Single().SubmissionState == "outcome-unknown",
+        "A WMS submission interrupted by shutdown must recover as uncertain.");
+    var reconciledWorkflow = await recoveredWorkflow.AdvanceAsync(uncertainOrder.Id);
+    Check(reconciledWorkflow.State == "wms-accepted" &&
+        reconciledWorkflow.Warehouses.Single().AcceptanceState == "accepted",
+        "A restarted WMS submission must query its existing request rather than submit again.");
+
     var wmsFirstOrder = fulfillmentOrder with
     {
         ExternalOrderId = "package-fulfillment-1002",
@@ -321,6 +366,19 @@ try
         erpSecond.History.FindIndex(entry => entry.State == "wms-accepted") <
         erpSecond.History.FindIndex(entry => entry.State == "erp-registered"),
         "ERP registration waits for WMS acceptance when policy orders WMS first.");
+    var integrationStateFile = Path.Combine(fulfillmentRoot, "Data", "wms-fulfillment.json");
+    var savedIntegrationState = JsonNode.Parse(File.ReadAllText(integrationStateFile))!;
+    var savedWmsFirst = savedIntegrationState["workflows"]!.AsArray()
+        .Single(row => row?["id"]?.GetValue<string>() == wmsFirst.Id)!;
+    savedWmsFirst["state"] = "erp-registration-pending";
+    savedWmsFirst["erpRegistrationState"] = "submitting";
+    savedWmsFirst["nextWriteStep"] = 1;
+    File.WriteAllText(integrationStateFile, savedIntegrationState.ToJsonString());
+    var recoveredErpWorkflow = new FulfillmentOrchestrationService(
+        fulfillmentWms, fulfillmentInventory, fulfillmentErp, fulfillmentCanonical, statusPublisher, fulfillmentEnvironment);
+    Check(recoveredErpWorkflow.Get(wmsFirst.Id).ErpRegistrationState == "unknown" &&
+        (await recoveredErpWorkflow.AdvanceAsync(wmsFirst.Id)).ErpRegistrationState == "registered",
+        "A restarted ERP registration must query its durable source identity before any resend.");
     var insufficient = await fulfillment.ReceiveAsync(fulfillmentOrder with
     {
         ExternalOrderId = "package-fulfillment-1003",

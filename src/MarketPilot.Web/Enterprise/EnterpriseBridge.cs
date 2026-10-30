@@ -42,11 +42,13 @@ public sealed class EnterpriseBridge(IHttpClientFactory factory, IConfiguration 
         if(!Configured(connector))throw new IntegrationException("connector_missing","Bağlantı yapılandırması eksik.",409);
         if(method!=HttpMethod.Get&&!Writes(connector))throw new IntegrationException("write_disabled","Bu bağlantının yazma izni sunucuda kapalı.",409);
         using var request=new HttpRequestMessage(method,Url(connector,path));
+        MarketPilot.Web.Local.OutboundTargets.Authorize(request,config,Section(connector));
         request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",config[Section(connector)+":ApiKey"]);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         if(body!=null)request.Content=new StringContent(JsonSerializer.Serialize(body,Json),Encoding.UTF8,"application/json");
         using var response=await factory.CreateClient("EnterpriseBridge").SendAsync(request,HttpCompletionOption.ResponseHeadersRead,ct);
-        if(!response.IsSuccessStatusCode)throw new IntegrationException("bridge_http_"+(int)response.StatusCode,"Harici servis isteği tamamlanamadı (HTTP "+(int)response.StatusCode+").",(int)response.StatusCode);
+        if(!response.IsSuccessStatusCode)throw new IntegrationException("bridge_http_"+(int)response.StatusCode,"Harici servis isteği tamamlanamadı (HTTP "+(int)response.StatusCode+").",(int)response.StatusCode,
+            (int)response.StatusCode==429?IntegrationException.ReadRetryAfter(response):null);
         const int limit=10*1024*1024;
         if(response.Content.Headers.ContentLength>limit)throw new IntegrationException("bridge_response","Harici servis yanıtı boyut sınırını aşıyor.",502);
         await using var stream=await response.Content.ReadAsStreamAsync(ct);using var bytes=new MemoryStream();var chunk=new byte[81920];int count;

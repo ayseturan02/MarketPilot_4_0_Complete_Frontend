@@ -18,7 +18,7 @@ public static class EnterpriseEndpoints
         services.AddNebimProviders();services.AddErpPricing();
         services.AddSingleton<IErpOrderTransferProvider,MockErpOrderTransferProvider>();
         services.AddSingleton<ErpOrderTransferService>();services.AddSingleton<IntegrationOrchestrator>();
-        services.AddHttpClient("EnterpriseBridge",c=>c.Timeout=Timeout.InfiniteTimeSpan).ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
+        services.AddHttpClient("EnterpriseBridge",c=>c.Timeout=Timeout.InfiniteTimeSpan).ConfigurePrimaryHttpMessageHandler(OutboundTargets.Handler);
         services.AddSingleton<EnterpriseBridge>();services.AddSingleton<IErpCatalogProvider,MarketPilotErpBridgeProvider>();services.AddSingleton<IWmsProvider,WmsBridgeProvider>();services.AddSingleton<ICargoProvider,CargoBridgeProvider>();services.AddSingleton<ErpCatalog>();services.AddSingleton<EnterpriseSync>();services.AddHostedService<EnterpriseSyncWorker>();
         services.Configure<RateLimiterOptions>(o=>o.AddPolicy("erp-inbound",c=>RateLimitPartition.GetFixedWindowLimiter(c.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new FixedWindowRateLimiterOptions{PermitLimit=120,Window=TimeSpan.FromMinutes(1),QueueLimit=0})));
     }
@@ -39,7 +39,7 @@ public static class EnterpriseEndpoints
         group.MapPost("/erp-transfer/preview",(ErpTransferRequest input,ErpOrderTransferService transfer)=>Results.Ok(new{mockOnly=true,plan=transfer.Prepare(input)}));
         group.MapGet("/channel-contracts",()=>Results.Ok(MarketPilot.Web.Integrations.ChannelContracts.All));
         group.MapPost("/channel-contracts/{channel}/products/preview",(string channel,ChannelProductPreparation input,IConfiguration config,EnterpriseSync sync)=>
-            Results.Ok(ChannelContracts.For(channel).Product(input.AccountId,input.Product,sync.GetErpTransferPolicy(config["Workspace:BusinessId"]??"default",input.AccountId)?.Variants)));
+            Results.Ok(ChannelContracts.For(channel).Product(input.AccountId,input.Product,sync.GetErpTransferPolicy(config["Workspace:BusinessId"]??"default",input.AccountId)?.Variants,config["Workspace:BusinessId"]??"default")));
         group.MapPost("/channel-contracts/{channel}/orders/preview",(string channel,ChannelOrderPreparation input,IConfiguration config,EnterpriseSync sync)=>
             Results.Ok(ChannelContracts.For(channel).Order(config["Workspace:BusinessId"]??"default",input.AccountId,input.Order,sync.GetErpTransferPolicy(config["Workspace:BusinessId"]??"default",input.AccountId)?.Variants)));
         group.MapGet("/readiness",(HttpContext context,LocalAccountStore accounts,EnterpriseSync sync,EnterpriseBridge bridge,IntegrationRegistry registry,IConfiguration config)=>

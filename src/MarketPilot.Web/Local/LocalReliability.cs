@@ -10,17 +10,18 @@ namespace MarketPilot.Web.Local;
 public sealed record LocalAuditEvent(DateTimeOffset Date, string Level, string Category, string Message);
 public sealed class LocalAudit
 {
-    private readonly object gate = new(); private readonly string file; private List<LocalAuditEvent> events;
-    public LocalAudit(IWebHostEnvironment env)
+    private readonly object gate = new(); private readonly string file; private List<LocalAuditEvent> events;private readonly IConfiguration? configuration;
+    public LocalAudit(IWebHostEnvironment env,IConfiguration? configuration=null)
     {
+        this.configuration=configuration;
         var folder = Path.Combine(env.ContentRootPath, "Data"); Directory.CreateDirectory(folder); file = Path.Combine(folder, "system-events.json");
         events = File.Exists(file) ? JsonSerializer.Deserialize<List<LocalAuditEvent>>(File.ReadAllText(file)) ?? new() : new();
     }
     public void Add(string level, string category, string message)
     {
-        lock(gate) { events.Insert(0, new(DateTimeOffset.UtcNow, level, category, message)); events = events.Take(200).ToList(); var tmp = file + ".tmp"; File.WriteAllText(tmp, JsonSerializer.Serialize(events)); File.Move(tmp, file, true); }
+        lock(gate) { events.Insert(0, new(DateTimeOffset.UtcNow, SecurityHardening.Mask(level,configuration), SecurityHardening.Mask(category,configuration), SecurityHardening.Mask(message,configuration))); events = events.Take(200).ToList(); var tmp = file + ".tmp"; File.WriteAllText(tmp, JsonSerializer.Serialize(events)); File.Move(tmp, file, true); }
     }
-    public IReadOnlyList<LocalAuditEvent> Recent() { lock(gate) return events.ToArray(); }
+    public IReadOnlyList<LocalAuditEvent> Recent() { lock(gate) return events.Select(entry=>entry with{Level=SecurityHardening.Mask(entry.Level,configuration),Category=SecurityHardening.Mask(entry.Category,configuration),Message=SecurityHardening.Mask(entry.Message,configuration)}).ToArray(); }
 }
 public sealed class ReliabilityState
 {

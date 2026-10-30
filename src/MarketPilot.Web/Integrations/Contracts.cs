@@ -37,10 +37,20 @@ public interface IMarketplaceAdapter
     Task<MarketplacePage<MarketplaceOrder>> OrdersAsync(ConnectionSettings settings, OrderQuery query, CancellationToken ct);
 }
 
-public sealed class IntegrationException(string code, string message, int status = 502) : Exception(message)
+public sealed class IntegrationException(string code, string message, int status = 502, TimeSpan? retryAfter = null) : Exception(message)
 {
     public string Code { get; } = code;
     public int Status { get; } = status;
+    public TimeSpan? RetryAfter { get; } = retryAfter;
+    public static TimeSpan? ReadRetryAfter(HttpResponseMessage response)
+    {
+        var retry = response.Headers.RetryAfter;
+        if (retry?.Delta is { } delta)
+            return delta > TimeSpan.Zero ? delta : TimeSpan.Zero;
+        if (retry?.Date is { } date)
+            return date - DateTimeOffset.UtcNow is { } remaining && remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+        return null;
+    }
 }
 
 public abstract class PlannedAdapter(string marketplace) : IMarketplaceAdapter

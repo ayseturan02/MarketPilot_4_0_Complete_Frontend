@@ -210,7 +210,8 @@ public sealed class FulfillmentOrchestrationService
             ? JsonSerializer.Deserialize<FulfillmentWorkflowState>(File.ReadAllText(stateFile), Json)
               ?? throw new InvalidOperationException("WMS fulfillment workflow state cannot be read.")
             : new();
-        NormalizeState();
+        if (NormalizeState())
+            Save();
     }
 
     public FulfillmentWorkflowPolicy ReadPolicy()
@@ -1052,8 +1053,9 @@ public sealed class FulfillmentOrchestrationService
             throw new ArgumentException("Bu sürümde yalnızca açıkça mock olan dış uçlar onaylanabilir.");
     }
 
-    private void NormalizeState()
+    private bool NormalizeState()
     {
+        var recovered = false;
         state.Workflows ??= [];
         state.Policy ??= new(false, [], [], false, [FulfillmentUpdateTargets.Marketplace, FulfillmentUpdateTargets.Erp]);
         foreach (var row in state.Workflows)
@@ -1063,7 +1065,22 @@ public sealed class FulfillmentOrchestrationService
             row.UnallocatedByLine ??= new(StringComparer.Ordinal);
             row.Publications ??= [];
             row.History ??= [];
+            if (row.ErpRegistrationState == "submitting")
+            {
+                row.ErpRegistrationState = "unknown";
+                row.State = "erp-outcome-unknown";
+                AddEvent(row, row.State, "Uygulama yeniden başladı; ERP kayıt sonucu kaynak kimliğiyle doğrulanacak, yeniden yazılmayacak.", row.ErpOrderId);
+                recovered = true;
+            }
+            foreach (var task in row.Warehouses.Where(task => task.SubmissionState == "submitting"))
+            {
+                task.SubmissionState = "outcome-unknown";
+                row.State = "wms-outcome-unknown";
+                AddEvent(row, row.State, "Uygulama yeniden başladı; WMS kabul sonucu aynı dış talep kimliğiyle doğrulanacak, yeniden yazılmayacak.", task.ExternalRequestId);
+                recovered = true;
+            }
         }
+        return recovered;
     }
 
     private FulfillmentWorkflowRecord Find(string id) =>

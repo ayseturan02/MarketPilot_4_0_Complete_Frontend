@@ -49,7 +49,8 @@ public sealed partial class HepsiburadaAdapter(HttpClient http, IConfiguration c
                 429 => "Hepsiburada istek sınırına ulaşıldı. Biraz sonra yeniden deneyin.",
                 404 => "Hepsiburada kaydı bulunamadı.",
                 _ => "Hepsiburada verileri alınamadı. Daha sonra yeniden deneyin."
-            }, code is 401 or 403 ? 409 : code is 400 or 404 or 409 or 422 or 429 ? (code==422?400:code) : 502);
+            }, code is 401 or 403 ? 409 : code is 400 or 404 or 409 or 422 or 429 ? (code==422?400:code) : 502,
+                code == 429 ? IntegrationException.ReadRetryAfter(response) : null);
         }
         if (response.Content.Headers.ContentLength > MaxBytes) throw new IntegrationException("response_large", "Mağaza yanıtı boyut sınırını aştı.");
         await using var stream = await response.Content.ReadAsStreamAsync(ct);

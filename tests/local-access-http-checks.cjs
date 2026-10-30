@@ -3,7 +3,7 @@ const project=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r
 (async()=>{
  const probe=net.createServer();await new Promise((resolve,reject)=>probe.once('error',reject).listen(0,'127.0.0.1',resolve));const port=probe.address().port;await new Promise(r=>probe.close(r));
  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'marketpilot-access-http-')),base='http://127.0.0.1:'+port;
- const child=spawn('dotnet',[path.join(project,'src/MarketPilot.Web/bin/Debug/net8.0/MarketPilot.Web.dll'),'--contentRoot',temp,'--webroot',path.join(project,'src/MarketPilot.Web/wwwroot'),'--urls',base],{windowsHide:true,stdio:'ignore',env:{...process.env,ASPNETCORE_ENVIRONMENT:'Production',Logging__LogLevel__Default:'Critical'}});
+ const child=spawn('dotnet',[path.join(project,'src/MarketPilot.Web/bin/Debug/net8.0/MarketPilot.Web.dll'),'--contentRoot',temp,'--webroot',path.join(project,'src/MarketPilot.Web/wwwroot'),'--urls',base],{windowsHide:true,stdio:'ignore',env:{...process.env,ASPNETCORE_ENVIRONMENT:'Production',Logging__LogLevel__Default:'Critical',Logging__EventLog__LogLevel__Default:'None'}});
  const api=(url,body,cookie,origin=base)=>fetch(base+url,{method:body===undefined?'GET':'POST',headers:{...(body===undefined?{}:{'Content-Type':'application/json',Origin:origin}),...(cookie?{Cookie:cookie}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
  const cookie=r=>(r.headers.get('set-cookie')||'').split(';')[0];
  try{
@@ -22,9 +22,10 @@ const project=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r
   assert.equal((await api('/api/products',undefined,viewerCookie)).status,401);
   r=await api('/api/access/login',{name:'test-viewer',password:'Viewer-Only-Password-2026'});const operator=cookie(r);
   const action={type:'stock',requestId:'worker-http',barcode:'8691000000001',quantity:51,price:449};
-  assert.equal((await api('/api/integrations/demo/connections/trendyol/actions',action,operator)).status,200);
-  assert.equal((await api('/api/integrations/demo/connections/trendyol/actions',action,operator)).status,200);
-  assert.equal((await api('/api/integrations/demo/connections/trendyol/actions',{...action,quantity:52},operator)).status,400);
+  assert.equal((await api('/api/integrations/demo/connections/trendyol/actions',action,operator)).status,403);
+  assert.equal((await api('/api/integrations/demo/connections/trendyol/actions',action,admin)).status,200);
+  assert.equal((await api('/api/integrations/demo/connections/trendyol/actions',action,admin)).status,200);
+  assert.equal((await api('/api/integrations/demo/connections/trendyol/actions',{...action,quantity:52},admin)).status,400);
   await sleep(3400);
   const state=Object.values(JSON.parse(fs.readFileSync(path.join(temp,'Data/integration-demo.json'),'utf8')))[0];assert.equal(state.products[0].stock,51);assert.equal(state.jobs.find(j=>j.requestId==='worker-http').state,'completed');
   r=await api('/api/system/backups',{},admin);assert.equal(r.status,200);const backup=await r.json();assert.equal((await api('/api/system/backups/verify',{name:backup.name},admin)).status,200);assert.equal((await api('/api/system/backups',{},operator)).status,403);

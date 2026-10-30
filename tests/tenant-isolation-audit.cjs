@@ -20,7 +20,7 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
  try{
   await start();
   const admin=requireStatus(await api('access/setup',{name:'audit-admin',password:'Isolated-audit-admin-2026'}),200,'setup');
-  for(const name of ['business-a','business-b'])requireStatus(await api('access/users',{name,password:'Isolated-audit-password-2026',role:'operator',businessId:name},admin.cookie),200,'create user');
+  for(const name of ['business-a','business-b'])requireStatus(await api('access/users',{name,password:'Isolated-audit-password-2026',role:'business-owner',businessId:name},admin.cookie),200,'create user');
   const a=requireStatus(await api('access/login',{name:'business-a',password:'Isolated-audit-password-2026'}),200,'login A');
   const b=requireStatus(await api('access/login',{name:'business-b',password:'Isolated-audit-password-2026'}),200,'login B');
   requireStatus(await api('access/login',{name:'business-a',password:'wrong-password'}),401,'wrong password');
@@ -34,7 +34,7 @@ const root=path.resolve(__dirname,'..'),sleep=ms=>new Promise(r=>setTimeout(r,ms
   requireStatus(await api('integrations/connections/'+storeB.body.id+'/products',{},b.cookie),200,'own products B');
   requireStatus(await api('integrations/demo/connections/'+storeB.body.id+'/workspace',undefined,a.cookie),404,'foreign demo');
   requireStatus(await api('integrations/demo/connections/'+storeB.body.id+'/actions',{type:'stock',requestId:'foreign',barcode:'8691000000001',quantity:1,price:449},a.cookie),404,'foreign write');
-  const spoof=await fetch(base+'/api/integrations/connections?businessId=business-b',{headers:{Cookie:a.cookie,'X-Business-Id':'business-b'}});assert(!(await spoof.json()).some(s=>s.id===storeB.body.id));
+  const spoof=await fetch(base+'/api/integrations/connections?businessId=business-b',{headers:{Cookie:a.cookie,'X-Business-Id':'business-b'}});assert.equal(spoof.status,403);
   const pA=requireStatus(await erp('business-a','ONLY-A'),200,'source A').body.products[0];const pB=requireStatus(await erp('business-b','ONLY-B'),200,'source B').body.products[0];
   requireStatus(await erp('business-b','WRONG-KEY','fixture-business-a'),401,'foreign source key');
   requireStatus(await api('catalog/products/'+pA.id,undefined,b.cookie),404,'foreign master A');requireStatus(await api('catalog/products/'+pB.id,undefined,a.cookie),404,'foreign master B');

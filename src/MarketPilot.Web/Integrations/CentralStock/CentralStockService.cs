@@ -897,7 +897,7 @@ public static class CentralStockEndpoints
 {
     public static void AddCentralStock(this IServiceCollection services)
     {
-        services.AddHttpClient("CentralStock", c => c.Timeout = TimeSpan.FromSeconds(30)).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+        services.AddHttpClient("CentralStock", c => c.Timeout = TimeSpan.FromSeconds(30)).ConfigurePrimaryHttpMessageHandler(MarketPilot.Web.Local.OutboundTargets.Handler);
         services.AddTransient<CentralStockSource>();
         services.AddSingleton<CentralStockService>();
         services.AddHostedService<CentralStockWorker>();
