@@ -1,5 +1,8 @@
 namespace MarketPilot.Web.Wms;
 
+public sealed record WmsMockProviderState(Dictionary<string,WmsFulfillmentAcceptance> Fulfillments,
+    Dictionary<string,string> Fingerprints,Dictionary<string,WmsFulfillmentOrder> Orders,HashSet<string> AmbiguousSubmissions);
+
 public sealed class MockWmsProvider : IWmsProvider
 {
     private static readonly DateTimeOffset FixtureTime = new(2026, 1, 15, 10, 0, 0, TimeSpan.Zero);
@@ -9,6 +12,7 @@ public sealed class MockWmsProvider : IWmsProvider
     private readonly Dictionary<string, string> fulfillmentFingerprints = new(StringComparer.Ordinal);
     private readonly Dictionary<string, WmsFulfillmentOrder> orders = new(StringComparer.Ordinal);
     private readonly HashSet<string> ambiguousSubmissions = new(StringComparer.Ordinal);
+    private readonly MarketPilot.Web.Enterprise.EnterpriseSync? persistence;
 
     private static readonly IReadOnlyList<WmsWarehouse> Warehouses =
     [
@@ -36,10 +40,14 @@ public sealed class MockWmsProvider : IWmsProvider
     public MockWmsProvider(
         WmsConnectionProfile profile,
         WmsMockBehavior? behavior = null,
-        WmsCapabilities? capabilities = null)
+        WmsCapabilities? capabilities = null,
+        MarketPilot.Web.Enterprise.EnterpriseSync? persistence = null)
     {
         ArgumentNullException.ThrowIfNull(profile);
         Profile = profile;
+        this.persistence=persistence;
+        var saved=persistence?.ReadMockWmsState(profile.TenantId,profile.Id);
+        if(saved!=null)Restore(saved);
         this.behavior = behavior ?? new WmsMockBehavior();
 
         if (this.behavior.DelayMilliseconds is < 0 or > 30000)
@@ -108,6 +116,7 @@ public sealed class MockWmsProvider : IWmsProvider
                 existingFingerprint != fingerprint)
                 throw Error("IdempotencyConflict", "Fulfillment kimliği farklı içerikle tekrar kullanıldı.");
 
+            var before=Snapshot();
             if (!fulfillments.TryGetValue(order.Id, out var acceptance))
             {
                 var rejected = string.Equals(behavior.RejectWarehouseId, order.WarehouseId, StringComparison.Ordinal);
@@ -117,10 +126,22 @@ public sealed class MockWmsProvider : IWmsProvider
                 fulfillments.Add(order.Id, acceptance);
                 orders.Add(order.Id, order);
             }
-            if (behavior.AmbiguousSubmission && ambiguousSubmissions.Add(order.Id))
+            var ambiguous=behavior.AmbiguousSubmission && ambiguousSubmissions.Add(order.Id);
+            try{persistence?.SaveMockWmsState(Profile.TenantId,Profile.Id,Snapshot());}
+            catch{Restore(before);throw;}
+            if (ambiguous)
                 throw new WmsProviderException(new("OutcomeUnknown", "Mock WMS isteği aldı ancak yanıt zaman aşımına uğradı; kabul durumu sorgulanmalı.", true));
             return Result(WmsMockOperations.FulfillmentSubmission, acceptance);
         }
+    }
+
+    private WmsMockProviderState Snapshot()=>new(new(fulfillments),new(fulfillmentFingerprints),new(orders),new(ambiguousSubmissions));
+    private void Restore(WmsMockProviderState state)
+    {
+        fulfillments.Clear();foreach(var pair in state.Fulfillments)fulfillments.Add(pair.Key,pair.Value);
+        fulfillmentFingerprints.Clear();foreach(var pair in state.Fingerprints)fulfillmentFingerprints.Add(pair.Key,pair.Value);
+        orders.Clear();foreach(var pair in state.Orders)orders.Add(pair.Key,pair.Value);
+        ambiguousSubmissions.Clear();ambiguousSubmissions.UnionWith(state.AmbiguousSubmissions);
     }
 
     public async Task<WmsResult<WmsFulfillmentAcceptance>> GetAcceptanceStatusAsync(

@@ -91,13 +91,14 @@ public sealed class AmazonSpApiAdapter(AmazonApiClient client) : IMarketplaceAda
         var lines=Aj.A(e,"orderItems").Select(l=>{var product=Aj.F(l,"product");var amount=Aj.F(Aj.F(product,"price"),"unitPrice");return new MarketplaceOrderLine(Aj.S(l,"orderItemId"),Aj.S(product,"sellerSku"),"",Aj.S(product,"title"),checked((int)(Aj.N(l,"quantityOrdered")??0)),Aj.Money(amount),Aj.Money(Aj.F(Aj.F(l,"proceeds"),"proceedsTotal")),null,currency,status,"");}).ToArray();
         var packages=Aj.A(e,"packages").Select(p=>new AmazonPackage(Aj.S(p,"packageReferenceId"),Aj.S(p,"carrier"),Aj.S(p,"trackingNumber"),Aj.S(p,"packageStatus"),Aj.D(p,"shipTime"))).ToArray();var cargo=packages.FirstOrDefault();
         var order=new MarketplaceOrder("",Aj.S(e,"orderId"),status,Aj.D(e,"createdTime"),Aj.S(buyer,"buyerName"),Aj.S(buyer,"buyerEmail"),Aj.Money(total),null,null,currency,"","",address.ValueKind==JsonValueKind.Object?new("","Shipment",Aj.S(address,"countryCode"),Aj.S(address,"city"),Aj.S(address,"districtOrCounty"),Aj.S(address,"postalCode"),string.Join(' ',new[]{Aj.S(address,"addressLine1"),Aj.S(address,"addressLine2"),Aj.S(address,"addressLine3")}.Where(v=>v.Length>0)),false):null,lines,new(cargo?.Carrier??"",cargo?.TrackingNumber??"","","",cargo?.Id??"",null,null),new("","Bildirilmedi","",false,"","","",null,[]));
+        order=order with{Packages=packages.Select(p=>new MarketplaceOrderPackage(p.Id,p.Carrier,p.TrackingNumber,p.Status,p.ShipTime)).ToArray()};
         return new(order,Aj.S(fulfillment,"fulfilledBy"),status,Aj.D(Aj.F(fulfillment,"shipByWindow"),"latestDateTime"),packages);
     }
     public async Task<MarketplacePage<MarketplaceProduct>> ProductsAsync(ConnectionSettings s,ProductQuery q,CancellationToken ct)
     {
         if(q.Page>0&&string.IsNullOrEmpty(q.NextPageToken))throw new IntegrationException("token_required","Amazon listeleri için önceki sayfanın devam bilgisi gerekir.",400);
         var result=await Listings(s,new(q.StockCode??q.Barcode,q.StockCode!=null?"SKU":"EAN",q.Status,Token:q.NextPageToken),ct);
-        return new(result.Items.Select(i=>i.Product).ToArray(),q.Page,20,result.Total,null,result.NextToken);
+        return new(result.Items.Select(i=>i.Product with{FulfilledBy=i.FulfilledBy}).ToArray(),q.Page,20,result.Total,null,result.NextToken);
     }
     public async Task<MarketplacePage<MarketplaceOrder>> OrdersAsync(ConnectionSettings s,OrderQuery q,CancellationToken ct)
     {

@@ -126,6 +126,7 @@ public sealed class OrderSynchronization
                         orders = await MarketplaceOrderReader.ReadAllAsync(adapter, store.Settings, from, until, ct);
                         scope.ServiceProvider.GetRequiredService<OperationsHub>().Observe(store, new MarketplacePage<MarketplaceOrder>(orders, 0, orders.Count, orders.Count, 1, null));
                     }
+                    scope.ServiceProvider.GetService<MarketPilot.Web.Enterprise.IntegrationOrchestrator>()?.ObserveOrders(store,orders);
                     lock (gate) { pull.State = "completed"; pull.LastSuccessAt = until; pull.LastCount = orders.Count; pull.ConsecutiveFailures = 0; pull.Error = null; pull.NextRunAt = clock.GetUtcNow().AddSeconds(settings.IntervalSeconds); Save(); }
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }

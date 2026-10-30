@@ -70,6 +70,7 @@ public sealed partial class N11Adapter(HttpClient http,IConfiguration configurat
         var status=Nj.S(e,"status");var reject=Nj.F(e,"rejectInfo");var reasons=reject.ValueKind switch{JsonValueKind.String=>new[]{reject.GetString()!},JsonValueKind.Array=>reject.EnumerateArray().Select(v=>v.ValueKind==JsonValueKind.String?v.ToString():Nj.S(v,"reason")).Where(v=>v.Length>0).ToArray(),JsonValueKind.Object=>new[]{Nj.S(reject,"reason")}.Where(v=>v.Length>0).ToArray(),_=>Array.Empty<string>()};
         var currency=Nj.S(e,"currencyType");if(currency is "TL" or "")currency="TRY";
         var p=new MarketplaceProduct(Nj.S(e,"n11ProductId"),Nj.S(e,"catalogId"),Nj.S(e,"productMainId"),Nj.S(e,"stockCode"),Nj.S(e,"barcode"),Nj.S(e,"title"),Nj.S(e,"categoryId"),"",attrs.GetValueOrDefault("Marka")??"",Nj.N(e,"listPrice"),Nj.N(e,"salePrice"),null,(int?)Nj.N(e,"quantity"),currency,Nj.S(e,"saleStatus") switch{"On_Sale"=>true,"Out_Of_Stock"=>false,_=>(bool?)null},"",Nj.A(e,"imageUrls").Where(x=>x.ValueKind==JsonValueKind.String).Select(x=>x.ToString()).ToArray(),status,reasons);
+        p=p with{FulfilledBy=Nj.S(e,"sender").ToUpperInvariant(),VatRate=Nj.N(e,"vatRate")};
         return new(p,Nj.S(e,"description"),attrs,Nj.S(e,"sender").ToUpperInvariant(),(int?)Nj.N(e,"preparingDay"),Nj.S(e,"shipmentTemplate"),Nj.N(e,"vatRate"),Nj.N(e,"commissionRate"));
     }
     public async Task<N11Page<N11Order>> Orders(ConnectionSettings s,N11Query q,CancellationToken ct)

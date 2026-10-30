@@ -41,6 +41,10 @@ public sealed class EnterpriseTask
 }
 public sealed class EnterpriseJob
 {
+    public IntegrationEnvelope? IntegrationEvent { get; set; }
+    public ErpTransferPlan? TransferPlan { get; set; }
+    public string? Result { get; set; }
+    public DateTimeOffset? ProcessedAt { get; set; }
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Key { get; set; } = "";
     public string Kind { get; set; } = "";
@@ -62,6 +66,9 @@ public sealed class EnterpriseJob
 }
 public sealed class EnterpriseState
 {
+    public Dictionary<string,ErpTransferPolicy> ErpTransferPolicies { get; set; } = [];
+    public Dictionary<string,MockErpTransferReceipt> MockErpTransferReceipts { get; set; } = [];
+    public Dictionary<string,MarketPilot.Web.Wms.WmsMockProviderState> MockWmsProviderStates { get; set; } = [];
     public EnterprisePlan Plan { get; set; } = new();
     public bool Managed { get; set; }
     public Dictionary<string,EnterpriseTask> Tasks { get; set; } = new();

@@ -19,7 +19,7 @@ Tüm çağrılar cancellation token alır, correlation kimliği ve tamamlanma za
 
 ## Mock ve HTTP yüzeyi
 
-Mock depo/stok/hareket verileri sabittir; fulfillment gönderimleri sağlayıcı örneğinin belleğinde idempotent olarak tutulur ve uygulama yeniden başlatıldığında kalıcı değildir. Mock yazma varsayılan olarak kapalıdır.
+Mock depo/stok/hareket verileri sabittir. Uygulama DI sağlayıcısında fulfillment makbuzları mevcut EnterpriseSync deposunda kalıcı tutulur; yeniden başlatma sonrası aynı external request ID sorgulanabilir. EnterpriseSync verilmeden doğrudan oluşturulan test sağlayıcısı yalnız bellek kullanır. Bu makbuz deposu ikinci bir iş kuyruğu değildir. Mock yazma varsayılan olarak kapalıdır.
 
 ## WMS çok depolu stok ekranı
 

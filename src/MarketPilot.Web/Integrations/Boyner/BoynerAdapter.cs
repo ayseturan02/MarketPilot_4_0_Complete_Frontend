@@ -57,7 +57,7 @@ public sealed partial class BoynerAdapter(HttpClient http,IConfiguration configu
         var attrs=new Dictionary<string,string>();foreach(var a in Bj.A(e,"attributes")){var name=Bj.S(a,"attributeName");if(name.Length>0)attrs[name]=Bj.S(a,"attributeValue") is {Length:>0} value?value:Bj.S(a,"customAttributeValue");}
         var status=Bj.F(e,"archived").ValueKind==JsonValueKind.True?"archived":Bj.F(e,"rejected").ValueKind==JsonValueKind.True?"rejected":Bj.F(e,"approved").ValueKind==JsonValueKind.True?"approved":"unapproved";
         var p=new MarketplaceProduct(Bj.S(e,"id"),Bj.S(e,"productContentId"),Bj.S(e,"productMainId"),Bj.S(e,"stockCode"),Bj.S(e,"barcode"),Bj.S(e,"title"),Bj.S(e,"pimCategoryId"),Bj.S(e,"categoryName"),Bj.S(e,"brand"),Bj.N(e,"listPrice"),Bj.N(e,"salePrice"),null,(int?)Bj.N(e,"quantity"),"TRY",Bj.F(e,"onsale").ValueKind switch{JsonValueKind.True=>true,JsonValueKind.False=>false,_=>(bool?)null},"",Bj.A(e,"images").Select(x=>Bj.S(x,"url")).Where(v=>v.Length>0).ToArray(),status,[]);
-        return new(p,Bj.S(e,"description"),attrs,(int?)Bj.N(e,"deliveryDuration"),Bj.N(e,"commission"),Bj.N(e,"vatRate"));
+        return new(p with{VatRate=Bj.N(e,"vatRate")},Bj.S(e,"description"),attrs,(int?)Bj.N(e,"deliveryDuration"),Bj.N(e,"commission"),Bj.N(e,"vatRate"));
     }
     public async Task<BoynerPage<BoynerOrder>> Orders(ConnectionSettings s,BoynerQuery q,CancellationToken ct)
     {

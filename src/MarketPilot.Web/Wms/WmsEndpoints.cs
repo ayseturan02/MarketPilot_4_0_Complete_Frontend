@@ -26,6 +26,7 @@ public static class WmsEndpoints
         services.AddSingleton<WmsInventoryService>();
         services.AddSingleton<IFulfillmentStatusPublisher, MockFulfillmentStatusPublisher>();
         services.AddSingleton<FulfillmentOrchestrationService>();
+        services.AddSingleton<WmsLogisticsService>();
     }
 
     public static void MapWmsProviders(this WebApplication app)
@@ -67,6 +68,12 @@ public static class WmsEndpoints
 
         group.MapGet("", (IWmsProvider provider) =>
             Results.Ok(new { provider.Profile, provider.Capabilities, realAdapter = "provider-contract-pending" }));
+        group.MapGet("/logistics", (WmsLogisticsService logistics) => Results.Ok(logistics.List()));
+        group.MapGet("/logistics/policies", (WmsLogisticsService logistics) => Results.Ok(logistics.Policies()));
+        group.MapPut("/logistics/mapping", (WmsChannelMapping mapping, WmsLogisticsService logistics) => Results.Ok(logistics.SetMapping(mapping)));
+        group.MapPut("/logistics/label-policy", (WmsLabelPolicy policy, WmsLogisticsService logistics) => Results.Ok(logistics.SetLabelPolicy(policy)));
+        group.MapPost("/logistics/mock/events", (WmsLogisticsEvent input, WmsLogisticsService logistics) => Results.Ok(logistics.Receive(input)));
+        group.MapPost("/logistics/mock/scenarios", (WmsLogisticsService logistics) => Results.Ok(logistics.SeedMock()));
         group.MapGet("/inventory", async (WmsInventoryService inventory, CancellationToken ct) =>
             Results.Ok(await inventory.ReadAsync(ct)));
         group.MapGet("/inventory/movements", (string? warehouseId, string? sku, int? size, WmsInventoryService inventory) =>

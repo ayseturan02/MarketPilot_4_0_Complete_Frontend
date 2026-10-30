@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "check:orchestration": "dotnet build src/MarketPilot.Web && node tests/integration-orchestrator-http-checks.cjs",
+    "check:channels": "dotnet run --project tests/MarketPilot.ChannelContractChecks",
     "check": "node scripts/check.mjs",
     "check:pricing": "dotnet run --project tests/MarketPilot.PricingChecks && node tests/pricing-http-checks.cjs",
     "check:sync": "dotnet build src/MarketPilot.Web && dotnet run --project tests/MarketPilot.SynchronizationChecks -p:BuildProjectReferences=false && node tests/synchronization-http-checks.cjs"

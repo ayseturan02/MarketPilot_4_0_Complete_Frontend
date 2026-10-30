@@ -100,7 +100,7 @@ public sealed partial class HepsiburadaAdapter(HttpClient http, IConfiguration c
             Text(e, "productName", "name") is { Length: > 0 } name ? name : Text(e, "merchantSku", "hepsiburadaSku"),
             Text(e, "categoryId"), Text(e, "categoryName"), Text(e, "brand"), Number(e, "listPrice"), Number(e, "price"), null,
             Number(e, "availableStock") is { } stock ? checked((int)stock) : null, "TRY", Flag(e, "isSalable"), Text(e, "productUrl"),
-            Text(e, "imageUrl") is { Length: > 0 } image ? [image] : [], "listed", [])).ToArray();
+            Text(e, "imageUrl") is { Length: > 0 } image ? [image] : [], "listed", [], VatRate:Number(e,"vatRate"))).ToArray();
         return Page(doc.RootElement, products, q.Page, q.Size);
     }
     public async Task<MarketplacePage<MarketplaceOrder>> OrdersAsync(ConnectionSettings s, OrderQuery q, CancellationToken ct)

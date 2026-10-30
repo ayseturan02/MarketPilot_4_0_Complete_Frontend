@@ -116,7 +116,7 @@ public sealed class OrderWebhookInbox
             Save();
         }
     }
-    public async Task Process(OrderWebhookReceiver receiver, OperationsHub operations, CancellationToken ct)
+    public async Task Process(OrderWebhookReceiver receiver, OperationsHub operations, CancellationToken ct, MarketPilot.Web.Enterprise.IntegrationOrchestrator? orchestrator = null)
     {
         if (!await processing.WaitAsync(0, ct))
             return;
@@ -141,6 +141,7 @@ public sealed class OrderWebhookInbox
                     else
                     {
                         var applied = operations.Observe(binding.Store, new MarketplacePage<MarketplaceOrder>([item.Order], 0, 1, 1, 1, null));
+                        orchestrator?.ObserveOrders(binding.Store,[item.Order]);
                         if (applied == 0)
                             state = "ignored";
                     }
@@ -176,7 +177,7 @@ public sealed class OrderWebhookInbox
         finally { processing.Release(); }
     }
 }
-public sealed class OrderWebhookWorker(OrderWebhookInbox inbox, OrderWebhookReceiver receiver, OperationsHub operations, ILogger<OrderWebhookWorker> log) : BackgroundService
+public sealed class OrderWebhookWorker(OrderWebhookInbox inbox, OrderWebhookReceiver receiver, OperationsHub operations, ILogger<OrderWebhookWorker> log, MarketPilot.Web.Enterprise.IntegrationOrchestrator? orchestrator = null) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -186,7 +187,7 @@ public sealed class OrderWebhookWorker(OrderWebhookInbox inbox, OrderWebhookRece
             while (await timer.WaitForNextTickAsync(stoppingToken))
                 try
                 {
-                    await inbox.Process(receiver, operations, stoppingToken);
+                    await inbox.Process(receiver, operations, stoppingToken, orchestrator);
                 }
                 catch (Exception e) when (e is not OperationCanceledException || !stoppingToken.IsCancellationRequested) { log.LogWarning("Webhook inbox processing failed: {Type}", e.GetType().Name); }
         }

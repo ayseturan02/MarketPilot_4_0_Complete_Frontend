@@ -16,6 +16,8 @@ public static class EnterpriseEndpoints
     public static void AddEnterprise(this IServiceCollection services)
     {
         services.AddNebimProviders();services.AddErpPricing();
+        services.AddSingleton<IErpOrderTransferProvider,MockErpOrderTransferProvider>();
+        services.AddSingleton<ErpOrderTransferService>();services.AddSingleton<IntegrationOrchestrator>();
         services.AddHttpClient("EnterpriseBridge",c=>c.Timeout=Timeout.InfiniteTimeSpan).ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
         services.AddSingleton<EnterpriseBridge>();services.AddSingleton<IErpCatalogProvider,MarketPilotErpBridgeProvider>();services.AddSingleton<IWmsProvider,WmsBridgeProvider>();services.AddSingleton<ICargoProvider,CargoBridgeProvider>();services.AddSingleton<ErpCatalog>();services.AddSingleton<EnterpriseSync>();services.AddHostedService<EnterpriseSyncWorker>();
         services.Configure<RateLimiterOptions>(o=>o.AddPolicy("erp-inbound",c=>RateLimitPartition.GetFixedWindowLimiter(c.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new FixedWindowRateLimiterOptions{PermitLimit=120,Window=TimeSpan.FromMinutes(1),QueueLimit=0})));
@@ -29,6 +31,17 @@ public static class EnterpriseEndpoints
             try{return await next(context);}catch(IntegrationException e){return Results.Json(new{error=e.Message},statusCode:e.Status is >=400 and <=599?e.Status:502);}catch(ArgumentException e){return Results.BadRequest(new{error=e.Message});}catch(IOException){return Results.Json(new{error="Entegrasyon ayarı kaydedilemedi; önceki kayıtlar korundu."},statusCode:503);}
         });
         group.MapGet("",(EnterpriseSync sync)=>Results.Ok(sync.Status()));
+        group.MapGet("/integration/events",(EnterpriseSync sync)=>Results.Ok(sync.IntegrationJobs()));
+        group.MapPost("/integration/events",(IntegrationEnvelope input,IntegrationOrchestrator orchestrator)=>Results.Accepted(value:orchestrator.Accept(input)));
+        group.MapPost("/integration/events/{id}/retry",(string id,EnterpriseSync sync)=>{sync.RetryIntegration(id);return Results.Accepted();});
+        group.MapGet("/erp-transfer/policy",(string accountId,IConfiguration config,EnterpriseSync sync)=>Results.Ok(sync.GetErpTransferPolicy(config["Workspace:BusinessId"]??"default",accountId)));
+        group.MapPut("/erp-transfer/policy",(ErpTransferPolicy input,EnterpriseSync sync)=>{sync.ConfigureErpTransfer(input);return Results.Ok(input);});
+        group.MapPost("/erp-transfer/preview",(ErpTransferRequest input,ErpOrderTransferService transfer)=>Results.Ok(new{mockOnly=true,plan=transfer.Prepare(input)}));
+        group.MapGet("/channel-contracts",()=>Results.Ok(MarketPilot.Web.Integrations.ChannelContracts.All));
+        group.MapPost("/channel-contracts/{channel}/products/preview",(string channel,ChannelProductPreparation input,IConfiguration config,EnterpriseSync sync)=>
+            Results.Ok(ChannelContracts.For(channel).Product(input.AccountId,input.Product,sync.GetErpTransferPolicy(config["Workspace:BusinessId"]??"default",input.AccountId)?.Variants)));
+        group.MapPost("/channel-contracts/{channel}/orders/preview",(string channel,ChannelOrderPreparation input,IConfiguration config,EnterpriseSync sync)=>
+            Results.Ok(ChannelContracts.For(channel).Order(config["Workspace:BusinessId"]??"default",input.AccountId,input.Order,sync.GetErpTransferPolicy(config["Workspace:BusinessId"]??"default",input.AccountId)?.Variants)));
         group.MapGet("/readiness",(HttpContext context,LocalAccountStore accounts,EnterpriseSync sync,EnterpriseBridge bridge,IntegrationRegistry registry,IConfiguration config)=>
             accounts.Configured&&!context.User.IsInRole("admin")?Results.StatusCode(403):Results.Ok(EnterpriseReadiness.Inspect(sync,bridge,registry,config)));
         group.MapPut("/plan",(EnterprisePlan plan,EnterpriseSync sync)=>{sync.Configure(plan);return Results.Ok(sync.Status());});

@@ -76,6 +76,8 @@ public sealed class FulfillmentWorkflowPublication
 
 public sealed class FulfillmentWorkflowRecord
 {
+    public bool RequiresPreparedErpAcceptance { get; set; }
+    public bool PreparedErpValidationComplete { get; set; }
     public string Id { get; set; } = "";
     public string ExternalRequestId { get; set; } = "";
     public string IdempotencyKey { get; set; } = "";
@@ -277,7 +279,8 @@ public sealed class FulfillmentOrchestrationService
 
     public async Task<FulfillmentWorkflowRecord> ReceiveAsync(
         FulfillmentWorkflowOrder order,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool requirePreparedErpAcceptance = false)
     {
         ValidateOrder(order);
         await operationGate.WaitAsync(ct);
@@ -295,6 +298,8 @@ public sealed class FulfillmentOrchestrationService
                 {
                     if (existing.Fingerprint != fingerprint)
                         throw Error("IdempotencyConflict", "Aynı sipariş/işlem anahtarı farklı içerikle tekrar gönderildi.");
+                    if(requirePreparedErpAcceptance && !existing.RequiresPreparedErpAcceptance)
+                    {existing.RequiresPreparedErpAcceptance=true;Save();}
                     return Clone(existing);
                 }
 
@@ -309,6 +314,7 @@ public sealed class FulfillmentOrchestrationService
                     IdempotencyKey = order.IdempotencyKey,
                     Fingerprint = fingerprint,
                     Order = CloneOrder(order),
+                    RequiresPreparedErpAcceptance = requirePreparedErpAcceptance,
                     State = "received",
                     CreatedAt = now,
                     UpdatedAt = now
@@ -332,6 +338,28 @@ public sealed class FulfillmentOrchestrationService
         }
     }
 
+    // Only the central orchestrator calls this after its ERP provider query confirmed acceptance.
+    internal async Task MarkErpPreparationValidatedAsync(string id,CancellationToken ct)
+    {
+        await operationGate.WaitAsync(ct);
+        try{Find(id).PreparedErpValidationComplete=true;Save();}
+        finally{operationGate.Release();}
+    }
+
+    internal async Task ConfirmPreparedErpAcceptanceAsync(string id,string acceptanceReference,CancellationToken ct)
+    {
+        await operationGate.WaitAsync(ct);
+        try
+        {
+            var row=Find(id);
+            if(string.IsNullOrWhiteSpace(acceptanceReference))throw new ArgumentException("ERP kabul referansı gerekli.");
+            if(row.ErpRegistrationState=="registered" && row.ErpOrderId!=acceptanceReference)
+                throw new ArgumentException("Workflow farklı bir ERP kaydıyla eşleşmiş; inceleme gerekli.");
+            row.ErpRegistrationState="registered";row.ErpOrderId=acceptanceReference;Save();
+        }
+        finally{operationGate.Release();}
+    }
+
     public async Task<FulfillmentWorkflowRecord> AdvanceAsync(string id, CancellationToken ct = default)
     {
         await operationGate.WaitAsync(ct);
@@ -349,6 +377,9 @@ public sealed class FulfillmentOrchestrationService
                 return Clone(row);
             if (row.PolicySnapshot is null)
                 return BlockAndClone(row, "blocked-policy", "Onaylı fulfillment politikası bulunamadı.");
+            if(row.RequiresPreparedErpAcceptance && !row.PreparedErpValidationComplete &&
+                row.PolicySnapshot.WriteSequence.Contains(FulfillmentWriteSteps.ErpOrderRegistration))
+                return BlockAndClone(row,"blocked-erp-preparation","Merkezi ERP sipariş hazırlık doğrulaması bekleniyor.");
 
             if (row.NextWriteStep < row.PolicySnapshot.WriteSequence.Length)
             {
@@ -569,6 +600,11 @@ public sealed class FulfillmentOrchestrationService
             {
                 SetState(row, "erp-outcome-unknown", $"ERP sonucu belirsiz ({error.Error.Code}); yeni kayıt gönderilmedi.");
             }
+            return;
+        }
+        if(row.RequiresPreparedErpAcceptance)
+        {
+            SetState(row,"erp-preparation-required","Merkezi ERP aktarım servisinden doğrulanmış kabul referansı bekleniyor.");
             return;
         }
 
