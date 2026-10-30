@@ -1,0 +1,261 @@
+{
+  "started": "2026-10-30T11:31:39.109Z",
+  "api": [
+    {
+      "name": "negative products",
+      "method": "POST",
+      "body": {},
+      "status": 405,
+      "expected": [
+        400,
+        403,
+        405,
+        409
+      ],
+      "passed": true,
+      "response": "{\"error\":\"Yeni ürün oluşturma kapalı. Ürünler Nebim V3 kaynağından alınır.\"}"
+    },
+    {
+      "name": "negative catalog/products",
+      "method": "POST",
+      "body": {},
+      "status": 405,
+      "expected": [
+        400,
+        403,
+        405,
+        409
+      ],
+      "passed": true,
+      "response": "{\"error\":\"Yeni ürün oluşturma kapalı. Ürünler Nebim V3 kaynağından alınır.\"}"
+    },
+    {
+      "name": "negative security/connections/credentials",
+      "method": "PUT",
+      "body": {},
+      "status": 500,
+      "expected": [
+        400,
+        403,
+        405,
+        409
+      ],
+      "passed": false,
+      "response": "{\"error\":\"İşlem tamamlanamadı. Sistem olaylarını kontrol et.\"}"
+    },
+    {
+      "name": "negative security/connections/erp",
+      "method": "PUT",
+      "body": {},
+      "status": 400,
+      "expected": [
+        400,
+        403,
+        405,
+        409
+      ],
+      "passed": true,
+      "response": "{\"error\":\"Bağlantı/kimlik referansı geçersiz.\"}"
+    },
+    {
+      "name": "negative security/connections/wms",
+      "method": "PUT",
+      "body": {},
+      "status": 400,
+      "expected": [
+        400,
+        403,
+        405,
+        409
+      ],
+      "passed": true,
+      "response": "{\"error\":\"Bağlantı/kimlik referansı geçersiz.\"}"
+    },
+    {
+      "name": "negative sync/enterprise/run",
+      "method": "POST",
+      "body": {},
+      "status": 400,
+      "expected": [
+        400,
+        403,
+        405,
+        409
+      ],
+      "passed": true,
+      "response": "{\"error\":\"Eşitleme görev adı boş olamaz.\"}"
+    },
+    {
+      "name": "negative sync/enterprise/integration/events",
+      "method": "POST",
+      "body": {},
+      "status": 400,
+      "expected": [
+        400,
+        403,
+        405,
+        409
+      ],
+      "passed": true,
+      "response": "{\"error\":\"Merkezi olay kimliği, işletmesi, kaynağı veya hedefi geçersiz.\"}"
+    },
+    {
+      "name": "negative sync/enterprise/erp-transfer/preview",
+      "method": "POST",
+      "body": {},
+      "status": 400,
+      "expected": [
+        400,
+        403,
+        405,
+        409
+      ],
+      "passed": true,
+      "response": "{\"error\":\"ERP kaynak kimliği veya ayrı işlem türü geçersiz.\"}"
+    },
+    {
+      "name": "negative sync/enterprise/channel-contracts/trendyol/products/preview",
+      "method": "POST",
+      "body": {},
+      "status": 400,
+      "expected": [
+        400,
+        403,
+        405,
+        409
+      ],
+      "passed": true,
+      "response": "{\"error\":\"Ürün/hesap verisi eksik.\"}"
+    },
+    {
+      "name": "negative sync/enterprise/channel-contracts/trendyol/orders/preview",
+      "method": "POST",
+      "body": {},
+      "status": 400,
+      "expected": [
+        400,
+        403,
+        405,
+        409
+      ],
+      "passed": true,
+      "response": "{\"error\":\"Sipariş, hesap, kalem veya kargo yapısı geçersiz.\"}"
+    },
+    {
+      "name": "negative erp/nebim/orders",
+      "method": "POST",
+      "body": {},
+      "status": 501,
+      "expected": [
+        501
+      ],
+      "passed": true,
+      "response": "{\"error\":{\"code\":\"NotSupported\",\"message\":\"İstenen ERP işlemi bu sağlayıcı tarafından desteklenmiyor.\",\"retryable\":false}}"
+    },
+    {
+      "name": "negative erp/nebim/events",
+      "method": "POST",
+      "body": {},
+      "status": 501,
+      "expected": [
+        501
+      ],
+      "passed": true,
+      "response": "{\"error\":{\"code\":\"NotSupported\",\"message\":\"İstenen ERP işlemi bu sağlayıcı tarafından desteklenmiyor.\",\"retryable\":false}}"
+    },
+    {
+      "name": "negative wms/fulfillment/orders",
+      "method": "POST",
+      "body": {},
+      "status": 400,
+      "expected": [
+        400,
+        403,
+        405,
+        409
+      ],
+      "passed": true,
+      "response": "{\"error\":\"Pazaryeri sipariş kimliği, hesabı, para birimi, zamanı veya satırları geçersiz.\"}"
+    },
+    {
+      "name": "negative wms/logistics/mock/events",
+      "method": "POST",
+      "body": {},
+      "status": 400,
+      "expected": [
+        400,
+        403,
+        405,
+        409
+      ],
+      "passed": true,
+      "response": "{\"error\":\"WMS olay kimliği, miktarı veya durumu geçersiz.\"}"
+    },
+    {
+      "name": "negative wms/inventory/policy",
+      "method": "PUT",
+      "body": {},
+      "status": 400,
+      "expected": [
+        400,
+        403,
+        405,
+        409
+      ],
+      "passed": true,
+      "response": "{\"error\":\"Güvenlik stoğu yalnız bilinen depolar için 0-1.000.000 aralığında tanımlanabilir.\"}"
+    },
+    {
+      "name": "negative pricing/preview",
+      "method": "POST",
+      "body": {},
+      "status": 400,
+      "expected": [
+        400,
+        403,
+        405,
+        409
+      ],
+      "passed": true,
+      "response": "{\"error\":\"?r?n, ma?aza ve ilan kimli?i gerekli.\",\"code\":\"pricing_blocked\"}"
+    },
+    {
+      "name": "negative settings",
+      "method": "PUT",
+      "body": "{\"broken\":",
+      "status": 400,
+      "expected": [
+        400,
+        403,
+        405,
+        409
+      ],
+      "passed": true,
+      "response": ""
+    },
+    {
+      "name": "negative settings",
+      "method": "PUT",
+      "body": "null",
+      "status": 400,
+      "expected": [
+        400,
+        403,
+        405,
+        409
+      ],
+      "passed": true,
+      "response": ""
+    },
+    {
+      "name": "foreign-origin",
+      "status": 403,
+      "emptyBody": false,
+      "passed": true
+    }
+  ],
+  "ui": [],
+  "compatibility": [],
+  "performance": [],
+  "fatal": "TypeError: fetch failed"
+}

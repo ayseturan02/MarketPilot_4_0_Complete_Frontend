@@ -1,0 +1,1 @@
+PASS mock Nebim provider: all read/write flows, canonical sync/units, order registration/status/documents, cancellation/return/correction events, idempotency/versioning, capability refusals, disabled/real modes, profile/tenant boundaries, cancellation and JSON restart. No network transport or native Nebim contract assumed.

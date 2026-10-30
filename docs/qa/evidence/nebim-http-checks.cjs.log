@@ -1,0 +1,1 @@
+PASS mock Nebim HTTP: internal application routes, canonical sync/checkpoint, readonly capabilities, opt-in mock order/event writes, documents/status/replay, auth/roles/tenant isolation, restart and explicit real-mode NotSupported. No native API assumptions or network transport.

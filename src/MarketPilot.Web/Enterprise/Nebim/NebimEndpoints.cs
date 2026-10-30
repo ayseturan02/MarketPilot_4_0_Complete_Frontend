@@ -56,7 +56,7 @@ public sealed class NebimCanonicalSync(INebimErpProvider provider,CanonicalStore
                 var version=db.Modify(s=>{var next=s.NebimMock.SyncVersions.GetValueOrDefault(scope)+1;s.NebimMock.SyncVersions[scope]=next;return next;});
                 var now=DateTimeOffset.UtcNow;var id=provider.Profile.Id+"-catalog-checkpoint";
                 var context=new RecordContext(provider.Profile.TenantId,"mock-nebim-v3",id,null,Guid.NewGuid().ToString("N"),id+"-"+version,version,now,now);
-                var checkpoint=store.Apply(new SyncCheckpoint(id,context,"catalog",null,products.Data.Cast<CanonicalRecord>().Concat(variants.Data).Concat(identifiers.Data.Barcodes).Concat(warehouses.Data).Concat(stock.Data).Concat(prices.Data).Max(r=>r.Context.SourceVersion),now));results.Add(checkpoint);success=checkpoint.State is "applied" or "duplicate";
+                var checkpoint=store.Apply(new MarketPilot.Web.Contracts.SyncCheckpoint(id,context,"catalog",null,products.Data.Cast<CanonicalRecord>().Concat(variants.Data).Concat(identifiers.Data.Barcodes).Concat(warehouses.Data).Concat(stock.Data).Concat(prices.Data).Max(r=>r.Context.SourceVersion),now));results.Add(checkpoint);success=checkpoint.State is "applied" or "duplicate";
                 if(success)db.Modify(s=>{var old=s.NebimMock.SyncStatuses.GetValueOrDefault(scope)??new(provider.Profile.Id,null,null);s.NebimMock.SyncStatuses[scope]=old with{LastCanonicalSyncAt=now};return true;});
             }
             return new{isMock=true,success,results};

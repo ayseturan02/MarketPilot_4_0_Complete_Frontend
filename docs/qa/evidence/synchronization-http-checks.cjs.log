@@ -1,0 +1,1 @@
+PASS synchronization HTTP/browser: central sync UI, legacy demo API, persisted queue, browser-closed processing, restart recovery, open-page stock refresh, atomic validation, CSV protection, per-account drafts, viewer guards and mobile. No live APIs.

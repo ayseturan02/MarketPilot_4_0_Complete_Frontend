@@ -1,0 +1,1 @@
+PASS Ticimax contracts: WSDL namespace/order, escaping, native pagination, unsupported filters without broad fetch, decimal stock/currency/VAT, write refusal, private endpoints and DTD rejection. Fixture only; no live store call.

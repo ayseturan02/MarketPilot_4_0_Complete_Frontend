@@ -1,0 +1,49 @@
+{
+  "dashboardState": {
+    "workspaceLastCheck": "2026-10-30T11:31:59.193Z",
+    "hasReport": true,
+    "workspaceSyncError": "",
+    "editing": false,
+    "documentHidden": false,
+    "activeElement": "BODY",
+    "operationViewsIncludes": true
+  },
+  "targeted": [
+    {
+      "name": "dashboard-navigation-0",
+      "label": "",
+      "passed": false,
+      "error": [
+        "Unexpected end of input"
+      ]
+    },
+    {
+      "name": "dashboard-navigation-1",
+      "label": "Tümünü gör",
+      "passed": false,
+      "error": [
+        "Unexpected end of input"
+      ]
+    },
+    {
+      "name": "dashboard-navigation-2",
+      "label": "",
+      "passed": false,
+      "error": [
+        "Unexpected end of input"
+      ]
+    },
+    {
+      "name": "password-modal-hasDialog",
+      "passed": false
+    },
+    {
+      "name": "password-modal-focusInside",
+      "passed": false
+    },
+    {
+      "name": "password-modal-escapeClosed",
+      "passed": false
+    }
+  ]
+}

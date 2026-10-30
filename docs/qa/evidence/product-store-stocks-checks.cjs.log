@@ -1,0 +1,1 @@
+PASS: exact identity, zero versus unknown stock, absent versus failed/unconfigured/unsupported, pagination, SKU variants, repeated cursors and shared-account deduplication.

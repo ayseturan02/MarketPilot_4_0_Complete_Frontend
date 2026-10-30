@@ -1,0 +1,16 @@
+{
+  "exitCode": 1,
+  "test": "cross-order-stock-allocation",
+  "passed": false,
+  "available": 30,
+  "allocated": 60,
+  "orderStates": [
+    "validated",
+    "validated"
+  ],
+  "acceptanceStates": [
+    "wms-accepted",
+    "wms-accepted"
+  ],
+  "expected": "Total active allocation must not exceed the approved sellable balance"
+}

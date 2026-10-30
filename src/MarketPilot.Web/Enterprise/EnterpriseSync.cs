@@ -297,7 +297,8 @@ public sealed partial class EnterpriseSync
     }
     private async Task Deliver(CancellationToken ct)
     {
-        EnterpriseJob[] jobs;lock(gate)jobs=state.Jobs.Where(j=>j.State is "queued" or "waiting" or "uncertain").GroupBy(Entity).Select(g=>g.OrderBy(j=>j.CreatedAt).First()).GroupBy(j=>j.StoreId).Select(g=>g.OrderBy(j=>j.CreatedAt).First()).Where(j=>j.NextAttemptAt<=DateTimeOffset.UtcNow).OrderBy(j=>j.CreatedAt).Take(20).Select(Clone).ToArray();
+        // Keep entity ordering, but a future retry must not starve independent jobs in the same store.
+        EnterpriseJob[] jobs;lock(gate)jobs=state.Jobs.Where(j=>j.State is "queued" or "waiting" or "uncertain").GroupBy(Entity).Select(g=>g.OrderBy(j=>j.CreatedAt).First()).Where(j=>j.NextAttemptAt<=DateTimeOffset.UtcNow).GroupBy(j=>j.StoreId).Select(g=>g.OrderBy(j=>j.CreatedAt).First()).OrderBy(j=>j.CreatedAt).Take(20).Select(Clone).ToArray();
         var bridge=services.GetRequiredService<EnterpriseBridge>();var registry=services.GetRequiredService<IntegrationRegistry>();
         foreach(var job in jobs){ct.ThrowIfCancellationRequested();
             try{

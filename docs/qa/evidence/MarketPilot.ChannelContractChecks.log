@@ -1,0 +1,1 @@
+PASS 239 six-channel contract checks: ERP listing links, SKU/barcode/variant, VAT/currency, raw status/discount/campaign/tracking preservation, managed stock, unsupported operations, loopback fake HTTP server, paging/cursor/date/account and native error codes. No live API.

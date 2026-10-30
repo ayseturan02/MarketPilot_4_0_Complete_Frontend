@@ -1,0 +1,1 @@
+PASS stock browser actions: real catalog remap form resolves an alias sale to the selected ERP master; Ignore cancel/confirm is exercised; ignored sale never deducts stock; replay never deducts twice. Offline JSON fixtures and mock stores only.

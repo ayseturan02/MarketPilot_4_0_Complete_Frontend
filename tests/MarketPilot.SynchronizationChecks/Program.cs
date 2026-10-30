@@ -186,6 +186,61 @@ try
     await ignore.RunAsync(default);
     Check(ignore.LastRunSucceeded && Quantity(ignore, "A") == 10 && ignoreSource.Reports.Count == 0 && View(ignore).GetProperty("unmatchedSales").GetInt32() == 0, "An ignored sale must unblock distribution without a deduction");
 
+    // A paid HB line keeps its identity when it moves into one or several packages.
+    {
+        var packageRoot=Path.Combine(folder,"hepsiburada-packages");Directory.CreateDirectory(packageRoot);
+        var packageEnv=new TestEnvironment{ContentRootPath=packageRoot};
+        var packageRegistry=new IntegrationRegistry(packageEnv);
+        packageRegistry.Connections["hb-fixture"]=store with{Id="hb-fixture"};
+        var packageSource=new SourceFixture();var packageOrders=new OrdersFixture();
+        var mappingDb=new DemoStore(packageEnv);
+        using var packageProvider=new ServiceCollection().AddSingleton<IConfiguration>(config).AddSingleton<IWebHostEnvironment>(packageEnv)
+            .AddSingleton(TimeProvider.System).AddSingleton<StockOutbox>().AddSingleton(packageRegistry).AddSingleton(new DemoWorkspace(packageEnv))
+            .AddSingleton(mappingDb).AddSingleton<IHttpClientFactory>(packageSource).AddTransient<CentralStockSource>().AddSingleton<IMarketplaceAdapter>(packageOrders).BuildServiceProvider();
+        var stock=new CentralStockService(packageEnv,packageProvider,config);
+        var historical=OrdersFixture.Order("history","B");packageOrders.Rows=[historical];await stock.RunAsync(default);
+        var paid=OrdersFixture.Order("paid-native-id","A",2) with{OrderNumber="HB-ORDER",SourceView="hepsiburada-order"};
+        packageOrders.Rows.Add(paid);await stock.RunAsync(default);
+        Check(Quantity(stock,"A")==8&&packageSource.Reports.Count==1,"HB paid sale was not counted once");
+        var packed=paid with{PackageId="HB-PACKAGE-1",Status="Picking",SourceView="hepsiburada-package"};
+        packageOrders.Rows=[historical];packageOrders.PackageRows=[packed];await stock.RunAsync(default);
+        Check(stock.LastRunSucceeded&&Quantity(stock,"A")==8&&packageSource.Reports.Count==1,"Packaging deducted the paid sale again");
+        packageOrders.PackageRows=[packed with{Lines=[packed.Lines[0] with{Quantity=1}]}];await stock.RunAsync(default);
+        Check(!stock.LastRunSucceeded&&Quantity(stock,"A")==8&&packageSource.Reports.Count==1,"Incomplete package quantity released stock without cancellation");
+        packageOrders.PackageRows=[packed with{Lines=[packed.Lines[0] with{Quantity=1}]},packed with{PackageId="HB-PACKAGE-2",Lines=[packed.Lines[0] with{Quantity=1}]}];
+        packageOrders.Rows.Add(paid);await stock.RunAsync(default);
+        Check(stock.LastRunSucceeded&&Quantity(stock,"A")==8&&packageSource.Reports.Count==1,"Split/overlapping package views double counted a line");
+        Check(packageOrders.PackageQueries.All(query=>query.Size==10&&query.EndDate-query.StartDate<=TimeSpan.FromDays(1).TotalMilliseconds),"HB package scan exceeded native window/size");
+        packageOrders.PackageRows=[packed with{Lines=[packed.Lines[0] with{Quantity=3}]}];await stock.RunAsync(default);
+        Check(!stock.LastRunSucceeded&&Quantity(stock,"A")==8&&packageSource.Reports.Count==1,"Conflicting paid/package quantities were guessed");
+        packageOrders.PackageRows=[packed with{Lines=[packed.Lines[0] with{Id=""}]}];await stock.RunAsync(default);
+        Check(!stock.LastRunSucceeded&&Quantity(stock,"A")==8,"Missing package identity mutated stock");
+        packageOrders.PackageRows=[packed];await stock.RunAsync(default);
+        Check(stock.LastRunSucceeded&&packageSource.Reports.Count==1,"HB package retry did not recover safely");
+        var stateFile=Path.Combine(packageRoot,"Data","central-stock-real.json");
+        var saved=System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(stateFile))!;
+        var applied=saved["appliedQuantities"]!.AsObject();
+        var stableKey=applied.Select(pair=>pair.Key).Single(key=>key.EndsWith("|hb-line|"+paid.Lines[0].Id,StringComparison.Ordinal));
+        var legacyKey=stableKey.Replace("|hb-line|"+paid.Lines[0].Id,"|legacy-package|"+paid.Lines[0].Id+"|"+paid.Lines[0].Barcode);
+        applied[legacyKey]=applied[stableKey]!.DeepClone();applied.Remove(stableKey);File.WriteAllText(stateFile,saved.ToJsonString());
+        var upgraded=new CentralStockService(packageEnv,packageProvider,config);await upgraded.RunAsync(default);
+        Check(upgraded.LastRunSucceeded&&Quantity(upgraded,"A")==8&&packageSource.Reports.Count==1,"Legacy HB key migration deducted a known line again");
+        mappingDb.Modify(database=>
+        {
+            database.Products.Add(new Product{Id="map-a",Sku="A",Barcode="A-barcode",SourceSystem="nebim-v3",SourceMode="real"});
+            database.Products.Add(new Product{Id="map-b",Sku="B",Barcode="B-barcode",SourceSystem="nebim-v3",SourceMode="real"});
+            database.Catalog.Listings["explicit-map"]=new("explicit-map","map-b","hb-fixture",MarketPilot.Web.Catalog.CatalogHub.Source(packageRegistry.Connections["hb-fixture"]),"external-alias","A","A-barcode","Alias clothing","Giyim","",1,10,"TRY",true,"approved",DateTimeOffset.UtcNow);
+            return true;
+        });
+        packageOrders.Rows.Add(OrdersFixture.Order("explicit-map-sale","A"));await upgraded.RunAsync(default);
+        Check(upgraded.LastRunSucceeded&&Quantity(upgraded,"A")==8&&Quantity(upgraded,"B")==9,
+            "Explicit catalog mapping must win over coincident raw marketplace SKU");
+        mappingDb.Modify(database=>{database.Catalog.Listings["ambiguous-map"]=database.Catalog.Listings["explicit-map"] with{Key="ambiguous-map",ProductId="map-a"};return true;});
+        packageOrders.Rows.Add(OrdersFixture.Order("ambiguous-map-sale","A"));await upgraded.RunAsync(default);
+        Check(!upgraded.LastRunSucceeded&&Quantity(upgraded,"A")==8&&Quantity(upgraded,"B")==9,
+            "Ambiguous explicit mapping must not fall back to raw SKU");
+    }
+
     // Two credential profiles of one seller (e.g. old and rotated keys) must read that account once.
     {
         var root = Path.Combine(folder, "review-seller"); Directory.CreateDirectory(root);
@@ -223,6 +278,8 @@ sealed class OrdersFixture : IMarketplaceAdapter
     public string Market = "hepsiburada";
     public string Marketplace => Market;
     public List<MarketplaceOrder> Rows = new();
+    public List<MarketplaceOrder> PackageRows = new();
+    public List<OrderQuery> PackageQueries = new();
     public List<int> Pages = new();
     public List<long?> Starts = new();
     public bool RepeatPage;
@@ -230,6 +287,11 @@ sealed class OrdersFixture : IMarketplaceAdapter
         [new("line-" + id, sku, sku + "-barcode", sku, quantity, 10, quantity * 10, 20, "TRY", "Created", "")], new("", "", "", "", "", null, null), new("", "", "", false, "", "", "", null, []));
     public Task<MarketplacePage<MarketplaceOrder>> OrdersAsync(ConnectionSettings settings, OrderQuery query, CancellationToken ct)
     {
+        if(query.Status=="Picking")
+        {
+            PackageQueries.Add(query);
+            return Task.FromResult(new MarketplacePage<MarketplaceOrder>(PackageRows,query.Page,10,PackageRows.Count,1,null));
+        }
         Pages.Add(query.Page); Starts.Add(query.StartDate);
         var row = Rows[RepeatPage ? 0 : query.Page];
         return Task.FromResult(new MarketplacePage<MarketplaceOrder>([row], query.Page, 1, Rows.Count, Rows.Count, null));

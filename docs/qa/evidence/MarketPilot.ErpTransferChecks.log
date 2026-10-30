@@ -1,0 +1,1 @@
+PASS ERP transfer preparation: identity/mappings, frozen campaign data, amount limits, null lines, tax/currency, separate operations, duplicate receipts, missing confirmation/reference, wrong-order/operation responses and query-only unknown outcomes. Mock only.

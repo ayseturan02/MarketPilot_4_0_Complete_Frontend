@@ -1,0 +1,1 @@
+PASS fulfillment HTTP/browser: unapproved policy blocks, ERP-first sequence, duplicate/concurrent receipt, conflict rejection, multi-depot/multi-package full workflow, reservations, tracking/publications, terminal replay and visible history. Mock only.

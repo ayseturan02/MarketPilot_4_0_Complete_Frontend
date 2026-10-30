@@ -1,0 +1,1 @@
+PASS Amazon frontend protocol: pinned date window, native continuation, filter reset, repeated-token rejection and bounded history; no external network.

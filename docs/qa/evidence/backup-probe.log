@@ -1,0 +1,47 @@
+{
+  "test": "backup-module-completeness",
+  "passed": false,
+  "verified": {
+    "ok": true,
+    "files": 1,
+    "createdAt": "2026-10-30T11:34:56.3221198+00:00"
+  },
+  "restoreCheck": {
+    "ok": true,
+    "files": 1,
+    "products": 17,
+    "orders": 32,
+    "stores": 7,
+    "queue": {
+      "revision": 0,
+      "pending": 0,
+      "completed": 0,
+      "failed": 0,
+      "workspaces": 0
+    },
+    "webhooks": {
+      "pending": 0,
+      "processed": 0,
+      "ignored": 0,
+      "failed": 0,
+      "deadLetter": 0,
+      "oldestPendingAt": null,
+      "lastReceivedAt": null,
+      "recent": []
+    },
+    "checkedAt": "2026-10-30T11:34:56.3615672+00:00",
+    "liveDataChanged": false
+  },
+  "included": [
+    "demo-store.json",
+    "manifest.json"
+  ],
+  "missing": [
+    "tenant-directory.json",
+    "credential-references.json",
+    "wms-inventory.json",
+    "wms-fulfillment.json",
+    "wms-logistics.json",
+    "integration-monitoring.json"
+  ]
+}

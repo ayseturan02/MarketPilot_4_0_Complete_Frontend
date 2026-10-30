@@ -418,7 +418,7 @@ public sealed class CentralStockService
                         from = state.ScannedThrough.TryGetValue(StoreSource(store), out var previousScan) ? previousScan.AddMinutes(-60) : scannedUntil.AddDays(-2);
                     if (!LastModifiedScans.Contains(store.Settings.Marketplace) && from > scannedUntil.AddDays(-2))
                         from = scannedUntil.AddDays(-2);
-                    orders = await MarketplaceOrderReader.ReadAllAsync(adapter, store.Settings, from, scannedUntil, ct);
+                    orders = await MarketplaceOrderReader.ReadAllAsync(adapter, store.Settings, from, scannedUntil, ct,includeHepsiburadaPackages:true);
                 }
                 finally
                 {
@@ -436,16 +436,46 @@ public sealed class CentralStockService
         var mappings = sp.GetService<DemoStore>()?.CatalogRead(db => db.Catalog.Listings.Values.Where(l => l.StoreId == store.Id && l.Source == MarketPilot.Web.Catalog.CatalogHub.Source(store))
             .Select(l => (Listing: l, Master: db.Products.FirstOrDefault(p => p.Id == l.ProductId))).Where(x => x.Master != null)
             .Select(x => (x.Listing.Sku, x.Listing.Barcode, MasterSku: x.Master!.Sku, MasterBarcode: x.Master!.Barcode)).ToArray()) ?? [];
-        CentralStockItem? FindMapped(MarketplaceOrderLine line)
+        (bool HasMapping,CentralStockItem? Item) FindMapped(MarketplaceOrderLine line)
         {
-            var items = mappings.Where(m => line.Sku.Length > 0 && m.Sku.Equals(line.Sku, StringComparison.OrdinalIgnoreCase) || line.Barcode.Length > 0 && m.Barcode == line.Barcode)
-                .Select(m => Find(m.MasterSku, m.MasterBarcode)).OfType<CentralStockItem>().Distinct().ToArray();
-            return items.Length == 1 ? items[0] : null; // an ambiguous mapping stays unmatched
+            var links=mappings.Where(m => line.Sku.Length > 0 && m.Sku.Equals(line.Sku, StringComparison.OrdinalIgnoreCase) || line.Barcode.Length > 0 && m.Barcode == line.Barcode)
+                .Select(m=>(m.MasterSku,m.MasterBarcode)).Distinct().ToArray();
+            var items=links.Select(m=>Find(m.MasterSku,m.MasterBarcode)).OfType<CentralStockItem>().Distinct().ToArray();
+            return (links.Length>0,links.Length==1&&items.Length==1?items[0]:null);
         }
 
         lock (gate)
         {
-            var lines = orders.SelectMany(o => o.Lines.Where(l => !ChannelFulfilled(store, o, l)).Select(l => (Order: o, Line: l, Key: $"{StoreSource(store)}|{(o.PackageId.Length > 0 ? o.PackageId : o.OrderNumber)}|{l.Id}|{l.Barcode}"))).ToArray();
+            var lines = orders.SelectMany(o => o.Lines.Where(l => !ChannelFulfilled(store, o, l)).Select(l => (Order: o, Line: l, Key: store.Settings.Marketplace=="hepsiburada"
+                ?$"{StoreSource(store)}|hb-line|{l.Id}":$"{StoreSource(store)}|{(o.PackageId.Length > 0 ? o.PackageId : o.OrderNumber)}|{l.Id}|{l.Barcode}"))).ToArray();
+            if(store.Settings.Marketplace=="hepsiburada")
+            {
+                var normalized=new List<(MarketplaceOrder Order,MarketplaceOrderLine Line,string Key)>();
+                foreach(var group in lines.GroupBy(line=>line.Key))
+                {
+                    var paid=group.Where(line=>line.Order.SourceView!="hepsiburada-package").ToArray();
+                    var packages=group.Where(line=>line.Order.SourceView=="hepsiburada-package").ToArray();
+                    var quantity=packages.Length>0?packages.Sum(line=>line.Line.Quantity):paid.First().Line.Quantity;
+                    if(group.Select(line=>line.Line.Sku).Distinct(StringComparer.OrdinalIgnoreCase).Count()!=1 ||
+                        group.Select(line=>line.Order.OrderNumber).Where(value=>value.Length>0).Distinct().Count()>1 ||
+                        paid.Length>1 || paid.Length==1&&packages.Length>0&&paid[0].Line.Quantity!=quantity)
+                    {SetStore(store.Id,"error","Hepsiburada sipariş/paket kalem kimliği veya miktarı çelişkili; stok dağıtımı durduruldu.");return false;}
+                    var representative=paid.Length>0?paid[0]:packages[0];
+                    normalized.Add((representative.Order,representative.Line with{Quantity=quantity},group.Key));
+                    var prefix=StoreSource(store)+"|";
+                    bool LegacyLine(string key)=>key.StartsWith(prefix,StringComparison.Ordinal)&&
+                        key[prefix.Length..].Split('|') is var parts&&parts.Length==3&&parts[1]==representative.Line.Id;
+                    if(state.IgnoredSales.Any(LegacyLine))state.IgnoredSales.Add(group.Key);
+                    // Migrate only a single provable legacy line. Multiple old identities need manual reconciliation.
+                    if(!state.AppliedQuantities.ContainsKey(group.Key))
+                    {
+                        var legacy=state.AppliedQuantities.Keys.Where(LegacyLine).ToArray();
+                        if(legacy.Length>1){SetStore(store.Id,"error","Hepsiburada kalemi geçmişte birden fazla kimlikle kaydedilmiş; mutabakat gerekli.");return false;}
+                        if(legacy.Length==1)state.AppliedQuantities[group.Key]=state.AppliedQuantities[legacy[0]];
+                    }
+                }
+                lines=normalized.ToArray();
+            }
             if (state.WatchedStores.Add(StoreSource(store)))
             {
                 state.WatchedSince[StoreSource(store)] = scannedUntil;
@@ -479,6 +509,8 @@ public sealed class CentralStockService
                 // Trendyol scans by last update, so an order placed before watching started can show up later (e.g. on delivery).
                 // It is already in the stock application's numbers: record it without counting it as a new sale.
                 var known = state.AppliedQuantities.ContainsKey(key) || state.SeenOrderLines.Contains(key);
+                if(!known&&store.Settings.Marketplace=="hepsiburada"&&order.SourceView=="hepsiburada-package"&&order.OrderDate is null&&!state.IgnoredSales.Contains(key))
+                {complete=false;state.UnmatchedSales[key]="Paket kaleminin sipariş zamanı bilinmiyor; geçmiş satış mutabakatı gerekli.";continue;}
                 if (!known && order.OrderDate is { } placed && placed < watchedSince)
                 {
                     state.SeenOrderLines.Add(key);
@@ -488,6 +520,8 @@ public sealed class CentralStockService
                 }
                 var previous = state.AppliedQuantities.GetValueOrDefault(key, state.SeenOrderLines.Contains(key) ? desired : 0);
                 var delta = desired - previous;
+                if(store.Settings.Marketplace=="hepsiburada"&&delta<0&&!order.Status.Equals("Cancelled",StringComparison.OrdinalIgnoreCase)&&!state.IgnoredSales.Contains(key))
+                {complete=false;state.UnmatchedSales[key]="Hepsiburada kalem miktarı azaldı; iptal/iade doğrulanmadan stok artırılmaz.";continue;}
                 if (delta == 0)
                 {
                     state.UnmatchedSales.Remove(key);
@@ -503,7 +537,8 @@ public sealed class CentralStockService
                     continue;
                 }
 
-                var item = Find(line.Sku, line.Barcode) ?? FindMapped(line);
+                var mapped=FindMapped(line);
+                var item = mapped.HasMapping?mapped.Item:Find(line.Sku,line.Barcode);
                 if (item is null)
                 {
                     complete = false;

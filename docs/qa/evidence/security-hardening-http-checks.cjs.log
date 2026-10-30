@@ -1,0 +1,1 @@
+PASS security HTTP: protected sessions/CSRF/CORS, security and error headers, request size limit, private file denial, profile secret masking, sanitized server errors and signed/timestamped ERP webhook verification. Mock credentials only; no outbound API.

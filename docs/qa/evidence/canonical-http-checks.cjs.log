@@ -1,0 +1,1 @@
+PASS canonical HTTP: schema, durable JSON replay/manual queues, invalid inputs, admin/viewer/auth guards, same record IDs in isolated tenants, source scope and restart. No database or remote API.

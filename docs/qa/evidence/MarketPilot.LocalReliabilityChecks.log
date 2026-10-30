@@ -1,0 +1,1 @@
+PASS: hashed local accounts, role/session revocation, disabled users, persistence, restart-resumed background jobs, idempotency conflict, encrypted backup roundtrip, tamper rejection, traversal protection single-process data lock, locale-independent CSV and unexpected worker failures/clean shutdown. Temporary data only.

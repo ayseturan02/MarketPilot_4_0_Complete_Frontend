@@ -1,0 +1,1 @@
+PASS canonical contracts: all 17 models, SKU/barcode ambiguity, independent depots/listings/sellers/tenants, unit conversion, decimal/integer inventory, atomic reservations, missing identities/manual review, expected versions, replay, stale/equal versions, checkpoints, restart and rollback. JSON only; no external calls.

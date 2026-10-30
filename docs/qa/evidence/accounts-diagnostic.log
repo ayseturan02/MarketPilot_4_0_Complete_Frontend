@@ -1,0 +1,5 @@
+Error: QA JSON parse failure: /api/integrations/credential-profiles status=403; Unexpected end of JSON input
+    at C:\Users\ayse0\Desktop\MarketPilot_4_0_Complete_Frontend\tests\accounts-http-checks.cjs:11:325
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async api (C:\Users\ayse0\Desktop\MarketPilot_4_0_Complete_Frontend\tests\accounts-http-checks.cjs:11:290)
+    at async C:\Users\ayse0\Desktop\MarketPilot_4_0_Complete_Frontend\tests\accounts-http-checks.cjs:61:19

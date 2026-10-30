@@ -19,7 +19,8 @@ public record MarketplaceOrder(
     string CustomerEmail, decimal? Total, decimal? GrossTotal, decimal? Discount, string Currency,
     string PaymentMethod, string DeliveryAddressType, MarketplaceAddress? ShipmentAddress,
     IReadOnlyList<MarketplaceOrderLine> Lines, MarketplaceCargo Cargo, MarketplaceInvoice Invoice,long? LastModifiedDate=null,string? FulfilledBy=null,
-    IReadOnlyList<MarketplacePromotion>? Promotions=null,IReadOnlyList<MarketplaceOrderPackage>? Packages=null);
+    IReadOnlyList<MarketplacePromotion>? Promotions=null,IReadOnlyList<MarketplaceOrderPackage>? Packages=null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? SourceView=null);
 public record MarketplacePage<T>(IReadOnlyList<T> Items, int Page, int Size, long? TotalElements, int? TotalPages, string? NextPageToken, bool? HasMore = null, string? NextCursor = null);
 public record ProductQuery(int Page = 0, int Size = 50, string? Barcode = null, string? StockCode = null, string? Status = null, string? NextPageToken = null, string Approval = "approved");
 public record OrderQuery(int Page = 0, int Size = 50, string? Status = null, string? OrderNumber = null, string? Barcode = null, long? StartDate = null, long? EndDate = null, string OrderByDirection = "DESC", bool Stream = false, string? NextCursor = null);

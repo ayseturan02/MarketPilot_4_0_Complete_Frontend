@@ -1,0 +1,1 @@
+PASS multi-tenant security HTTP: six roles, horizontal/vertical denial, uppercase routes, source/target spoofing, ERP credential reference isolation/redaction, durable event isolation, explicit memberships/switch, active-tenant password change, cookie and membership revocation. JSON only.

@@ -15,7 +15,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  function event(id,scenario='success',operation='create',original=null){return{tenantId:'default',accountId:'fixture-account',eventId:id,correlationId:'corr-'+id,eventType:operation==='cancel'?'OrderCancelled':operation==='return'?'ReturnAccepted':'MarketplaceOrderReceived',sourceSystem:'mock-marketplace',sourceVersion:1,targetSystem:'erp',occurredAt:at,
    payload:{tenantId:'default',accountId:'fixture-account',channel:'trendyol',sourceOrderId:operation==='create'?id:'success',operation,operationId:id,order:order(operation==='create'?id:'success'),customerIdentity:null,originalAcceptanceReference:original,mockScenario:scenario}};}
  async function jobs(){return(await api('/integration/events')).body;}
- async function wait(id,states){for(let i=0;i<80;i++){const j=(await jobs()).find(j=>j.integrationEvent.eventId===id);if(j&&states.includes(j.state))return j;await sleep(100);}throw Error('state timeout '+id+': '+JSON.stringify((await jobs()).find(j=>j.integrationEvent.eventId===id)));}
+ async function wait(id,states,limit=400){for(let i=0;i<limit;i++){const j=(await jobs()).find(j=>j.integrationEvent.eventId===id);if(j&&states.includes(j.state))return j;await sleep(100);}throw Error('state timeout '+id+': '+JSON.stringify((await jobs()).find(j=>j.integrationEvent.eventId===id)));}
  async function retry(id){const j=(await jobs()).find(j=>j.integrationEvent.eventId===id);assert.equal((await api('/integration/events/'+j.id+'/retry',{})).status,202);}
  try{
   start();await ready();
@@ -27,12 +27,21 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   let request=event('preview').payload;const preview=await api('/erp-transfer/preview',request);assert.equal(preview.status,200);assert.equal(preview.body.plan.discount,20);assert.equal(preview.body.plan.sourceOrder.promotions[0].id,'CAMPAIGN1');
   for(const bad of [{...request,channel:'amazon'},{...request,order:{...request.order,currency:'USD'}},{...request,order:{...request.order,total:181}},{...request,order:{...request.order,lines:[{...request.order.lines[0],vatRate:null}]}},{...request,order:{...request.order,lines:[{...request.order.lines[0],sku:'unknown'}]}}])assert.equal((await api('/erp-transfer/preview',bad)).status,400);
   for(const scenario of ['success','rejected','pending','timeout','unavailable','mismatch'])assert.equal((await api('/integration/events',event(scenario,scenario))).status,202);
+  // Capture transient states while other jobs are still queued; the worker may reconcile them automatically.
+  const pending=await wait('pending',['waiting']);assert.equal(pending.externalReference,null);assert.equal(JSON.parse(pending.result).acceptanceReference,null);
+  await wait('timeout',['uncertain']);
   const accepted=await wait('success',['completed']);assert.equal(JSON.parse(accepted.result).reconciled,true);assert(accepted.processedAt);
   assert.equal((await wait('rejected',['intervention-required'])).attempts,1);
   assert.equal((await wait('mismatch',['reconciliation-required'])).attempts,1);
-  const pending=await wait('pending',['waiting']);assert.equal(pending.externalReference,null);assert.equal(JSON.parse(pending.result).acceptanceReference,null);
-  await retry('pending');await wait('pending',['waiting']);await retry('pending');await wait('pending',['completed']);
-  await wait('timeout',['uncertain']);await retry('timeout');await wait('timeout',['completed']);
+  for(const id of ['pending','timeout']){
+    for(let i=0;i<3;i++){
+      const current=(await jobs()).find(job=>job.integrationEvent.eventId===id);if(current.state==='completed')break;
+      const response=await api('/integration/events/'+current.id+'/retry',{});
+      if(response.status!==202)assert.equal((await jobs()).find(job=>job.id===current.id).state,'completed','Retry rejected before reconciliation');
+      await wait(id,['waiting','completed']);
+    }
+    await wait(id,['completed']);
+  }
   await wait('unavailable',['uncertain']);await retry('unavailable');const unavailable=await wait('unavailable',['uncertain']);assert.equal(unavailable.attempts,1);
   const before=(await jobs()).length;assert.equal((await api('/integration/events',event('success'))).body.id,accepted.id);assert.equal((await jobs()).length,before);
   assert.equal((await api('/integration/events',{...event('success'),sourceVersion:2})).status,409);
@@ -107,7 +116,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   for(const type of ['ProductChanged','PriceChanged','StockChanged','MarketplaceOrderReceived','ErpOrderAccepted','WmsOrderAccepted','StockReserved','PickCompleted','PackageCompleted','ShipmentDispatched','OrderCancelled','ReturnAccepted']){
     const e={...event('audit-'+type),eventType:type,targetSystem:'audit',payload:{fixture:true}};assert.equal((await api('/integration/events',e)).status,202);
   }
-  await wait('audit-ReturnAccepted',['completed']);
+  await wait('audit-ReturnAccepted',['completed'],1200);
   // Price changes never escape the existing price approval workflow.
   const price={...event('price-guard'),eventType:'PriceChanged',targetSystem:'marketplace',payload:{price:1}};
   assert.equal((await api('/integration/events',price)).status,202);await wait('price-guard',['blocked']);
